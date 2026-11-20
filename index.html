@@ -51,7 +51,8 @@ ul{list-style:none;margin:0;padding:0}
 .prize{width:min(100%,460px);animation:pop .7s cubic-bezier(.2,.9,.3,1.2)}
 @keyframes pop{from{opacity:0;transform:scale(.85) translateY(20px)}to{opacity:1;transform:none}}
 .pimg{width:100%;aspect-ratio:1;border-radius:24px;overflow:hidden;display:grid;place-items:center;font-size:clamp(90px,28vw,150px);background:var(--card);border:1px solid var(--line)}
-.pimg img,.pimg iframe{width:100%;height:100%;object-fit:cover;border:0;display:block}
+.pimg.is-3d{background:transparent;border:none;border-radius:0;aspect-ratio:1/1.05}
+.pimg img,.pimg iframe{width:100%;height:100%;object-fit:cover;border:0;display:block;background:transparent}
 .prize h2{font-size:clamp(34px,8vw,56px);letter-spacing:-.045em;margin:22px 0 10px;line-height:1.05}
 .prize p{color:var(--muted);line-height:1.8;margin:0;white-space:pre-line}
 #cf{position:fixed;inset:0;pointer-events:none;z-index:50}
@@ -66,9 +67,7 @@ footer{padding:48px clamp(16px,4vw,48px) 36px;border-top:1px solid var(--line);m
 <footer>© Birthday Kuji</footer>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
-/* ===== 景品設定：ここを書き換えてください =====
-   img にはリポジトリ内の画像パス(例 "img/1.jpg")を指定。空なら emoji を表示します。
-   view3d にHTMLパス(例 "hunter3d.html")を指定すると、くじ開封時に3Dビューアを埋め込み表示します。 */
+/* ===== 景品設定：ここを書き換えてください ===== */
 var PRIZES=[
  {r:"A賞",n:"Hunter Rainboots",m:"hunterのrain boots。\n福岡に履いて行っちゃお！",e:"👢",img:"img/1.jpg",view3d:"hunter3d.html"},
  {r:"A賞",n:"お願い何でも券",m:"1回だけ、何でも言うことを聞きます。",e:"🧞",img:""},
@@ -99,8 +98,10 @@ function kuji(id){
  var p=PRIZES[id-1],k=P.get("k")||"1",key="kuji:open:"+k+":"+id,prev=P.get("p")==="1";
  if(!p){app.innerHTML='<div class="center"><h1>くじが見つかりません</h1></div>';return}
  function show(anim){
-  var visual=p.view3d?'<iframe src="'+p.view3d+'" title="'+p.n+'"></iframe>':media(p);
-  app.innerHTML='<div class="center"><div class="prize"><div class="pimg">'+visual+'</div><h2>'+p.n+'</h2><p>'+p.m+'</p></div></div>';
+  var box=p.view3d
+    ?'<div class="pimg is-3d"><iframe src="'+p.view3d+'" allowtransparency="true" title="'+p.n+'"></iframe></div>'
+    :'<div class="pimg">'+media(p)+'</div>';
+  app.innerHTML='<div class="center"><div class="prize">'+box+'<h2>'+p.n+'</h2><p>'+p.m+'</p></div></div>';
   if(anim)confetti();
  }
  if(st(key)==="1"&&!prev){show(false);return}
