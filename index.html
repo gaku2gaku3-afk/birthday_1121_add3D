@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Birthday Kuji</title>
+<style>
+:root{--bg:#f4f1ea;--fg:#0c0c0c;--muted:#6b675e;--line:#d8d3c7;--accent:#95bf47;--chip:#0c0c0c;--chipfg:#f4f1ea;--card:#fff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0b0b0b;--fg:#f2efe8;--muted:#8d8a82;--line:#262626;--accent:#a8e05f;--chip:#f2efe8;--chipfg:#0b0b0b;--card:#161616}}
+:root[data-theme="dark"]{--bg:#0b0b0b;--fg:#f2efe8;--muted:#8d8a82;--line:#262626;--accent:#a8e05f;--chip:#f2efe8;--chipfg:#0b0b0b;--card:#161616}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Helvetica,Arial,"Hiragino Sans","Noto Sans JP",sans-serif;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;display:flex;align-items:center;justify-content:space-between;padding:14px clamp(16px,4vw,48px);background:var(--bg);border-bottom:1px solid var(--line)}
+.brand{font-weight:700;font-size:18px;letter-spacing:-.02em;display:flex;align-items:center;gap:10px}
+.dot{width:14px;height:14px;border-radius:50%;background:var(--accent)}
+.btn{border-radius:999px;padding:9px 18px;font-size:14px;font-weight:600;border:1px solid var(--fg);background:var(--chip);color:var(--chipfg);cursor:pointer;font-family:inherit}
+.btn.ghost{background:none;color:var(--fg);border-color:var(--line)}
+.icon{background:none;border:1px solid var(--line);color:var(--fg);border-radius:50%;width:36px;height:36px;cursor:pointer}
+main{padding:0 clamp(16px,4vw,48px)}
+.hero{padding:clamp(48px,10vw,130px) 0 clamp(32px,6vw,70px)}
+.hero h1{margin:0;font-size:clamp(40px,9vw,136px);line-height:.95;letter-spacing:-.045em;font-weight:600;max-width:13ch}
+.hero h1 em{font-style:normal;color:var(--accent)}
+.hero p{margin:24px 0 0;color:var(--muted);font-size:clamp(15px,1.6vw,20px);max-width:46ch;line-height:1.7}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:28px}
+.bar small{color:var(--muted);font-size:12px;flex:1 1 260px;line-height:1.6}
+.list-head{display:flex;justify-content:space-between;border-bottom:1px solid var(--fg);padding-bottom:12px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+ul{list-style:none;margin:0;padding:0}
+.row{display:grid;grid-template-columns:56px 96px 1fr auto;align-items:center;gap:18px;padding:22px 0;border-bottom:1px solid var(--line)}
+.no{font-size:14px;color:var(--muted)}.no b{display:block;color:var(--fg);font-size:22px;letter-spacing:-.03em}
+.thumb{width:96px;height:96px;border-radius:16px;overflow:hidden;display:grid;place-items:center;font-size:44px;background:var(--card);border:1px solid var(--line)}
+.thumb img{width:100%;height:100%;object-fit:cover}
+.title{font-size:clamp(26px,4.6vw,64px);letter-spacing:-.045em;line-height:1.05;font-weight:600;transition:color .25s,transform .35s cubic-bezier(.2,.8,.2,1)}
+.row:hover .title{color:var(--accent);transform:translateX(8px)}
+.sub{font-size:13px;color:var(--muted);margin-top:8px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.chip{border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px}.chip.on{background:var(--accent);color:#0b0b0b;border-color:var(--accent)}
+.qr{background:#fff;padding:6px;border-radius:10px;line-height:0}
+.qr img,.qr canvas{width:96px!important;height:96px!important}
+@media(max-width:700px){.row{grid-template-columns:44px 72px 1fr}.thumb{width:72px;height:72px;font-size:32px}.qr{grid-column:2/-1;justify-self:start}}
+.center{min-height:calc(100vh - 140px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;padding:36px 0 56px;text-align:center}
+.ticket{width:min(100%,420px);aspect-ratio:4/3;border-radius:24px;padding:26px;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;color:#f2efe8;position:relative;overflow:hidden;background:radial-gradient(120% 120% at 20% 0%,#2e4a12 0%,#0f1a06 55%,#050802 100%);text-align:left}
+.ticket::after{content:"";position:absolute;right:-50px;bottom:-70px;width:260px;height:260px;border-radius:50%;background:conic-gradient(from 90deg,#a8e05f,#e8ff9a,#3f7d1a,#a8e05f);opacity:.9}
+.ticket .tag{border:1px solid currentColor;border-radius:999px;padding:4px 12px;font-size:12px;letter-spacing:.06em;position:relative;z-index:1}
+.ticket h2{margin:0;font-size:clamp(40px,10vw,64px);letter-spacing:-.04em;position:relative;z-index:1}
+.track{position:relative;width:min(100%,420px);height:64px;border-radius:999px;border:1px solid var(--line);background:var(--card);touch-action:none;user-select:none;-webkit-user-select:none;overflow:hidden}
+.track span{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:14px;pointer-events:none}
+.fill{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--accent);opacity:.35}
+.handle{position:absolute;left:4px;top:4px;width:56px;height:56px;border-radius:50%;background:var(--chip);color:var(--chipfg);display:grid;place-items:center;font-size:20px;cursor:grab;transform:translateX(var(--x,0px));transition:transform .45s cubic-bezier(.2,.8,.2,1)}
+.track:not(.drag):hover .handle{transform:translateX(calc(var(--x,0px) + 10px))}
+.track.drag .handle{transition:none;cursor:grabbing}
+.prize{width:min(100%,460px);animation:pop .7s cubic-bezier(.2,.9,.3,1.2)}
+@keyframes pop{from{opacity:0;transform:scale(.85) translateY(20px)}to{opacity:1;transform:none}}
+.pimg{width:100%;aspect-ratio:1;border-radius:24px;overflow:hidden;display:grid;place-items:center;font-size:clamp(90px,28vw,150px);background:var(--card);border:1px solid var(--line)}
+.pimg img{width:100%;height:100%;object-fit:cover}
+.prize h2{font-size:clamp(34px,8vw,56px);letter-spacing:-.045em;margin:22px 0 10px;line-height:1.05}
+.prize p{color:var(--muted);line-height:1.8;margin:0;white-space:pre-line}
+#cf{position:fixed;inset:0;pointer-events:none;z-index:50}
+footer{padding:48px clamp(16px,4vw,48px) 36px;border-top:1px solid var(--line);margin-top:60px;color:var(--muted);font-size:13px}
+@media print{header,.bar,footer{display:none}.row{break-inside:avoid}}
+</style>
+</head>
+<body>
+<header><a class="brand" href="./"><span class="dot"></span>Birthday Kuji</a><button class="icon" id="theme" aria-label="テーマ切替">◐</button></header>
+<main id="app"></main>
+<canvas id="cf"></canvas>
+<footer>© Birthday Kuji</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+/* ===== 景品設定：ここを書き換えてください =====
+   img にはリポジトリ内の画像パス(例 "img/1.jpg")を指定。空なら emoji を表示します。 */
+var PRIZES=[
+ {n:"ディナーペア券",m:"今夜は特別なディナーへ。\nお店は私が予約しておきます！",e:"🍽️",img:""},
+ {n:"お願い何でも券",m:"1回だけ、何でも言うことを聞きます。",e:"🧞",img:""},
+ {n:"手作りケーキ",m:"あなたの好きな味で焼きます。",e:"🎂",img:""},
+ {n:"日帰り温泉旅行",m:"ゆっくりのんびり、二人で温泉へ。",e:"♨️",img:""},
+ {n:"お花の花束",m:"ありがとうの気持ちを込めて。",e:"💐",img:""},
+ {n:"映画デート券",m:"観たい映画を選んでね。ポップコーン付き。",e:"🎬",img:""},
+ {n:"マッサージ30分",m:"肩も腰も、全力でほぐします。",e:"💆",img:""},
+ {n:"お揃いのプレゼント",m:"二人でお揃いにしたくて選びました。",e:"🎁",img:""},
+ {n:"ハグ10秒券",m:"いつでも使えます。長さは応相談。",e:"🤗",img:""},
+ {n:"とっておきの手紙",m:"読んでほしい気持ちを書きました。",e:"💌",img:""}
+];
+var P=new URLSearchParams(location.search),app=document.getElementById("app");
+function st(k,v){try{if(v===undefined)return localStorage.getItem(k);v===null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){return null}}
+function media(p){return p.img?'<img src="'+p.img+'" alt="'+p.n+'">':p.e}
+function pad(n){return (n<10?"0":"")+n}
+document.getElementById("theme").onclick=function(){var d=document.documentElement,c=d.getAttribute("data-theme"),dark=c?c==="dark":matchMedia("(prefers-color-scheme: dark)").matches;d.setAttribute("data-theme",dark?"light":"dark")};
+
+/* ---- 紙吹雪 ---- */
+function confetti(){var c=document.getElementById("cf"),x=c.getContext("2d");c.width=innerWidth;c.height=innerHeight;
+ var cols=["#a8e05f","#e8ff9a","#f2c14e","#ff7aa2","#7ab8ff","#fff"],a=[];
+ for(var i=0;i<160;i++)a.push({x:innerWidth/2,y:innerHeight*.55,vx:(Math.random()-.5)*16,vy:-Math.random()*17-4,s:5+Math.random()*7,r:Math.random()*6,vr:(Math.random()-.5)*.4,c:cols[i%6]});
+ var t=0;(function f(){x.clearRect(0,0,c.width,c.height);a.forEach(function(p){p.vy+=.38;p.x+=p.vx;p.y+=p.vy;p.vx*=.99;p.r+=p.vr;x.save();x.translate(p.x,p.y);x.rotate(p.r);x.fillStyle=p.c;x.fillRect(-p.s/2,-p.s/3,p.s,p.s*.6);x.restore()});
+ if(++t<170)requestAnimationFrame(f);else x.clearRect(0,0,c.width,c.height)})()}
+
+/* ---- くじ画面（QRから開く） ---- */
+function kuji(id){
+ var p=PRIZES[id-1],k=P.get("k")||"1",key="kuji:open:"+k+":"+id,prev=P.get("p")==="1";
+ if(!p){app.innerHTML='<div class="center"><h1>くじが見つかりません</h1></div>';return}
+ function show(anim){app.innerHTML='<div class="center"><div class="prize"><div class="pimg">'+media(p)+'</div><h2>'+p.n+'</h2><p>'+p.m+'</p></div></div>';if(anim)confetti()}
+ if(st(key)==="1"&&!prev){show(false);return}
+ app.innerHTML='<div class="center"><div class="ticket"><span class="tag">No.'+pad(id)+' · Happy Birthday</span><h2>くじ</h2></div>'+
+  '<div class="track" id="tr"><div class="fill" id="fl"></div><span>スライドして開ける →</span><div class="handle" id="hd">➜</div></div></div>';
+ var tr=document.getElementById("tr"),hd=document.getElementById("hd"),fl=document.getElementById("fl"),sx=0,x=0,drag=false,max=0;
+ function set(v){x=v;hd.style.setProperty("--x",v+"px");fl.style.width=(v+60)+"px"}
+ hd.addEventListener("pointerdown",function(e){drag=true;sx=e.clientX-x;max=tr.clientWidth-68;tr.classList.add("drag");hd.setPointerCapture(e.pointerId)});
+ hd.addEventListener("pointermove",function(e){if(drag)set(Math.max(0,Math.min(max,e.clientX-sx)))});
+ function end(){if(!drag)return;drag=false;tr.classList.remove("drag");
+  if(x>=max*.92){set(max);if(!prev)st(key,"1");setTimeout(function(){show(true)},180)}else set(0)}
+ hd.addEventListener("pointerup",end);hd.addEventListener("pointercancel",end);
+}
+
+/* ---- 管理画面 ---- */
+function admin(){
+ var tok=st("kuji:token")||"1",base=st("kuji:base")||(location.origin+location.pathname);
+ function url(i,pv){return base+"?id="+i+"&k="+tok+(pv?"&p=1":"")}
+ var rows=PRIZES.map(function(p,i){var id=i+1,o=st("kuji:open:"+tok+":"+id)==="1";
+  return '<li class="row"><div class="no"><b>'+pad(id)+'</b>No.</div><div class="thumb">'+media(p)+'</div><div><div class="title">'+p.n+'</div><div class="sub"><span class="chip '+(o?"on":"")+'">'+(o?"開封済み(この端末)":"未開封")+'</span><a href="'+url(id,true)+'" target="_blank" rel="noopener">プレビュー ↗</a></div></div><div class="qr" id="q'+id+'"></div></li>'}).join("");
+ app.innerHTML='<section class="hero"><h1>10 surprises. <em>One</em> birthday.</h1><p>QRコードを読み取ると、対応する景品のくじが開きます。この画面は管理者用で、すべての景品を確認できます。</p></section>'+
+  '<div class="bar"><button class="btn" id="rs">くじをリセット（QR再発行）</button><button class="btn ghost" id="bs">URLを変更</button><button class="btn ghost" onclick="print()">QRを印刷</button><small>QRの飛び先: '+base+'<br>コード世代: '+tok+'</small></div>'+
+  '<div class="list-head"><span>No. / Prize</span><span>QR</span></div><ul>'+rows+'</ul>';
+ if(window.QRCode)PRIZES.forEach(function(_,i){new QRCode(document.getElementById("q"+(i+1)),{text:url(i+1),width:192,height:192,correctLevel:QRCode.CorrectLevel.M})});
+ document.getElementById("rs").onclick=function(){if(confirm("くじをリセットしてQRコードを新しく発行します。印刷済みのQRは使えなくなります。よろしいですか？")){st("kuji:token",Math.random().toString(36).slice(2,8));admin()}};
+ document.getElementById("bs").onclick=function(){var v=prompt("QRに埋め込む公開URL（例: https://ユーザー名.github.io/repo/）",base);if(v){st("kuji:base",v.split("?")[0]);admin()}};
+}
+
+if(P.get("id"))kuji(parseInt(P.get("id"),10));
+else if(P.get("admin")==="1")admin();
+else app.innerHTML='<div class="center"><h1 style="font-size:clamp(34px,8vw,80px);letter-spacing:-.04em;margin:0">QRコードを<br>読み取ってね</h1><p style="color:var(--muted)">スマホのカメラでQRコードを読み取ると、くじが開きます。</p></div>';
+</script>
+</body>
+</html>
