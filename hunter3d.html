@@ -1200,7 +1200,13 @@
     function initApp() {
       const container = document.getElementById('canvas-container');
 
-      // Transparent WebGLRenderer so index.html's background shows cleanly behind the boots
+      function getViewportSize() {
+        const w = container.clientWidth || window.innerWidth || 300;
+        const h = container.clientHeight || window.innerHeight || 300;
+        return { w, h };
+      }
+      const initSize = getViewportSize();
+
       const renderer = new THREE.WebGLRenderer({
         antialias: true,
         alpha: true,
@@ -1208,7 +1214,7 @@
       });
       renderer.setClearColor(0x000000, 0);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setSize(initSize.w, initSize.h);
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 1.04;
       renderer.shadowMap.enabled = true;
@@ -1227,7 +1233,7 @@
 
       const camera = new THREE.PerspectiveCamera(
         36,
-        window.innerWidth / window.innerHeight,
+        initSize.w / initSize.h,
         0.1,
         100
       );
@@ -1489,14 +1495,23 @@
         setAutoRotate(!controls.autoRotate);
       });
 
-      window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
+      function updateSize() {
+        const { w, h } = getViewportSize();
+        if (w <= 0 || h <= 0) return;
+        camera.aspect = w / h;
         camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-      });
+        renderer.setSize(w, h);
+      }
+
+      if (typeof ResizeObserver !== 'undefined') {
+        const ro = new ResizeObserver(() => updateSize());
+        ro.observe(container);
+      }
+      window.addEventListener('resize', updateSize);
 
       const loadingOverlay = document.getElementById('loading-overlay');
       requestAnimationFrame(() => {
+        updateSize();
         renderer.render(scene, camera);
         loadingOverlay.style.opacity = '0';
         setTimeout(() => {
@@ -1506,3 +1521,42 @@
 
       const clock = new THREE.Clock();
       function animate() {
+        requestAnimationFrame(animate);
+        const dt = Math.min(clock.getDelta(), 0.05);
+
+        if (camAnim) {
+          camAnim.elapsed += dt;
+          const t = Math.min(1, camAnim.elapsed / camAnim.duration);
+          const ease = 1 - Math.pow(1 - t, 3);
+
+          camera.position.lerpVectors(camAnim.startPos, camAnim.endPos, ease);
+          controls.target.lerpVectors(camAnim.startTarget, camAnim.endTarget, ease);
+
+          if (t >= 1) {
+            camAnim = null;
+          }
+        }
+
+        controls.update();
+        renderer.render(scene, camera);
+      }
+
+      animate();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      try {
+        initApp();
+      } catch (err) {
+        console.error('3D Viewer initialization failed:', err);
+        const errorBox = document.getElementById('error-box');
+        const errorMsg = document.getElementById('error-message');
+        if (errorBox && errorMsg) {
+          errorMsg.textContent = 'お使いのブラウザ環境でWebGLを初期化できませんでした。ページを再読み込みしてお試しください。';
+          errorBox.classList.remove('hidden');
+        }
+      }
+    });
+  </script>
+</body>
+</html>
