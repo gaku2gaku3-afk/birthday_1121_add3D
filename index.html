@@ -51,7 +51,7 @@ ul{list-style:none;margin:0;padding:0}
 .prize{width:min(100%,460px);animation:pop .7s cubic-bezier(.2,.9,.3,1.2)}
 @keyframes pop{from{opacity:0;transform:scale(.85) translateY(20px)}to{opacity:1;transform:none}}
 .pimg{width:100%;aspect-ratio:1;border-radius:24px;overflow:hidden;display:grid;place-items:center;font-size:clamp(90px,28vw,150px);background:var(--card);border:1px solid var(--line)}
-.pimg img{width:100%;height:100%;object-fit:cover}
+.pimg img,.pimg iframe{width:100%;height:100%;object-fit:cover;border:0;display:block}
 .prize h2{font-size:clamp(34px,8vw,56px);letter-spacing:-.045em;margin:22px 0 10px;line-height:1.05}
 .prize p{color:var(--muted);line-height:1.8;margin:0;white-space:pre-line}
 #cf{position:fixed;inset:0;pointer-events:none;z-index:50}
@@ -67,18 +67,19 @@ footer{padding:48px clamp(16px,4vw,48px) 36px;border-top:1px solid var(--line);m
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 /* ===== 景品設定：ここを書き換えてください =====
-   img にはリポジトリ内の画像パス(例 "img/1.jpg")を指定。空なら emoji を表示します。 */
+   img にはリポジトリ内の画像パス(例 "img/1.jpg")を指定。空なら emoji を表示します。
+   view3d にHTMLパス(例 "hunter3d.html")を指定すると、くじ開封時に3Dビューアを埋め込み表示します。 */
 var PRIZES=[
- {n:"ディナーペア券",m:"今夜は特別なディナーへ。\nお店は私が予約しておきます！",e:"🍽️",img:""},
- {n:"お願い何でも券",m:"1回だけ、何でも言うことを聞きます。",e:"🧞",img:""},
- {n:"手作りケーキ",m:"あなたの好きな味で焼きます。",e:"🎂",img:""},
- {n:"日帰り温泉旅行",m:"ゆっくりのんびり、二人で温泉へ。",e:"♨️",img:""},
- {n:"お花の花束",m:"ありがとうの気持ちを込めて。",e:"💐",img:""},
- {n:"映画デート券",m:"観たい映画を選んでね。ポップコーン付き。",e:"🎬",img:""},
- {n:"マッサージ30分",m:"肩も腰も、全力でほぐします。",e:"💆",img:""},
- {n:"お揃いのプレゼント",m:"二人でお揃いにしたくて選びました。",e:"🎁",img:""},
- {n:"ハグ10秒券",m:"いつでも使えます。長さは応相談。",e:"🤗",img:""},
- {n:"とっておきの手紙",m:"読んでほしい気持ちを書きました。",e:"💌",img:""}
+ {r:"A賞",n:"Hunter Rainboots",m:"hunterのrain boots。\n福岡に履いて行っちゃお！",e:"👢",img:"img/1.jpg",view3d:"hunter3d.html"},
+ {r:"A賞",n:"お願い何でも券",m:"1回だけ、何でも言うことを聞きます。",e:"🧞",img:""},
+ {r:"A賞",n:"手作りケーキ",m:"あなたの好きな味で焼きます。",e:"🎂",img:""},
+ {r:"A賞",n:"日帰り温泉旅行",m:"ゆっくりのんびり、二人で温泉へ。",e:"♨️",img:""},
+ {r:"A賞",n:"お花の花束",m:"ありがとうの気持ちを込めて。",e:"💐",img:""},
+ {r:"A賞",n:"映画デート券",m:"観たい映画を選んでね。ポップコーン付き。",e:"🎬",img:""},
+ {r:"A賞",n:"マッサージ30分",m:"肩も腰も、全力でほぐします。",e:"💆",img:""},
+ {r:"A賞",n:"お揃いのプレゼント",m:"二人でお揃いにしたくて選びました。",e:"🎁",img:""},
+ {r:"A賞",n:"ハグ10秒券",m:"いつでも使えます。長さは応相談。",e:"🤗",img:""},
+ {r:"A賞",n:"とっておきの手紙",m:"読んでほしい気持ちを書きました。",e:"💌",img:""}
 ];
 var P=new URLSearchParams(location.search),app=document.getElementById("app");
 function st(k,v){try{if(v===undefined)return localStorage.getItem(k);v===null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){return null}}
@@ -97,9 +98,13 @@ function confetti(){var c=document.getElementById("cf"),x=c.getContext("2d");c.w
 function kuji(id){
  var p=PRIZES[id-1],k=P.get("k")||"1",key="kuji:open:"+k+":"+id,prev=P.get("p")==="1";
  if(!p){app.innerHTML='<div class="center"><h1>くじが見つかりません</h1></div>';return}
- function show(anim){app.innerHTML='<div class="center"><div class="prize"><div class="pimg">'+media(p)+'</div><h2>'+p.n+'</h2><p>'+p.m+'</p></div></div>';if(anim)confetti()}
+ function show(anim){
+  var visual=p.view3d?'<iframe src="'+p.view3d+'" title="'+p.n+'"></iframe>':media(p);
+  app.innerHTML='<div class="center"><div class="prize"><div class="pimg">'+visual+'</div><h2>'+p.n+'</h2><p>'+p.m+'</p></div></div>';
+  if(anim)confetti();
+ }
  if(st(key)==="1"&&!prev){show(false);return}
- app.innerHTML='<div class="center"><div class="ticket"><span class="tag">No.'+pad(id)+' · Happy Birthday</span><h2>くじ</h2></div>'+
+ app.innerHTML='<div class="center"><div class="ticket"><span class="tag">No.'+pad(id)+' · Happy Birthday</span><h2>'+p.r+'</h2></div>'+
   '<div class="track" id="tr"><div class="fill" id="fl"></div><span>スライドして開ける →</span><div class="handle" id="hd">➜</div></div></div>';
  var tr=document.getElementById("tr"),hd=document.getElementById("hd"),fl=document.getElementById("fl"),sx=0,x=0,drag=false,max=0;
  function set(v){x=v;hd.style.setProperty("--x",v+"px");fl.style.width=(v+60)+"px"}
@@ -116,7 +121,7 @@ function admin(){
  function url(i,pv){return base+"?id="+i+"&k="+tok+(pv?"&p=1":"")}
  var rows=PRIZES.map(function(p,i){var id=i+1,o=st("kuji:open:"+tok+":"+id)==="1";
   return '<li class="row"><div class="no"><b>'+pad(id)+'</b>No.</div><div class="thumb">'+media(p)+'</div><div><div class="title">'+p.n+'</div><div class="sub"><span class="chip '+(o?"on":"")+'">'+(o?"開封済み(この端末)":"未開封")+'</span><a href="'+url(id,true)+'" target="_blank" rel="noopener">プレビュー ↗</a></div></div><div class="qr" id="q'+id+'"></div></li>'}).join("");
- app.innerHTML='<section class="hero"><h1>10 surprises. <em>One</em> birthday.</h1><p>QRコードを読み取ると、対応する景品のくじが開きます。この画面は管理者用で、すべての景品を確認できます。</p></section>'+
+ app.innerHTML='<section class="hero"><h1>10 surprises. <em>Kanna</em> birthday.</h1><p>QRコードを読み取ると、対応する景品のくじが開きます。この画面は管理者用で、すべての景品を確認できます。</p></section>'+
   '<div class="bar"><button class="btn" id="rs">くじをリセット（QR再発行）</button><button class="btn ghost" id="bs">URLを変更</button><button class="btn ghost" onclick="print()">QRを印刷</button><small>QRの飛び先: '+base+'<br>コード世代: '+tok+'</small></div>'+
   '<div class="list-head"><span>No. / Prize</span><span>QR</span></div><ul>'+rows+'</ul>';
  if(window.QRCode)PRIZES.forEach(function(_,i){new QRCode(document.getElementById("q"+(i+1)),{text:url(i+1),width:192,height:192,correctLevel:QRCode.CorrectLevel.M})});
