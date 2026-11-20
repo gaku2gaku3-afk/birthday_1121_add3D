@@ -1,0 +1,1801 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>HUNTER Original Tall 3D Viewer</title>
+  <!-- Tailwind CSS for clean, responsive studio UI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & Noto Sans JP -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #F2F4F7;
+      font-family: 'Inter', 'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif;
+      user-select: none;
+    }
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      outline: none;
+    }
+    /* Subtle glassmorphism for floating studio UI */
+    .studio-glass {
+      background: rgba(255, 255, 255, 0.82);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      box-shadow: 0 8px 30px rgba(15, 23, 42, 0.07), 0 1px 3px rgba(15, 23, 42, 0.04);
+    }
+    .cam-btn {
+      transition: all 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .cam-btn:hover {
+      transform: translateY(-1px);
+    }
+    .cam-btn:active {
+      transform: translateY(0px) scale(0.97);
+    }
+    .cam-btn.active {
+      background-color: #9E1B20;
+      color: #FFFFFF;
+      box-shadow: 0 4px 12px rgba(158, 27, 32, 0.28);
+    }
+  </style>
+
+  <!-- ES Module Import Map for Three.js & Official Addons -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <!-- Fullscreen 3D Canvas Container -->
+  <div id="canvas-container"></div>
+
+  <!-- Top-Left Minimal Studio Header & Interaction Guide -->
+  <header class="fixed top-4 left-4 sm:top-6 sm:left-6 z-10 pointer-events-none max-w-[calc(100vw-2rem)]">
+    <div class="studio-glass rounded-2xl px-4 py-3 sm:px-5 sm:py-3.5 inline-block pointer-events-auto">
+      <div class="flex items-center gap-2.5">
+        <span class="inline-block w-2.5 h-2.5 rounded-full bg-[#9E1B20] shadow-sm"></span>
+        <h1 class="text-sm sm:text-base font-bold tracking-tight text-slate-900">
+          HUNTER Original Tall 3D Viewer
+        </h1>
+      </div>
+      <p class="mt-1 text-[11px] sm:text-xs text-slate-500 font-medium tracking-wide">
+        左ドラッグ：360度回転 <span class="mx-1 text-slate-300">/</span>
+        ホイール：ズーム <span class="mx-1 text-slate-300">/</span>
+        右ドラッグ：移動
+      </p>
+    </div>
+  </header>
+
+  <!-- Loading Indicator (Fades out automatically once scene is ready) -->
+  <div id="loading-overlay" class="fixed inset-0 z-30 flex items-center justify-center bg-[#F2F4F7] transition-opacity duration-500">
+    <div class="flex flex-col items-center gap-3">
+      <div class="w-9 h-9 border-3 border-slate-200 border-t-[#A01C20] rounded-full animate-spin"></div>
+      <p class="text-xs font-medium text-slate-500 tracking-wider">3Dモデルを構築中...</p>
+    </div>
+  </div>
+
+  <!-- Error Message Box (Hidden unless WebGL error occurs) -->
+  <div id="error-box" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 p-4">
+    <div class="bg-white rounded-2xl p-6 max-w-md shadow-xl text-center">
+      <h2 class="text-base font-bold text-slate-900 mb-2">3Dビューアの初期化エラー</h2>
+      <p id="error-message" class="text-sm text-slate-600"></p>
+    </div>
+  </div>
+
+  <!-- Bottom Floating Camera Preset & Auto-Rotate Toolbar -->
+  <nav aria-label="カメラ操作パネル" class="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-10 w-[calc(100vw-1.5rem)] max-w-3xl flex justify-center pointer-events-none">
+    <div class="studio-glass rounded-2xl sm:rounded-full p-1.5 sm:px-2.5 sm:py-2 flex flex-wrap items-center justify-center gap-1 sm:gap-1.5 pointer-events-auto">
+      <button type="button" data-preset="front34" class="cam-btn active px-3 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-xs font-semibold text-slate-700 hover:bg-slate-100/90">
+        斜め正面
+      </button>
+      <button type="button" data-preset="side" class="cam-btn px-3 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-xs font-semibold text-slate-700 hover:bg-slate-100/90">
+        真横
+      </button>
+      <button type="button" data-preset="back" class="cam-btn px-3 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-xs font-semibold text-slate-700 hover:bg-slate-100/90">
+        背面
+      </button>
+      <button type="button" data-preset="logo" class="cam-btn px-3 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-xs font-semibold text-slate-700 hover:bg-slate-100/90">
+        ロゴ拡大
+      </button>
+      <button type="button" data-preset="sole" class="cam-btn px-3 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-xs font-semibold text-slate-700 hover:bg-slate-100/90">
+        靴底
+      </button>
+      <button type="button" data-preset="reset" class="cam-btn px-3 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-xs font-semibold text-slate-700 hover:bg-slate-100/90">
+        リセット
+      </button>
+
+      <span class="hidden sm:inline-block w-px h-5 bg-slate-200 mx-1"></span>
+
+      <button type="button" id="toggle-autorotate" class="cam-btn px-3 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-xs font-semibold text-slate-700 hover:bg-slate-100/90 flex items-center gap-1.5">
+        <span id="autorotate-dot" class="w-2 h-2 rounded-full bg-slate-300 transition-colors"></span>
+        <span id="autorotate-label">自動回転 OFF</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Main Three.js Application Script -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+    /**
+     * ============================================================================
+     * 1. PROCEDURAL TEXTURES (Canvas-based high-resolution textures)
+     * ============================================================================
+     */
+
+    /**
+     * Generates the iconic rectangular HUNTER front rubber patch texture:
+     * Crisp red border, clean off-white background, bold black geometric sans-serif text.
+     */
+    function createHunterLogoTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1024;
+      canvas.height = 512;
+      const ctx = canvas.getContext('2d');
+
+      // Outer bright cardinal red frame
+      ctx.fillStyle = '#C91E26';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Inner clean white badge field
+      const border = 44;
+      ctx.fillStyle = '#F9F9FB';
+      ctx.fillRect(border, border, canvas.width - border * 2, canvas.height - border * 2);
+
+      // Subtle inner edge shadow for molded rubber depth
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
+      ctx.lineWidth = 6;
+      ctx.strokeRect(border + 3, border + 3, canvas.width - (border + 3) * 2, canvas.height - (border + 3) * 2);
+
+      // Bold geometric "HUNTER" typography
+      ctx.fillStyle = '#141416';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = '800 186px "Inter", "Arial Black", "Helvetica Neue", sans-serif';
+
+      // Draw with controlled letter spacing to match authentic Hunter logo proportions
+      const text = 'HUNTER';
+      const spacing = 10;
+      const chars = text.split('');
+      const widths = chars.map((ch) => ctx.measureText(ch).width);
+      const totalWidth = widths.reduce((a, b) => a + b, 0) + spacing * (chars.length - 1);
+      let cursorX = (canvas.width - totalWidth) / 2;
+
+      for (let i = 0; i < chars.length; i++) {
+        ctx.fillText(chars[i], cursorX + widths[i] / 2, canvas.height / 2 + 10);
+        cursorX += widths[i] + spacing;
+      }
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.anisotropy = 8;
+      return texture;
+    }
+
+    /**
+     * Generates a subtle vulcanized rubber micro-grain bump/roughness map
+     * so close-up views reveal realistic matte-satin rubber surface texture.
+     */
+    function createRubberMicroGrainTexture() {
+      const size = 256;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const imgData = ctx.createImageData(size, size);
+      const data = imgData.data;
+
+      // Deterministic pseudo-random fine rubber bloom grain
+      let seed = 1337;
+      const rand = () => {
+        seed = (seed * 16807) % 2147483647;
+        return (seed - 1) / 2147483646;
+      };
+
+      for (let i = 0; i < data.length; i += 4) {
+        const v = Math.floor(118 + (rand() - 0.5) * 32);
+        data[i] = v;
+        data[i + 1] = v;
+        data[i + 2] = v;
+        data[i + 3] = 255;
+      }
+      ctx.putImageData(imgData, 0, 0);
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(14, 14);
+      return tex;
+    }
+
+    /**
+     * Generates the zig-zag / wavy embossed relief bump map for the top collar band.
+     */
+    function createTopCollarZigZagTexture() {
+      const w = 1024;
+      const h = 128;
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+
+      ctx.fillStyle = '#787878';
+      ctx.fillRect(0, 0, w, h);
+
+      // Draw crisp zig-zag / sinusoidal embossed ridges along the collar band
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 10;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      const waves = 44;
+      const step = w / waves;
+
+      for (let row = 0; row < 2; row++) {
+        const baseY = row === 0 ? 44 : 84;
+        ctx.beginPath();
+        for (let i = 0; i <= waves; i++) {
+          const x = i * step;
+          const y = baseY + (i % 2 === 0 ? -13 : 13);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+
+      // Subtle dark trough lines for stronger 3D bump contrast
+      ctx.strokeStyle = '#303030';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      for (let i = 0; i <= waves; i++) {
+        const x = i * step;
+        const y = 64 + (i % 2 === 0 ? -13 : 13);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.ClampToEdgeWrapping;
+      return tex;
+    }
+
+    /**
+     * Generates a soft radial ground contact shadow texture placed beneath each boot.
+     */
+    function createContactShadowTexture() {
+      const size = 512;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      ctx.clearRect(0, 0, size, size);
+
+      // Elongated soft shadow under heel & forefoot
+      ctx.save();
+      ctx.translate(size / 2, size / 2);
+      ctx.scale(0.68, 1.0);
+      const grad = ctx.createRadialGradient(0, 0, 20, 0, 0, 230);
+      grad.addColorStop(0.0, 'rgba(15, 20, 30, 0.34)');
+      grad.addColorStop(0.45, 'rgba(15, 20, 30, 0.18)');
+      grad.addColorStop(0.78, 'rgba(15, 20, 30, 0.05)');
+      grad.addColorStop(1.0, 'rgba(15, 20, 30, 0.0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(0, 0, 230, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      const tex = new THREE.CanvasTexture(canvas);
+      return tex;
+    }
+
+    /**
+     * ============================================================================
+     * 2. MATHEMATICAL HELPERS & ANATOMICAL BOOT PROFILE CURVES
+     * ============================================================================
+     */
+
+    function smoothstep(edge0, edge1, x) {
+      const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+      return t * t * (3 - 2 * t);
+    }
+
+    /**
+     * Mathematically verifies triangle winding order on any BufferGeometry so that
+     * every triangle's geometric face normal (v1 - v0) x (v2 - v0) aligns with the
+     * desired outward reference vector (dot > 0). Flips indices if inverted before
+     * computing smooth vertex normals.
+     */
+    function ensureOutwardWinding(geometry, getExpectedOutwardDir) {
+      const pos = geometry.attributes.position;
+      const index = geometry.getIndex();
+      if (!pos || !index) return geometry;
+
+      const arr = index.array;
+      const v0 = new THREE.Vector3();
+      const v1 = new THREE.Vector3();
+      const v2 = new THREE.Vector3();
+      const e1 = new THREE.Vector3();
+      const e2 = new THREE.Vector3();
+      const faceNormal = new THREE.Vector3();
+      const centroid = new THREE.Vector3();
+      const expectedDir = new THREE.Vector3();
+
+      for (let i = 0; i < arr.length; i += 3) {
+        const i0 = arr[i];
+        const i1 = arr[i + 1];
+        const i2 = arr[i + 2];
+
+        v0.fromBufferAttribute(pos, i0);
+        v1.fromBufferAttribute(pos, i1);
+        v2.fromBufferAttribute(pos, i2);
+
+        e1.subVectors(v1, v0);
+        e2.subVectors(v2, v0);
+        faceNormal.crossVectors(e1, e2);
+
+        centroid.copy(v0).add(v1).add(v2).multiplyScalar(1 / 3);
+        getExpectedOutwardDir(centroid, expectedDir);
+
+        if (faceNormal.dot(expectedDir) < 0) {
+          arr[i + 1] = i2;
+          arr[i + 2] = i1;
+        }
+      }
+
+      index.needsUpdate = true;
+      geometry.computeVertexNormals();
+      return geometry;
+    }
+
+    /**
+     * Piecewise smooth Catmull-Rom / monotonic Hermite interpolation over control points [y, value].
+     */
+    function evalProfileCurve(points, y) {
+      if (y <= points[0][0]) return points[0][1];
+      const last = points.length - 1;
+      if (y >= points[last][0]) return points[last][1];
+
+      for (let i = 0; i < last; i++) {
+        const [y0, v0] = points[i];
+        const [y1, v1] = points[i + 1];
+        if (y >= y0 && y <= y1) {
+          const t = (y - y0) / (y1 - y0);
+          // Smooth cosine/cubic blend
+          const s = t * t * (3 - 2 * t);
+          return v0 + (v1 - v0) * s;
+        }
+      }
+      return points[last][1];
+    }
+
+    // Boot vertical metrics (in world units, 1 unit ≈ 10cm, total boot height ≈ 38.6cm)
+    const WELT_Y = 0.24;
+    const CUFF_BASE_Y = 3.84;
+
+    // Front profile curve zFront(y): toe bumper overhang -> vamp slope -> ankle -> tall shin
+    const FRONT_Z_CURVE = [
+      [0.24, 1.37],  // Welt front edge
+      [0.32, 1.43],  // Bulbous rounded rubber toe cap peak
+      [0.40, 1.33],  // Upper toe box curvature
+      [0.47, 1.13],  // Forefoot vamp start
+      [0.56, 0.87],  // Mid vamp slope
+      [0.68, 0.65],  // Lower instep
+      [0.84, 0.49],  // Upper instep
+      [1.04, 0.42],  // Ankle front flex point
+      [1.55, 0.45],  // Lower shin
+      [2.55, 0.51],  // Mid-upper shin
+      [3.86, 0.55]   // Top front cuff
+    ];
+
+    // Back profile curve zBack(y): heel seat -> heel counter bulb -> Achilles indent -> calf swell
+    const BACK_Z_CURVE = [
+      [0.24, -0.57], // Heel welt back
+      [0.38, -0.62], // Rounded heel cup bulb
+      [0.68, -0.56], // Upper heel counter
+      [0.98, -0.45], // Achilles tendon inward curve
+      [1.50, -0.48], // Lower calf
+      [2.55, -0.56], // Natural calf fullness
+      [3.45, -0.54], // Upper calf taper
+      [3.86, -0.53]  // Top rear cuff
+    ];
+
+    // Shaft lateral radius curve rxShaft(y)
+    const SHAFT_RX_CURVE = [
+      [0.24, 0.44],
+      [0.98, 0.41],  // Narrowest ankle width
+      [1.65, 0.45],
+      [2.65, 0.51],  // Calf width
+      [3.86, 0.53]   // Top opening width
+    ];
+
+    /**
+     * Evaluates a 3D surface point on the boot upper shell.
+     * @param {number} y - Vertical height from ground (0.24 to ~3.86)
+     * @param {number} theta - Angle around vertical axis (0 = front +Z, PI = back -Z, +PI/2 = +X, -PI/2 = -X)
+     * @param {number} sideSign - -1 for Right Boot (outer side -X), +1 for Left Boot (outer side +X)
+     * @param {boolean} includePanels - Whether to add subtle sculptural relief for Hunter signature panels
+     */
+    function getBootShellPoint(y, theta, sideSign = -1, includePanels = true) {
+      const cosT = Math.cos(theta); // +1 front, -1 back
+      const sinT = Math.sin(theta); // +1 (+X), -1 (-X)
+
+      // Subtle natural cuff dip from front to back
+      const topY = CUFF_BASE_Y + 0.025 * cosT;
+      const clampedY = Math.max(WELT_Y, Math.min(topY, y));
+
+      const zF = evalProfileCurve(FRONT_Z_CURVE, clampedY);
+      const zB = evalProfileCurve(BACK_Z_CURVE, clampedY);
+      const zMid = 0.5 * (zF + zB);
+      const rzHalf = 0.5 * (zF - zB);
+
+      // Z coordinate along the boot length
+      const z = zMid + rzHalf * cosT;
+
+      // Normalized longitudinal position u along the foot (0 = heel back, 1 = toe tip)
+      const u = Math.max(0, Math.min(1, (z - zB) / Math.max(0.001, zF - zB)));
+
+      // Base shaft width
+      let rx = evalProfileCurve(SHAFT_RX_CURVE, clampedY);
+
+      // Foot anatomical width modulation (ball of foot wideness, waist/arch taper, rounded toe)
+      const footWeight = 1.0 - smoothstep(0.45, 1.05, clampedY);
+      if (footWeight > 0) {
+        // Width multiplier along foot length u: heel(0.98) -> arch waist(0.90) -> ball(1.12) -> toe(1.00)
+        const ballBoost = 0.13 * Math.exp(-Math.pow((u - 0.68) / 0.20, 2));
+        const waistTaper = -0.09 * Math.exp(-Math.pow((u - 0.36) / 0.16, 2));
+        const footRxFactor = 1.0 + footWeight * (ballBoost + waistTaper);
+        rx *= footRxFactor;
+      }
+
+      // Medial vs Lateral anatomical last asymmetry
+      // sideSign * sinT > 0 is OUTER (lateral) side; sideSign * sinT < 0 is INNER (medial) side
+      const isOuter = sideSign * sinT;
+      let medialArchIndent = 0;
+      let lastCenterShiftX = 0;
+
+      if (footWeight > 0) {
+        // Medial arch curves gently inward around u = 0.38
+        if (isOuter < 0) {
+          medialArchIndent = -0.036 * Math.abs(isOuter) * footWeight * Math.exp(-Math.pow((u - 0.38) / 0.18, 2));
+        }
+        // Subtle inward big-toe alignment toward front of foot
+        lastCenterShiftX = -sideSign * 0.035 * footWeight * smoothstep(0.45, 0.98, u);
+      }
+
+      // Superellipse exponent p: slightly squared-round toe box in lower foot, pure ellipse in upper shaft
+      const toeSquareness = footWeight * smoothstep(0.55, 0.95, u);
+      const p = 1.0 - 0.08 * toeSquareness;
+      const shapedSin = Math.sign(sinT) * Math.pow(Math.abs(sinT), p);
+
+      let x = lastCenterShiftX + (rx + medialArchIndent) * shapedSin;
+      let finalZ = z;
+
+      // Sculptural molded rubber panel relief (Heel Counter, Toe Cap, Moustache Vamp Seam)
+      if (includePanels) {
+        let relief = 0;
+
+        // 1. Raised Rubber Toe Cap over front of toe box
+        const toeCapMask =
+          (1.0 - smoothstep(0.43, 0.48, clampedY)) *
+          smoothstep(0.73, 0.78, u);
+        relief += 0.0075 * toeCapMask;
+
+        // 2. Heel Counter Reinforcement Panel wrapping around rear heel
+        const heelTopY = 0.86 - 0.16 * smoothstep(0.12, 0.34, u);
+        const heelCounterMask =
+          (1.0 - smoothstep(heelTopY - 0.02, heelTopY + 0.02, clampedY)) *
+          (1.0 - smoothstep(0.32, 0.37, u));
+        relief += 0.008 * heelCounterMask;
+
+        // 3. Signature Hunter "Moustache" Front Arch Seam Line
+        // Sweeps from sides of midfoot (y=0.24, cosT≈0.15) up to front shin arch (y=1.46, cosT=1.0)
+        const archHeightAtAngle = 0.24 + 1.22 * Math.pow(Math.max(0, (cosT + 0.15) / 1.15), 1.45);
+        if (cosT > -0.12 && clampedY < archHeightAtAngle + 0.03) {
+          const band = 1.0 - smoothstep(archHeightAtAngle - 0.015, archHeightAtAngle + 0.015, clampedY);
+          relief += 0.0045 * band;
+        }
+
+        if (relief > 0) {
+          const radialLen = Math.hypot(x - lastCenterShiftX, finalZ - zMid) || 1;
+          x += ((x - lastCenterShiftX) / radialLen) * relief;
+          finalZ += ((finalZ - zMid) / radialLen) * relief;
+        }
+      }
+
+      return new THREE.Vector3(x, clampedY, finalZ);
+    }
+
+    /**
+     * ============================================================================
+     * 3. PROCEDURAL BOOT MESH & COMPONENT BUILDERS
+     * ============================================================================
+     */
+
+    /**
+     * Builds the primary continuous lofted upper shell of a single boot with a closed
+     * bottom cap and mathematically verified outward-facing normals.
+     */
+    function buildBootUpperGeometry(sideSign) {
+      // Non-uniform Y distribution: extra dense slices in the foot/toe dome (0.24..0.95)
+      const yLevels = [];
+      const footSlices = 68;
+      for (let i = 0; i <= footSlices; i++) {
+        const t = i / footSlices;
+        // Ease-in concentration near bottom welt & toe curve
+        const y = WELT_Y + (0.95 - WELT_Y) * Math.pow(t, 1.15);
+        yLevels.push(y);
+      }
+      const shaftSlices = 64;
+      for (let i = 1; i <= shaftSlices; i++) {
+        const t = i / shaftSlices;
+        const y = 0.95 + (CUFF_BASE_Y + 0.03 - 0.95) * t;
+        yLevels.push(y);
+      }
+
+      const radialSegs = 112;
+      const positions = [];
+      const uvs = [];
+      const indices = [];
+
+      for (let iy = 0; iy < yLevels.length; iy++) {
+        const yBase = yLevels[iy];
+        const vNorm = iy / (yLevels.length - 1);
+
+        for (let ir = 0; ir <= radialSegs; ir++) {
+          const uNorm = ir / radialSegs;
+          const theta = uNorm * Math.PI * 2;
+          const pt = getBootShellPoint(yBase, theta, sideSign, true);
+
+          positions.push(pt.x, pt.y, pt.z);
+          uvs.push(uNorm * 2.0, vNorm * 3.0);
+        }
+      }
+
+      const stride = radialSegs + 1;
+      for (let iy = 0; iy < yLevels.length - 1; iy++) {
+        for (let ir = 0; ir < radialSegs; ir++) {
+          const a = iy * stride + ir;
+          const b = a + 1;
+          const c = (iy + 1) * stride + ir;
+          const d = c + 1;
+
+          // Outward-facing counter-clockwise winding
+          indices.push(a, b, c);
+          indices.push(b, d, c);
+        }
+      }
+
+      // Close bottom sole interface at WELT_Y so the outer shell is completely solid
+      const bottomCenterIdx = positions.length / 3;
+      positions.push(0, WELT_Y, 0.40);
+      uvs.push(0.5, 0.5);
+      for (let ir = 0; ir < radialSegs; ir++) {
+        indices.push(ir + 1, ir, bottomCenterIdx);
+      }
+
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      geo.setIndex(indices);
+
+      return ensureOutwardWinding(geo, (centroid, out) => {
+        if (centroid.y <= WELT_Y + 0.002) {
+          out.set(0, -1, 0);
+        } else {
+          const zF = evalProfileCurve(FRONT_Z_CURVE, centroid.y);
+          const zB = evalProfileCurve(BACK_Z_CURVE, centroid.y);
+          const zMid = 0.5 * (zF + zB);
+          out.set(centroid.x, 0, centroid.z - zMid).normalize();
+        }
+      });
+    }
+
+    /**
+     * Builds the interior dark-burgundy lining shaft + 5mm solid physical cuff rim cap +
+     * footbed insole so looking into the boot opening is solid and free of Z-fighting.
+     */
+    function buildBootLiningGeometry(sideSign) {
+      // Physical cuff wall thickness (~5mm in boot scale) prevents any Z-fighting with outer shell
+      const wallThickness = 0.05;
+      const yLevels = [];
+
+      // Smooth semicircular beveled top rim bridging outer cuff edge (inset=0) to inner wall (inset=0.05)
+      const rimSteps = 10;
+      for (let i = 0; i <= rimSteps; i++) {
+        const angle = (i / rimSteps) * Math.PI; // 0 (outer) -> PI (inner)
+        yLevels.push({
+          yOffset: 0.024 * Math.sin(angle),
+          inset: wallThickness * 0.5 * (1 - Math.cos(angle)),
+          isRim: true,
+          rimAngle: angle
+        });
+      }
+
+      // Interior cavity descending straight down at full 5mm inset from outer wall
+      const innerSteps = 44;
+      for (let i = 1; i <= innerSteps; i++) {
+        const t = i / innerSteps;
+        const targetY = CUFF_BASE_Y - t * (CUFF_BASE_Y - 0.34);
+        yLevels.push({
+          yAbsolute: targetY,
+          inset: wallThickness,
+          isRim: false
+        });
+      }
+
+      const radialSegs = 96;
+      const positions = [];
+      const uvs = [];
+      const indices = [];
+
+      for (let iy = 0; iy < yLevels.length; iy++) {
+        const level = yLevels[iy];
+        for (let ir = 0; ir <= radialSegs; ir++) {
+          const uNorm = ir / radialSegs;
+          const theta = uNorm * Math.PI * 2;
+          const topY = CUFF_BASE_Y + 0.025 * Math.cos(theta);
+          const sampleY = level.isRim ? topY : level.yAbsolute;
+          const outerPt = getBootShellPoint(sampleY, theta, sideSign, false);
+
+          const zF = evalProfileCurve(FRONT_Z_CURVE, sampleY);
+          const zB = evalProfileCurve(BACK_Z_CURVE, sampleY);
+          const zMid = 0.5 * (zF + zB);
+
+          // Move radially inward toward shaft centerline (0, sampleY, zMid)
+          const dx = outerPt.x;
+          const dz = outerPt.z - zMid;
+          const radialLen = Math.hypot(dx, dz) || 1;
+          const inX = outerPt.x - (dx / radialLen) * level.inset;
+          const inZ = outerPt.z - (dz / radialLen) * level.inset;
+          const finalY = level.isRim ? topY + level.yOffset : outerPt.y;
+
+          positions.push(inX, finalY, inZ);
+          uvs.push(uNorm, iy / (yLevels.length - 1));
+        }
+      }
+
+      const stride = radialSegs + 1;
+      for (let iy = 0; iy < yLevels.length - 1; iy++) {
+        for (let ir = 0; ir < radialSegs; ir++) {
+          const a = iy * stride + ir;
+          const b = a + 1;
+          const c = (iy + 1) * stride + ir;
+          const d = c + 1;
+
+          indices.push(a, c, b);
+          indices.push(b, c, d);
+        }
+      }
+
+      // Close bottom footbed insole cap at the final ring
+      const lastRingStart = (yLevels.length - 1) * stride;
+      const centerIdx = positions.length / 3;
+      positions.push(0, 0.34, 0.25);
+      uvs.push(0.5, 0.5);
+
+      for (let ir = 0; ir < radialSegs; ir++) {
+        const a = lastRingStart + ir;
+        const b = a + 1;
+        indices.push(a, centerIdx, b);
+      }
+
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      geo.setIndex(indices);
+
+      return ensureOutwardWinding(geo, (centroid, out) => {
+        if (centroid.y <= 0.345) {
+          // Footbed faces upward toward opening
+          out.set(0, 1, 0);
+        } else if (centroid.y >= CUFF_BASE_Y - 0.025) {
+          // Top beveled collar rim faces upward
+          out.set(0, 1, 0);
+        } else {
+          // Interior lining wall faces inward into the boot cavity
+          const zF = evalProfileCurve(FRONT_Z_CURVE, centroid.y);
+          const zB = evalProfileCurve(BACK_Z_CURVE, centroid.y);
+          const zMid = 0.5 * (zF + zB);
+          out.set(-centroid.x, 0, zMid - centroid.z).normalize();
+        }
+      });
+    }
+
+    /**
+     * Builds the raised Top Collar Trim Ring with the iconic zig-zag / wavy embossing.
+     */
+    function buildTopCollarTrimGeometry(sideSign) {
+      const radialSegs = 128;
+      const vSegs = 12;
+      const bandHeight = 0.135;
+      const positions = [];
+      const uvs = [];
+      const indices = [];
+
+      for (let iv = 0; iv <= vSegs; iv++) {
+        const v = iv / vSegs;
+        // Rounded collar profile bulge
+        const bulge = 0.011 * Math.sin(v * Math.PI) + 0.005;
+
+        for (let ir = 0; ir <= radialSegs; ir++) {
+          const u = ir / radialSegs;
+          const theta = u * Math.PI * 2;
+          const topY = CUFF_BASE_Y + 0.025 * Math.cos(theta);
+          const y = topY - (1 - v) * bandHeight;
+
+          const pt = getBootShellPoint(y, theta, sideSign, false);
+          const rLen = Math.hypot(pt.x, pt.z) || 1;
+          pt.x += (pt.x / rLen) * bulge;
+          pt.z += (pt.z / rLen) * bulge;
+
+          positions.push(pt.x, pt.y, pt.z);
+          uvs.push(u, v);
+        }
+      }
+
+      const stride = radialSegs + 1;
+      for (let iv = 0; iv < vSegs; iv++) {
+        for (let ir = 0; ir < radialSegs; ir++) {
+          const a = iv * stride + ir;
+          const b = a + 1;
+          const c = (iv + 1) * stride + ir;
+          const d = c + 1;
+          indices.push(a, b, c);
+          indices.push(b, d, c);
+        }
+      }
+
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      geo.setIndex(indices);
+
+      return ensureOutwardWinding(geo, (centroid, out) => {
+        out.set(centroid.x, 0, centroid.z).normalize();
+      });
+    }
+
+    /**
+     * Creates a fine 3D molded rubber piping seam along a parametric curve on the boot surface.
+     */
+    function buildSurfacePipingSeam(pointsArray, radius = 0.0055, radialSegments = 8) {
+      const curve = new THREE.CatmullRomCurve3(pointsArray, false, 'catmullrom', 0.35);
+      return new THREE.TubeGeometry(curve, Math.max(24, pointsArray.length * 2), radius, radialSegments, false);
+    }
+
+    /**
+     * Builds all signature molded rubber piping seams on the boot:
+     * 1. Front "Moustache" arch seam
+     * 2. Heel counter reinforcement piping
+     * 3. Forefoot toe cap seam
+     * 4. Ankle collar rear/side seam
+     */
+    function buildBootSeamsGroup(sideSign, material) {
+      const group = new THREE.Group();
+
+      // 1. Moustache Front Arch Seam (sweeps up both sides of instep & arches across front shin)
+      const moustachePts = [];
+      const mSteps = 44;
+      for (let i = 0; i <= mSteps; i++) {
+        const s = -1 + (2 * i) / mSteps; // -1 to +1 across front half
+        const theta = s * (Math.PI * 0.56);
+        const cosT = Math.cos(theta);
+        const y = 0.245 + 1.21 * Math.pow(Math.max(0, (cosT + 0.18) / 1.18), 1.42);
+        const pt = getBootShellPoint(y, theta, sideSign, true);
+        const rLen = Math.hypot(pt.x, pt.z - 0.1) || 1;
+        pt.x += (pt.x / rLen) * 0.0025;
+        pt.z += ((pt.z - 0.1) / rLen) * 0.0025;
+        moustachePts.push(pt);
+      }
+      group.add(new THREE.Mesh(buildSurfacePipingSeam(moustachePts, 0.0052), material));
+
+      // 2. Heel Counter Reinforcement Seam (wraps around back heel with curved step)
+      const heelPts = [];
+      const hSteps = 40;
+      for (let i = 0; i <= hSteps; i++) {
+        const s = -1 + (2 * i) / hSteps;
+        const theta = Math.PI + s * (Math.PI * 0.42);
+        const absS = Math.abs(s);
+        const y = 0.245 + 0.62 * (1.0 - Math.pow(absS, 2.2));
+        const pt = getBootShellPoint(y, theta, sideSign, true);
+        const rLen = Math.hypot(pt.x, pt.z + 0.2) || 1;
+        pt.x += (pt.x / rLen) * 0.0025;
+        pt.z += ((pt.z + 0.2) / rLen) * 0.0025;
+        heelPts.push(pt);
+      }
+      group.add(new THREE.Mesh(buildSurfacePipingSeam(heelPts, 0.0052), material));
+
+      // 3. Toe Cap Edge Seam
+      const toePts = [];
+      const tSteps = 32;
+      for (let i = 0; i <= tSteps; i++) {
+        const s = -1 + (2 * i) / tSteps;
+        const theta = s * (Math.PI * 0.34);
+        const y = 0.245 + 0.215 * Math.cos(s * Math.PI * 0.48);
+        const pt = getBootShellPoint(y, theta, sideSign, true);
+        const rLen = Math.hypot(pt.x, pt.z - 0.85) || 1;
+        pt.x += (pt.x / rLen) * 0.0022;
+        pt.z += ((pt.z - 0.85) / rLen) * 0.0022;
+        toePts.push(pt);
+      }
+      group.add(new THREE.Mesh(buildSurfacePipingSeam(toePts, 0.0046), material));
+
+      // 4. Ankle Back/Side Horizontal Seam
+      const anklePts = [];
+      const aSteps = 28;
+      for (let i = 0; i <= aSteps; i++) {
+        const s = -1 + (2 * i) / aSteps;
+        const theta = Math.PI + s * (Math.PI * 0.46);
+        const y = 0.94 - 0.03 * Math.cos(s * Math.PI * 0.5);
+        const pt = getBootShellPoint(y, theta, sideSign, true);
+        const rLen = Math.hypot(pt.x, pt.z) || 1;
+        pt.x += (pt.x / rLen) * 0.002;
+        pt.z += (pt.z / rLen) * 0.002;
+        anklePts.push(pt);
+      }
+      group.add(new THREE.Mesh(buildSurfacePipingSeam(anklePts, 0.0042), material));
+
+      return group;
+    }
+
+    /**
+     * Builds the curved rectangular front HUNTER rubber patch mounted just below the top cuff.
+     */
+    function buildHunterFrontBadge(sideSign, logoTexture, rubberMat) {
+      const badgeGroup = new THREE.Group();
+      const centerY = 3.48;
+      const badgeHeight = 0.245;
+      const angularHalfSpan = 0.39; // radians on front shaft
+
+      const uSegs = 20;
+      const vSegs = 8;
+      const thickness = 0.017;
+
+      // Build curved front face + beveled side walls
+      const positions = [];
+      const uvs = [];
+      const indices = [];
+
+      // Front textured face (layer 0) and back surface on shaft (layer 1)
+      for (let layer = 0; layer < 2; layer++) {
+        const offset = layer === 0 ? thickness : -0.004;
+        for (let iv = 0; iv <= vSegs; iv++) {
+          const v = iv / vSegs;
+          const y = centerY - badgeHeight * 0.5 + v * badgeHeight;
+          for (let iu = 0; iu <= uSegs; iu++) {
+            const u = iu / uSegs;
+            // Notice: viewing from +Z looking at -Z, left-to-right corresponds to theta from -span to +span
+            const theta = -angularHalfSpan + u * (angularHalfSpan * 2);
+            const pt = getBootShellPoint(y, theta, sideSign, false);
+            const rLen = Math.hypot(pt.x, pt.z) || 1;
+            pt.x += (pt.x / rLen) * offset;
+            pt.z += (pt.z / rLen) * offset;
+
+            positions.push(pt.x, pt.y, pt.z);
+            uvs.push(u, v);
+          }
+        }
+      }
+
+      const stride = uSegs + 1;
+      const layerVerts = (vSegs + 1) * stride;
+
+      // Front face triangles
+      for (let iv = 0; iv < vSegs; iv++) {
+        for (let iu = 0; iu < uSegs; iu++) {
+          const a = iv * stride + iu;
+          const b = a + 1;
+          const c = (iv + 1) * stride + iu;
+          const d = c + 1;
+          indices.push(a, b, c);
+          indices.push(b, d, c);
+        }
+      }
+
+      const frontGeo = new THREE.BufferGeometry();
+      frontGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      frontGeo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      frontGeo.setIndex(indices);
+      ensureOutwardWinding(frontGeo, (centroid, out) => {
+        out.set(centroid.x, 0, centroid.z).normalize();
+      });
+
+      const frontMat = new THREE.MeshPhysicalMaterial({
+        map: logoTexture,
+        roughness: 0.45,
+        metalness: 0.02,
+        clearcoat: 0.15,
+        clearcoatRoughness: 0.55,
+        transparent: false,
+        opacity: 1.0,
+        transmission: 0,
+        depthWrite: true,
+        depthTest: true,
+        side: THREE.DoubleSide
+      });
+
+      const frontMesh = new THREE.Mesh(frontGeo, frontMat);
+      frontMesh.castShadow = true;
+      badgeGroup.add(frontMesh);
+
+      // Build rubber rim perimeter walls around the badge so it has solid 3D thickness from side angles
+      const rimIndices = [];
+      // Top & bottom edges
+      for (let iu = 0; iu < uSegs; iu++) {
+        // Bottom edge (iv = 0)
+        const f0 = iu;
+        const f1 = iu + 1;
+        const b0 = layerVerts + iu;
+        const b1 = layerVerts + iu + 1;
+        rimIndices.push(f0, b0, f1, f1, b0, b1);
+
+        // Top edge (iv = vSegs)
+        const tf0 = vSegs * stride + iu;
+        const tf1 = tf0 + 1;
+        const tb0 = layerVerts + tf0;
+        const tb1 = layerVerts + tf1;
+        rimIndices.push(tf0, tf1, tb0, tf1, tb1, tb0);
+      }
+      // Left & right edges
+      for (let iv = 0; iv < vSegs; iv++) {
+        // Left edge (iu = 0)
+        const lf0 = iv * stride;
+        const lf1 = (iv + 1) * stride;
+        const lb0 = layerVerts + lf0;
+        const lb1 = layerVerts + lf1;
+        rimIndices.push(lf0, lf1, lb0, lf1, lb1, lb0);
+
+        // Right edge (iu = uSegs)
+        const rf0 = iv * stride + uSegs;
+        const rf1 = (iv + 1) * stride + uSegs;
+        const rb0 = layerVerts + rf0;
+        const rb1 = layerVerts + rf1;
+        rimIndices.push(rf0, rb0, rf1, rf1, rb0, rb1);
+      }
+
+      const rimGeo = new THREE.BufferGeometry();
+      rimGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      rimGeo.setIndex(rimIndices);
+      const badgeCenter = new THREE.Vector3(0, centerY, 0.52);
+      ensureOutwardWinding(rimGeo, (centroid, out) => {
+        out.subVectors(centroid, badgeCenter).normalize();
+      });
+      badgeGroup.add(new THREE.Mesh(rimGeo, rubberMat));
+
+      return badgeGroup;
+    }
+
+    /**
+     * Builds the iconic outer-side rubber strap pad, silver circular rivet,
+     * rectangular metal buckle, and pointed red rubber strap.
+     */
+    function buildSideBuckleAssembly(sideSign, rubberMat, silverMat) {
+      const group = new THREE.Group();
+      const strapY = 3.36;
+
+      // Helper to get point & outward surface normal on the outer calf side
+      const getOuterSurfaceFrame = (zOffsetAngle) => {
+        // Outer side center angle: +PI/2 for Left boot (+X), -PI/2 for Right boot (-X)
+        // Positive zOffsetAngle moves toward front (+Z), negative moves toward back (-Z)
+        const baseTheta = sideSign * (Math.PI * 0.5);
+        const theta = baseTheta - sideSign * zOffsetAngle;
+        const pt = getBootShellPoint(strapY, theta, sideSign, false);
+        const radial = new THREE.Vector3(pt.x, 0, pt.z).normalize();
+        const tangentBack = new THREE.Vector3(radial.z * sideSign, 0, -radial.x * sideSign).normalize();
+        return { pt, radial, tangentBack };
+      };
+
+      // 1. Molded Rounded-Rectangle Rubber Strap Pad (curved onto outer calf)
+      const padShape = new THREE.Shape();
+      const pw = 0.34; // half-length along front-back
+      const ph = 0.135; // half-height
+      const pr = 0.11; // generous rounded ends
+      padShape.moveTo(-pw + pr, -ph);
+      padShape.lineTo(pw - pr, -ph);
+      padShape.absarc(pw - pr, 0, ph, -Math.PI / 2, Math.PI / 2, false);
+      padShape.lineTo(-pw + pr, ph);
+      padShape.absarc(-pw + pr, 0, ph, Math.PI / 2, (Math.PI * 3) / 2, false);
+
+      const padGeo = new THREE.ExtrudeGeometry(padShape, {
+        depth: 0.022,
+        bevelEnabled: true,
+        bevelThickness: 0.008,
+        bevelSize: 0.008,
+        bevelSegments: 4,
+        curveSegments: 24
+      });
+
+      // Bend pad vertices smoothly to hug the cylindrical calf radius
+      const padPos = padGeo.attributes.position;
+      const centerFrame = getOuterSurfaceFrame(0.02);
+      const calfRadius = Math.hypot(centerFrame.pt.x, centerFrame.pt.z);
+
+      for (let i = 0; i < padPos.count; i++) {
+        const lx = padPos.getX(i); // along strap length (+ = toward back, - = toward front)
+        const ly = padPos.getY(i); // vertical
+        const lz = padPos.getZ(i); // outward thickness
+
+        const arcAngle = -lx / calfRadius;
+        const frame = getOuterSurfaceFrame(arcAngle);
+        const r = calfRadius + lz - 0.006;
+
+        padPos.setXYZ(
+          i,
+          frame.radial.x * r,
+          strapY + ly,
+          frame.radial.z * r
+        );
+      }
+      padGeo.computeVertexNormals();
+      const padMesh = new THREE.Mesh(padGeo, rubberMat);
+      padMesh.castShadow = true;
+      group.add(padMesh);
+
+      // 2. Silver Circular Rivet on Front Lobe of Pad
+      const rivetFrame = getOuterSurfaceFrame(0.32);
+      const rivetGroup = new THREE.Group();
+      const rivetPos = rivetFrame.pt.clone().addScaledVector(rivetFrame.radial, 0.022);
+      rivetGroup.position.copy(rivetPos);
+      rivetGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), rivetFrame.radial);
+
+      const rivetHead = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.028, 0.030, 0.012, 24),
+        silverMat
+      );
+      const rivetCap = new THREE.Mesh(
+        new THREE.SphereGeometry(0.028, 24, 12, 0, Math.PI * 2, 0, Math.PI * 0.45),
+        silverMat
+      );
+      rivetCap.position.y = 0.002;
+      rivetGroup.add(rivetHead, rivetCap);
+      group.add(rivetGroup);
+
+      // 3. Rubber Keeper Loop near Mid-Front of Pad
+      const keeperFrame = getOuterSurfaceFrame(0.11);
+      const keeperGeo = new THREE.BoxGeometry(0.042, 0.165, 0.042);
+      const keeperMesh = new THREE.Mesh(keeperGeo, rubberMat);
+      keeperMesh.position.copy(keeperFrame.pt).addScaledVector(keeperFrame.radial, 0.022);
+      keeperMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), keeperFrame.radial);
+      keeperMesh.castShadow = true;
+      group.add(keeperMesh);
+
+      // 4. Red Rubber Strap with Pointed Pentagon Tip extending backward past the buckle
+      const strapShape = new THREE.Shape();
+      const sLen = 0.56;
+      const sHalfH = 0.056;
+      strapShape.moveTo(0, -sHalfH);
+      strapShape.lineTo(sLen - 0.08, -sHalfH);
+      strapShape.lineTo(sLen, -0.015);
+      strapShape.quadraticCurveTo(sLen + 0.012, 0, sLen, 0.015);
+      strapShape.lineTo(sLen - 0.08, sHalfH);
+      strapShape.lineTo(0, sHalfH);
+      strapShape.closePath();
+
+      const strapGeo = new THREE.ExtrudeGeometry(strapShape, {
+        depth: 0.016,
+        bevelEnabled: true,
+        bevelThickness: 0.004,
+        bevelSize: 0.004,
+        bevelSegments: 3
+      });
+
+      // Curve the strap gently around the rear side of the boot and let the tip flare slightly outward
+      const strapPos = strapGeo.attributes.position;
+      const startAngle = 0.30;
+      for (let i = 0; i < strapPos.count; i++) {
+        const lx = strapPos.getX(i); // 0 (at rivet) -> 0.56 (pointed rear tip)
+        const ly = strapPos.getY(i);
+        const lz = strapPos.getZ(i);
+
+        // Curve along boot up to rear edge, then project tangentially outward
+        const wrappedAngle = startAngle - Math.min(lx, 0.44) / calfRadius;
+        const extraTail = Math.max(0, lx - 0.44);
+        const frame = getOuterSurfaceFrame(wrappedAngle);
+        const outwardLift = 0.023 + lz + extraTail * 0.14;
+
+        const worldPt = frame.pt
+          .clone()
+          .addScaledVector(frame.radial, outwardLift)
+          .addScaledVector(frame.tangentBack, extraTail);
+
+        strapPos.setXYZ(i, worldPt.x, strapY + ly, worldPt.z);
+      }
+      strapGeo.computeVertexNormals();
+      const strapMesh = new THREE.Mesh(strapGeo, rubberMat);
+      strapMesh.castShadow = true;
+      group.add(strapMesh);
+
+      // 5. Metallic Rectangular Silver Buckle Frame & Prong
+      const buckleFrame = getOuterSurfaceFrame(-0.26);
+      const buckleGroup = new THREE.Group();
+      const bucklePos = buckleFrame.pt.clone().addScaledVector(buckleFrame.radial, 0.032);
+      buckleGroup.position.copy(bucklePos);
+
+      // Orient buckle tangent to boot side
+      const upVec = new THREE.Vector3(0, 1, 0);
+      const rotMat = new THREE.Matrix4().makeBasis(buckleFrame.tangentBack, upVec, buckleFrame.radial);
+      buckleGroup.quaternion.setFromRotationMatrix(rotMat);
+
+      const bw = 0.052; // half width along strap
+      const bh = 0.082; // half height
+      const wireR = 0.0095;
+
+      // Top & bottom bars
+      const barTop = new THREE.Mesh(new THREE.CylinderGeometry(wireR, wireR, bw * 2, 16), silverMat);
+      barTop.rotation.z = Math.PI / 2;
+      barTop.position.set(0, bh, 0);
+
+      const barBot = barTop.clone();
+      barBot.position.set(0, -bh, 0);
+
+      // Front & rear vertical bars
+      const barFront = new THREE.Mesh(new THREE.CylinderGeometry(wireR, wireR, bh * 2, 16), silverMat);
+      barFront.position.set(-bw, 0, 0.004);
+
+      const barRear = barFront.clone();
+      barRear.position.set(bw, 0, 0.004);
+
+      // Center crossbar & buckle prong
+      const centerBar = new THREE.Mesh(new THREE.CylinderGeometry(wireR * 0.75, wireR * 0.75, bh * 1.9, 14), silverMat);
+      centerBar.position.set(-0.006, 0, -0.002);
+
+      const prong = new THREE.Mesh(new THREE.CylinderGeometry(0.005, 0.006, bw * 1.15, 12), silverMat);
+      prong.rotation.z = Math.PI / 2;
+      prong.position.set(0.018, 0, 0.007);
+
+      // Corner spheres for clean rounded metal joints
+      const cornerOffsets = [
+        [-bw, bh, 0.002],
+        [bw, bh, 0.002],
+        [-bw, -bh, 0.002],
+        [bw, -bh, 0.002]
+      ];
+      for (const [cx, cy, cz] of cornerOffsets) {
+        const corner = new THREE.Mesh(new THREE.SphereGeometry(wireR * 1.02, 14, 14), silverMat);
+        corner.position.set(cx, cy, cz);
+        buckleGroup.add(corner);
+      }
+
+      buckleGroup.add(barTop, barBot, barFront, barRear, centerBar, prong);
+      buckleGroup.traverse((obj) => {
+        if (obj.isMesh) obj.castShadow = true;
+      });
+      group.add(buckleGroup);
+
+      return group;
+    }
+
+    /**
+     * Builds the Welt piping ring, Deep Red Outsole, Block Heel,
+     * Perimeter Lug Teeth, and Sculpted Underfoot Tread Pattern.
+     */
+    function buildSoleAndHeelAssembly(sideSign, weltMat, outsoleMat) {
+      const group = new THREE.Group();
+
+      // Sample the exact footprint outline at WELT_Y (y = 0.24)
+      const segs = 120;
+      const footprintPts = [];
+      for (let i = 0; i < segs; i++) {
+        const theta = (i / segs) * Math.PI * 2;
+        const pt = getBootShellPoint(WELT_Y, theta, sideSign, false);
+        footprintPts.push(new THREE.Vector2(pt.x, pt.z));
+      }
+
+      // 1. Prominent Rounded Welt Band encircling the upper-to-sole junction
+      const weltCurvePts = footprintPts.map((v) => new THREE.Vector3(v.x * 1.025, WELT_Y, v.y * 1.015));
+      const weltCurve = new THREE.CatmullRomCurve3(weltCurvePts, true);
+      const weltGeo = new THREE.TubeGeometry(weltCurve, 140, 0.022, 14, true);
+      const weltMesh = new THREE.Mesh(weltGeo, weltMat);
+      weltMesh.castShadow = true;
+      weltMesh.receiveShadow = true;
+      group.add(weltMesh);
+
+      // Helper to create an extruded outsole plate from a filtered/scaled footprint
+      const createSolePlate = (scaleX, scaleZ, yTop, yBottom, zMin = -10, zMax = 10, toeSpring = false) => {
+        const shape = new THREE.Shape();
+        const pts = [];
+        for (let i = 0; i < segs; i++) {
+          const theta = (i / segs) * Math.PI * 2;
+          const base = getBootShellPoint(WELT_Y, theta, sideSign, false);
+          const x = base.x * scaleX;
+          const z = Math.max(zMin, Math.min(zMax, base.z * scaleZ));
+          pts.push(new THREE.Vector2(x, z));
+        }
+
+        shape.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length; i++) {
+          shape.lineTo(pts[i].x, pts[i].y);
+        }
+        shape.closePath();
+
+        const thickness = yTop - yBottom;
+        const geo = new THREE.ExtrudeGeometry(shape, {
+          depth: thickness,
+          bevelEnabled: true,
+          bevelThickness: 0.012,
+          bevelSize: 0.012,
+          bevelSegments: 3,
+          curveSegments: 1
+        });
+
+        // Rotate from XY plane into XZ horizontal plane
+        geo.rotateX(Math.PI / 2);
+
+        // Apply subtle upward toe spring near the front tip (z > 1.0)
+        const pos = geo.attributes.position;
+        for (let i = 0; i < pos.count; i++) {
+          const vx = pos.getX(i);
+          const vy = pos.getY(i) + yTop;
+          const vz = pos.getZ(i);
+          let lift = 0;
+          if (toeSpring && vz > 0.98) {
+            lift = 0.042 * Math.pow((vz - 0.98) / 0.45, 1.8);
+          }
+          pos.setXYZ(i, vx, vy + lift, vz);
+        }
+        const plateCenter = new THREE.Vector3(0, (yTop + yBottom) * 0.5, 0.35);
+        if (geo.index) {
+          ensureOutwardWinding(geo, (centroid, out) => {
+            out.subVectors(centroid, plateCenter).normalize();
+          });
+        } else {
+          geo.computeVertexNormals();
+        }
+        return geo;
+      };
+
+      // 2. Main Full-Length Midsole/Outsole Base (y = 0.11 to 0.235)
+      const mainSoleGeo = createSolePlate(1.03, 1.018, 0.235, 0.11, -10, 10, true);
+      const mainSoleMesh = new THREE.Mesh(mainSoleGeo, outsoleMat);
+      mainSoleMesh.castShadow = true;
+      mainSoleMesh.receiveShadow = true;
+      group.add(mainSoleMesh);
+
+      // 3. Solid Block Heel Base (y = 0.025 to 0.125, z from -0.60 to -0.05)
+      const heelGeo = createSolePlate(1.025, 1.015, 0.125, 0.025, -0.60, -0.05, false);
+      const heelMesh = new THREE.Mesh(heelGeo, outsoleMat);
+      heelMesh.castShadow = true;
+      heelMesh.receiveShadow = true;
+      group.add(heelMesh);
+
+      // 4. Perimeter Lug Teeth around Forefoot & Heel (creates iconic notched silhouette)
+      const lugCount = 54;
+      for (let i = 0; i < lugCount; i++) {
+        const theta = (i / lugCount) * Math.PI * 2;
+        const base = getBootShellPoint(WELT_Y, theta, sideSign, false);
+        const z = base.z * 1.015;
+        const x = base.x * 1.022;
+
+        // Skip the midfoot arch waist gap between heel (-0.05) and forefoot (+0.24)
+        if (z > -0.06 && z < 0.22) continue;
+
+        const isHeel = z <= -0.06;
+        const toeLift = !isHeel && z > 0.98 ? 0.042 * Math.pow((z - 0.98) / 0.45, 1.8) : 0;
+
+        const lugH = isHeel ? 0.036 : 0.044;
+        const lugY = (isHeel ? 0.018 : 0.095) + toeLift;
+
+        const radialOut = new THREE.Vector3(x, 0, z - 0.15).normalize();
+        const lugPos = new THREE.Vector3(x, lugY, z).addScaledVector(radialOut, -0.018);
+
+        const lugBox = new THREE.Mesh(
+          new THREE.BoxGeometry(0.058, lugH, 0.065),
+          outsoleMat
+        );
+        lugBox.position.copy(lugPos);
+        lugBox.rotation.y = Math.atan2(radialOut.x, radialOut.z);
+        lugBox.castShadow = true;
+        group.add(lugBox);
+      }
+
+      // 5. Underfoot 3D Tread Pattern (Forefoot & Heel Chevron/Block Lugs for 360° sole inspection)
+      // Forefoot tread rows (z from 0.28 to 1.28)
+      const foreRows = 11;
+      for (let r = 0; r < foreRows; r++) {
+        const t = r / (foreRows - 1);
+        const z = 0.28 + t * 0.98;
+        const toeLift = z > 0.98 ? 0.042 * Math.pow((z - 0.98) / 0.45, 1.8) : 0;
+
+        // Estimate half-width at this Z
+        const halfW = 0.36 * Math.sin(Math.acos(Math.max(-0.92, Math.min(0.92, (z - 0.72) / 0.68))));
+        const cols = halfW > 0.24 ? 3 : 2;
+
+        for (let c = 0; c < cols; c++) {
+          const frac = cols === 1 ? 0 : (c / (cols - 1) - 0.5) * 1.45;
+          const x = frac * halfW;
+          const treadBlock = new THREE.Mesh(
+            new THREE.BoxGeometry(0.11, 0.026, 0.052),
+            outsoleMat
+          );
+          treadBlock.position.set(x, 0.092 + toeLift, z);
+          // Slight classic herringbone chevron angle
+          treadBlock.rotation.y = (x >= 0 ? 1 : -1) * 0.16;
+          group.add(treadBlock);
+        }
+      }
+
+      // Heel tread blocks (z from -0.52 to -0.11)
+      const heelRows = 5;
+      for (let r = 0; r < heelRows; r++) {
+        const z = -0.51 + (r / (heelRows - 1)) * 0.39;
+        for (let c = -1; c <= 1; c++) {
+          const x = c * 0.135;
+          const heelLug = new THREE.Mesh(
+            new THREE.BoxGeometry(0.105, 0.024, 0.055),
+            outsoleMat
+          );
+          heelLug.position.set(x, 0.012, z);
+          group.add(heelLug);
+        }
+      }
+
+      return group;
+    }
+
+    /**
+     * Assembles one complete HUNTER Original Tall boot (left or right).
+     * @param {number} sideSign - -1 for Right Boot (outer side -X), +1 for Left Boot (outer side +X)
+     */
+    function createHunterBoot(sideSign, materials) {
+      const bootGroup = new THREE.Group();
+
+      // 1. Main Vulcanized Red Rubber Shell
+      const upperMesh = new THREE.Mesh(buildBootUpperGeometry(sideSign), materials.cardinalRubber);
+      upperMesh.castShadow = true;
+      upperMesh.receiveShadow = true;
+      bootGroup.add(upperMesh);
+
+      // 2. Dark Burgundy Interior Lining & Insole
+      const liningMesh = new THREE.Mesh(buildBootLiningGeometry(sideSign), materials.burgundyLining);
+      liningMesh.receiveShadow = true;
+      bootGroup.add(liningMesh);
+
+      // 3. Top Collar Band with Zig-Zag Embossed Trim
+      const collarMesh = new THREE.Mesh(buildTopCollarTrimGeometry(sideSign), materials.collarRubber);
+      collarMesh.castShadow = true;
+      collarMesh.receiveShadow = true;
+      bootGroup.add(collarMesh);
+
+      // 4. Signature Molded Piping Seams (Moustache, Heel Counter, Toe Cap, Ankle)
+      bootGroup.add(buildBootSeamsGroup(sideSign, materials.cardinalRubber));
+
+      // 5. Front Rectangular HUNTER Logo Patch
+      bootGroup.add(buildHunterFrontBadge(sideSign, materials.logoTexture, materials.cardinalRubber));
+
+      // 6. Outer Side Buckle & Strap Assembly
+      bootGroup.add(buildSideBuckleAssembly(sideSign, materials.cardinalRubber, materials.silverMetal));
+
+      // 7. Welt, Deep Red Lugged Outsole & Block Heel
+      bootGroup.add(buildSoleAndHeelAssembly(sideSign, materials.weltRubber, materials.outsoleRubber));
+
+      return bootGroup;
+    }
+
+    /**
+     * ============================================================================
+     * 4. SCENE, LIGHTING, STUDIO ENVIRONMENT & CAMERA PRESETS
+     * ============================================================================
+     */
+
+    function initApp() {
+      const container = document.getElementById('canvas-container');
+
+      // Renderer setup with physically-based tone mapping & soft shadows
+      const renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        powerPreference: 'high-performance'
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.04;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+
+      // Scene setup with clean bright studio backdrop
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xF2F4F7);
+
+      // Studio IBL environment via RoomEnvironment
+      const pmremGenerator = new THREE.PMREMGenerator(renderer);
+      const roomEnv = new RoomEnvironment();
+      const envRT = pmremGenerator.fromScene(roomEnv, 0.04);
+      scene.environment = envRT.texture;
+      scene.environmentIntensity = 0.58;
+      roomEnv.dispose();
+
+      // Camera setup
+      const camera = new THREE.PerspectiveCamera(
+        36,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100
+      );
+
+      // OrbitControls for smooth 360-degree rotation (including underneath sole), zoom, and pan
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.065;
+      controls.rotateSpeed = 0.85;
+      controls.zoomSpeed = 0.95;
+      controls.panSpeed = 0.8;
+      controls.minDistance = 1.65;
+      controls.maxDistance = 11.5;
+      // Allow full spherical orbit from top-down interior view to bottom-up sole view
+      controls.minPolarAngle = 0.04;
+      controls.maxPolarAngle = Math.PI - 0.04;
+
+      // Studio Three-Point + Bottom Bounce Lighting
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0xe8eaef, 0.55);
+      hemiLight.position.set(0, 8, 0);
+      scene.add(hemiLight);
+
+      // Key Light (front-left-top softbox)
+      const keyLight = new THREE.DirectionalLight(0xfffcf8, 1.45);
+      keyLight.position.set(-4.2, 7.5, 5.2);
+      keyLight.castShadow = true;
+      keyLight.shadow.mapSize.width = 2048;
+      keyLight.shadow.mapSize.height = 2048;
+      keyLight.shadow.camera.near = 1;
+      keyLight.shadow.camera.far = 20;
+      const d = 3.5;
+      keyLight.shadow.camera.left = -d;
+      keyLight.shadow.camera.right = d;
+      keyLight.shadow.camera.top = d;
+      keyLight.shadow.camera.bottom = -d;
+      keyLight.shadow.bias = -0.0004;
+      keyLight.shadow.normalBias = 0.015;
+      scene.add(keyLight);
+
+      // Fill Light (front-right soft fill)
+      const fillLight = new THREE.DirectionalLight(0xf4f7ff, 0.72);
+      fillLight.position.set(5.0, 4.2, 4.0);
+      scene.add(fillLight);
+
+      // Rim / Back Light (separates crimson rubber & silver buckle from light studio background)
+      const rimLight = new THREE.DirectionalLight(0xffffff, 0.95);
+      rimLight.position.set(1.5, 5.8, -5.5);
+      scene.add(rimLight);
+
+      // Gentle Upward Bounce Light so underfoot lugged soles are clearly lit when rotated 360°
+      const bottomBounceLight = new THREE.DirectionalLight(0xf8fafc, 0.48);
+      bottomBounceLight.position.set(0, -5.0, 1.5);
+      scene.add(bottomBounceLight);
+
+      // Generate procedural textures & materials
+      const logoTexture = createHunterLogoTexture();
+      const microGrainTex = createRubberMicroGrainTexture();
+      const collarZigZagTex = createTopCollarZigZagTexture();
+      const contactShadowTex = createContactShadowTexture();
+
+      const materials = {
+        logoTexture,
+        // Signature Hunter Cardinal Red Vulcanized Rubber (100% opaque satin-matte finish)
+        cardinalRubber: new THREE.MeshPhysicalMaterial({
+          color: 0xA01C20,
+          roughness: 0.52,
+          metalness: 0.02,
+          clearcoat: 0.15,
+          clearcoatRoughness: 0.65,
+          bumpMap: microGrainTex,
+          bumpScale: 0.0018,
+          transparent: false,
+          opacity: 1.0,
+          transmission: 0,
+          depthWrite: true,
+          depthTest: true,
+          side: THREE.DoubleSide
+        }),
+        // Top Collar Trim with Zig-Zag embossed bump map
+        collarRubber: new THREE.MeshPhysicalMaterial({
+          color: 0x9E1B20,
+          roughness: 0.52,
+          metalness: 0.02,
+          clearcoat: 0.15,
+          clearcoatRoughness: 0.65,
+          bumpMap: collarZigZagTex,
+          bumpScale: 0.0075,
+          transparent: false,
+          opacity: 1.0,
+          transmission: 0,
+          depthWrite: true,
+          depthTest: true,
+          side: THREE.DoubleSide
+        }),
+        // Slightly deeper crimson welt band
+        weltRubber: new THREE.MeshPhysicalMaterial({
+          color: 0x8B161B,
+          roughness: 0.54,
+          metalness: 0.02,
+          clearcoat: 0.12,
+          clearcoatRoughness: 0.65,
+          transparent: false,
+          opacity: 1.0,
+          transmission: 0,
+          depthWrite: true,
+          depthTest: true,
+          side: THREE.DoubleSide
+        }),
+        // Deep red lugged outsole & block heel (#7A1418)
+        outsoleRubber: new THREE.MeshPhysicalMaterial({
+          color: 0x7A1418,
+          roughness: 0.56,
+          metalness: 0.02,
+          clearcoat: 0.10,
+          clearcoatRoughness: 0.68,
+          bumpMap: microGrainTex,
+          bumpScale: 0.0022,
+          transparent: false,
+          opacity: 1.0,
+          transmission: 0,
+          depthWrite: true,
+          depthTest: true,
+          side: THREE.DoubleSide
+        }),
+        // Dark burgundy interior lining (#5E0F13)
+        burgundyLining: new THREE.MeshStandardMaterial({
+          color: 0x5E0F13,
+          roughness: 0.82,
+          metalness: 0.0,
+          transparent: false,
+          opacity: 1.0,
+          depthWrite: true,
+          depthTest: true,
+          side: THREE.DoubleSide
+        }),
+        // Brushed silver buckle & rivet hardware
+        silverMetal: new THREE.MeshStandardMaterial({
+          color: 0xEAECEF,
+          metalness: 0.88,
+          roughness: 0.25,
+          transparent: false,
+          opacity: 1.0,
+          depthWrite: true,
+          depthTest: true,
+          side: THREE.DoubleSide
+        })
+      };
+
+      // Build the Pair of Boots (Right Boot & Left Boot)
+      const pairGroup = new THREE.Group();
+
+      // Right Boot (sideSign = -1 -> outer buckle on -X side, foreground in 3/4 view)
+      const rightBoot = createHunterBoot(-1, materials);
+      rightBoot.position.set(-0.62, 0, 0.22);
+      rightBoot.rotation.y = 0.04;
+
+      // Left Boot (sideSign = +1 -> outer buckle on +X side, slightly behind in 3/4 view)
+      const leftBoot = createHunterBoot(1, materials);
+      leftBoot.position.set(0.62, 0, -0.22);
+      leftBoot.rotation.y = -0.04;
+
+      pairGroup.add(rightBoot, leftBoot);
+      scene.add(pairGroup);
+
+      // Soft Studio Ground Contact Shadows (visible from above, transparent from below y=0)
+      const shadowPlaneGeo = new THREE.PlaneGeometry(2.3, 3.2);
+      shadowPlaneGeo.rotateX(-Math.PI / 2);
+
+      const rightShadowMat = new THREE.MeshBasicMaterial({
+        map: contactShadowTex,
+        transparent: true,
+        depthWrite: false,
+        side: THREE.FrontSide // Only visible from above; never obscures sole inspection from below!
+      });
+      const rightShadow = new THREE.Mesh(shadowPlaneGeo, rightShadowMat);
+      rightShadow.position.set(-0.62, 0.001, 0.58);
+      rightShadow.rotation.y = 0.04;
+
+      const leftShadow = new THREE.Mesh(shadowPlaneGeo, rightShadowMat);
+      leftShadow.position.set(0.62, 0.001, 0.14);
+      leftShadow.rotation.y = -0.04;
+
+      // Subtle directional shadow receiver on floor
+      const floorGeo = new THREE.PlaneGeometry(18, 18);
+      floorGeo.rotateX(-Math.PI / 2);
+      const floorMat = new THREE.ShadowMaterial({
+        opacity: 0.08,
+        side: THREE.FrontSide
+      });
+      const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+      floorMesh.receiveShadow = true;
+      scene.add(rightShadow, leftShadow, floorMesh);
+
+      /**
+       * ============================================================================
+       * 5. CAMERA PRESETS & SMOOTH TRANSITION CONTROLLER
+       * ============================================================================
+       */
+      const CAMERA_PRESETS = {
+        // Matches the iconic studio 3/4 front-right product photograph
+        front34: {
+          pos: new THREE.Vector3(-2.75, 2.35, 4.35),
+          target: new THREE.Vector3(0.0, 1.88, 0.28)
+        },
+        // True side profile showcasing silhouette, buckle, arch & block heel
+        side: {
+          pos: new THREE.Vector3(-5.15, 2.05, 0.35),
+          target: new THREE.Vector3(0.0, 1.88, 0.32)
+        },
+        // Rear view showcasing calf taper, Achilles curve & heel counters
+        back: {
+          pos: new THREE.Vector3(0.55, 2.35, -4.95),
+          target: new THREE.Vector3(0.0, 1.92, 0.15)
+        },
+        // Close-up on upper shaft, wavy collar, HUNTER logo patch & silver buckle
+        logo: {
+          pos: new THREE.Vector3(-1.62, 3.45, 1.78),
+          target: new THREE.Vector3(-0.56, 3.38, 0.38)
+        },
+        // Underneath view showcasing the deep red lugged tread & block heels
+        sole: {
+          pos: new THREE.Vector3(-1.35, -3.55, 2.35),
+          target: new THREE.Vector3(0.0, 0.20, 0.35)
+        }
+      };
+
+      // Initialize camera at default 3/4 studio view
+      camera.position.copy(CAMERA_PRESETS.front34.pos);
+      controls.target.copy(CAMERA_PRESETS.front34.target);
+      controls.update();
+
+      // Smooth camera transition state
+      let camAnim = null;
+
+      function animateCameraTo(presetKey) {
+        const key = presetKey === 'reset' ? 'front34' : presetKey;
+        const preset = CAMERA_PRESETS[key];
+        if (!preset) return;
+
+        camAnim = {
+          startPos: camera.position.clone(),
+          endPos: preset.pos.clone(),
+          startTarget: controls.target.clone(),
+          endTarget: preset.target.clone(),
+          elapsed: 0,
+          duration: 0.85
+        };
+
+        // Update active button state
+        document.querySelectorAll('.cam-btn[data-preset]').forEach((btn) => {
+          const btnKey = btn.getAttribute('data-preset');
+          btn.classList.toggle('active', btnKey === key);
+        });
+      }
+
+      // Cancel automated camera transition immediately if user manually drags/zooms
+      controls.addEventListener('start', () => {
+        camAnim = null;
+      });
+
+      // Wire up preset buttons
+      document.querySelectorAll('.cam-btn[data-preset]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const preset = btn.getAttribute('data-preset');
+          if (preset === 'reset' && controls.autoRotate) {
+            setAutoRotate(false);
+          }
+          animateCameraTo(preset);
+        });
+      });
+
+      // Auto-rotate toggle logic
+      const autoRotateBtn = document.getElementById('toggle-autorotate');
+      const autoRotateDot = document.getElementById('autorotate-dot');
+      const autoRotateLabel = document.getElementById('autorotate-label');
+
+      function setAutoRotate(enabled) {
+        controls.autoRotate = enabled;
+        controls.autoRotateSpeed = 1.6;
+        if (enabled) {
+          autoRotateBtn.classList.add('active');
+          autoRotateDot.classList.remove('bg-slate-300');
+          autoRotateDot.classList.add('bg-white');
+          autoRotateLabel.textContent = '自動回転 ON';
+        } else {
+          autoRotateBtn.classList.remove('active');
+          autoRotateDot.classList.remove('bg-white');
+          autoRotateDot.classList.add('bg-slate-300');
+          autoRotateLabel.textContent = '自動回転 OFF';
+        }
+      }
+
+      autoRotateBtn.addEventListener('click', () => {
+        setAutoRotate(!controls.autoRotate);
+      });
+
+      // Responsive window resize handling
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      // Fade out loading overlay once first frame is prepared
+      const loadingOverlay = document.getElementById('loading-overlay');
+      requestAnimationFrame(() => {
+        renderer.render(scene, camera);
+        loadingOverlay.style.opacity = '0';
+        setTimeout(() => {
+          loadingOverlay.style.display = 'none';
+        }, 500);
+      });
+
+      // Main animation loop
+      const clock = new THREE.Clock();
+      function animate() {
+        requestAnimationFrame(animate);
+        const dt = Math.min(clock.getDelta(), 0.05);
+
+        if (camAnim) {
+          camAnim.elapsed += dt;
+          const t = Math.min(1, camAnim.elapsed / camAnim.duration);
+          // Smooth cubic-out easing
+          const ease = 1 - Math.pow(1 - t, 3);
+
+          camera.position.lerpVectors(camAnim.startPos, camAnim.endPos, ease);
+          controls.target.lerpVectors(camAnim.startTarget, camAnim.endTarget, ease);
+
+          if (t >= 1) {
+            camAnim = null;
+          }
+        }
+
+        controls.update();
+        renderer.render(scene, camera);
+      }
+
+      animate();
+    }
+
+    // Boot application with error boundary
+    window.addEventListener('DOMContentLoaded', () => {
+      try {
+        initApp();
+      } catch (err) {
+        console.error('3D Viewer initialization failed:', err);
+        const errorBox = document.getElementById('error-box');
+        const errorMsg = document.getElementById('error-message');
+        if (errorBox && errorMsg) {
+          errorMsg.textContent = 'お使いのブラウザ環境でWebGLを初期化できませんでした。ページを再読み込みしてお試しください。';
+          errorBox.classList.remove('hidden');
+        }
+      }
+    });
+  </script>
+</body>
+</html>
