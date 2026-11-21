@@ -1,0 +1,1310 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>ガーベラ 3D ビューア</title>
+  <!-- Tailwind CSS for clean studio UI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & Noto Sans JP -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #FFFFFF;
+      font-family: 'Inter', 'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif;
+      user-select: none;
+    }
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      outline: none;
+    }
+    /* Minimal bright studio glassmorphism */
+    .studio-pill {
+      background: rgba(255, 255, 255, 0.86);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(226, 232, 240, 0.85);
+      box-shadow: 0 8px 28px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.03);
+    }
+    .cam-btn {
+      transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .cam-btn:hover {
+      transform: translateY(-1px);
+    }
+    .cam-btn:active {
+      transform: translateY(0) scale(0.97);
+    }
+    .cam-btn.active {
+      background-color: #EA580C;
+      color: #FFFFFF;
+      box-shadow: 0 4px 12px rgba(234, 88, 12, 0.28);
+    }
+  </style>
+
+  <!-- ES Module Import Map for Three.js & Official Addons -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <!-- Fullscreen 3D Canvas -->
+  <div id="canvas-container"></div>
+
+  <!-- Top-Left Minimal Studio Header -->
+  <header class="fixed top-4 left-4 sm:top-6 sm:left-6 z-10 pointer-events-none max-w-[calc(100vw-2rem)]">
+    <div class="studio-pill rounded-2xl px-4 py-3 sm:px-5 sm:py-3.5 inline-block pointer-events-auto">
+      <div class="flex items-center gap-2.5">
+        <span class="inline-block w-2.5 h-2.5 rounded-full bg-[#F35B13] shadow-sm"></span>
+        <h1 class="text-sm sm:text-base font-bold tracking-tight text-slate-900">
+          ガーベラ 3D ビューア
+        </h1>
+      </div>
+      <p class="mt-1 text-[11px] sm:text-xs text-slate-500 font-medium tracking-wide">
+        ドラッグで360度回転・ホイールで拡大縮小
+      </p>
+    </div>
+  </header>
+
+  <!-- Loading Overlay -->
+  <div id="loading-overlay" class="fixed inset-0 z-30 flex items-center justify-center bg-white transition-opacity duration-500">
+    <div class="flex flex-col items-center gap-3">
+      <div class="w-9 h-9 border-2 border-orange-100 border-t-[#F35B13] rounded-full animate-spin"></div>
+      <p class="text-xs font-medium text-slate-500 tracking-wider">ガーベラ3Dモデルを生成中...</p>
+    </div>
+  </div>
+
+  <!-- Error Message Box -->
+  <div id="error-box" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 p-4">
+    <div class="bg-white rounded-2xl p-6 max-w-md shadow-xl text-center">
+      <h2 class="text-base font-bold text-slate-900 mb-2">3Dビューアの初期化エラー</h2>
+      <p id="error-message" class="text-sm text-slate-600"></p>
+    </div>
+  </div>
+
+  <!-- Bottom Floating Japanese Camera Preset Toolbar -->
+  <nav aria-label="カメラ操作パネル" class="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-10 w-[calc(100vw-1.25rem)] max-w-3xl flex justify-center pointer-events-none">
+    <div class="studio-pill rounded-2xl sm:rounded-full p-1.5 sm:px-2.5 sm:py-2 flex flex-wrap items-center justify-center gap-1 sm:gap-1.5 pointer-events-auto">
+      <button type="button" data-preset="front" class="cam-btn active px-3 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-xs font-semibold text-slate-700 hover:bg-orange-50">
+        正面
+      </button>
+      <button type="button" data-preset="angle34" class="cam-btn px-3 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-xs font-semibold text-slate-700 hover:bg-orange-50">
+        斜め
+      </button>
+      <button type="button" data-preset="side" class="cam-btn px-3 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-xs font-semibold text-slate-700 hover:bg-orange-50">
+        真横
+      </button>
+      <button type="button" data-preset="back" class="cam-btn px-3 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-xs font-semibold text-slate-700 hover:bg-orange-50">
+        背面
+      </button>
+      <button type="button" data-preset="macro" class="cam-btn px-3 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-xs font-semibold text-slate-700 hover:bg-orange-50">
+        花芯アップ
+      </button>
+
+      <span class="hidden sm:inline-block w-px h-5 bg-slate-200 mx-1"></span>
+
+      <button type="button" id="toggle-autorotate" class="cam-btn px-3 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-xs font-semibold text-slate-700 hover:bg-orange-50 flex items-center gap-1.5">
+        <span id="autorotate-dot" class="w-2 h-2 rounded-full bg-slate-300 transition-colors"></span>
+        <span>自動回転</span>
+      </button>
+
+      <button type="button" data-preset="reset" class="cam-btn px-3 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-xs font-semibold text-slate-700 hover:bg-orange-50">
+        リセット
+      </button>
+    </div>
+  </nav>
+
+  <!-- Main Three.js Application Script -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+    /**
+     * ============================================================================
+     * 1. DETERMINISTIC SEEDED PRNG (For consistent, natural botanical variation)
+     * ============================================================================
+     */
+    function createSeededRandom(seed = 4219) {
+      let s = seed % 2147483647;
+      if (s <= 0) s += 2147483646;
+      return () => {
+        s = (s * 16807) % 2147483647;
+        return (s - 1) / 2147483646;
+      };
+    }
+
+    /**
+     * ============================================================================
+     * 2. HIGH-RESOLUTION PROCEDURAL BOTANICAL TEXTURES
+     * ============================================================================
+     */
+
+    /**
+     * Generates colorMap, bumpMap, and roughnessMap for the vibrant orange Gerbera ray petals:
+     * - Deep burnt-orange/vermilion base (#C83307)
+     * - Saturated vivid tangerine mid-blade (#F35B13 to #FA6B1C)
+     * - Warm luminous apricot-orange tips & margins (#FF872E)
+     * - Fine longitudinal botanical veins / striations
+     */
+    function createPetalTextures() {
+      const w = 512;
+      const h = 1024;
+
+      const colorCanvas = document.createElement('canvas');
+      colorCanvas.width = w;
+      colorCanvas.height = h;
+      const cCtx = colorCanvas.getContext('2d');
+
+      const bumpCanvas = document.createElement('canvas');
+      bumpCanvas.width = w;
+      bumpCanvas.height = h;
+      const bCtx = bumpCanvas.getContext('2d');
+
+      const roughCanvas = document.createElement('canvas');
+      roughCanvas.width = w;
+      roughCanvas.height = h;
+      const rCtx = roughCanvas.getContext('2d');
+
+      // Base vertical color gradient (v = 0 at bottom/base -> v = 1 at top/tip in Canvas Y inverted)
+      // Canvas Y=0 is top (petal tip), Canvas Y=h is bottom (petal base)
+      const grad = cCtx.createLinearGradient(0, h, 0, 0);
+      grad.addColorStop(0.00, '#B92905'); // Deep vermilion throat at base
+      grad.addColorStop(0.14, '#D63D0B'); // Rich burnt orange lower blade
+      grad.addColorStop(0.36, '#F35B13'); // Vibrant tangerine core
+      grad.addColorStop(0.72, '#FA6B1C'); // Bright saturated orange upper blade
+      grad.addColorStop(0.92, '#FF8128'); // Warm apricot-orange near tip
+      grad.addColorStop(1.00, '#FF8F38'); // Luminous warm tip highlight
+      cCtx.fillStyle = grad;
+      cCtx.fillRect(0, 0, w, h);
+
+      // Subtle lateral edge brightening (margins catch warm translucent-like light)
+      const edgeGrad = cCtx.createLinearGradient(0, 0, w, 0);
+      edgeGrad.addColorStop(0.00, 'rgba(255, 165, 85, 0.26)');
+      edgeGrad.addColorStop(0.16, 'rgba(255, 140, 60, 0.0)');
+      edgeGrad.addColorStop(0.50, 'rgba(180, 40, 5, 0.08)');
+      edgeGrad.addColorStop(0.84, 'rgba(255, 140, 60, 0.0)');
+      edgeGrad.addColorStop(1.00, 'rgba(255, 165, 85, 0.26)');
+      cCtx.fillStyle = edgeGrad;
+      cCtx.fillRect(0, 0, w, h);
+
+      // Neutral mid-gray bump & base roughness
+      bCtx.fillStyle = '#808080';
+      bCtx.fillRect(0, 0, w, h);
+
+      rCtx.fillStyle = '#929292'; // ~0.57 roughness
+      rCtx.fillRect(0, 0, w, h);
+
+      // Fine longitudinal botanical veins & micro-striations
+      const rand = createSeededRandom(9012);
+      const veinCount = 96;
+      for (let i = 0; i < veinCount; i++) {
+        const u = (i + 0.5) / veinCount;
+        const xBase = w * 0.5 + (u - 0.5) * w * 0.55;
+        const xMid = u * w + (rand() - 0.5) * 6;
+        const xTip = w * 0.5 + (u - 0.5) * w * 0.78;
+
+        const isPrimaryVein = i % 6 === 0;
+        const lineW = isPrimaryVein ? 2.4 : 1.1;
+
+        // Color striation
+        cCtx.beginPath();
+        cCtx.moveTo(xBase, h);
+        cCtx.quadraticCurveTo(xMid, h * 0.5, xTip, 0);
+        cCtx.strokeStyle = isPrimaryVein
+          ? 'rgba(175, 42, 6, 0.22)'
+          : rand() > 0.5
+            ? 'rgba(255, 158, 72, 0.16)'
+            : 'rgba(195, 52, 10, 0.12)';
+        cCtx.lineWidth = lineW;
+        cCtx.stroke();
+
+        // Bump ridge/groove
+        bCtx.beginPath();
+        bCtx.moveTo(xBase, h);
+        bCtx.quadraticCurveTo(xMid, h * 0.5, xTip, 0);
+        bCtx.strokeStyle = isPrimaryVein ? 'rgba(45, 45, 45, 0.55)' : 'rgba(215, 215, 215, 0.35)';
+        bCtx.lineWidth = lineW;
+        bCtx.stroke();
+
+        // Subtle roughness variation along veins
+        rCtx.beginPath();
+        rCtx.moveTo(xBase, h);
+        rCtx.quadraticCurveTo(xMid, h * 0.5, xTip, 0);
+        rCtx.strokeStyle = isPrimaryVein ? 'rgba(180, 180, 180, 0.3)' : 'rgba(115, 115, 115, 0.25)';
+        rCtx.lineWidth = lineW;
+        rCtx.stroke();
+      }
+
+      // Micro-velvety cellular noise across petal surface
+      const bImg = bCtx.getImageData(0, 0, w, h);
+      const bData = bImg.data;
+      for (let i = 0; i < bData.length; i += 4) {
+        const grain = (rand() - 0.5) * 24;
+        const val = Math.max(0, Math.min(255, bData[i] + grain));
+        bData[i] = val;
+        bData[i + 1] = val;
+        bData[i + 2] = val;
+      }
+      bCtx.putImageData(bImg, 0, 0);
+
+      const colorMap = new THREE.CanvasTexture(colorCanvas);
+      colorMap.colorSpace = THREE.SRGBColorSpace;
+      colorMap.anisotropy = 8;
+
+      const bumpMap = new THREE.CanvasTexture(bumpCanvas);
+      bumpMap.anisotropy = 4;
+
+      const roughnessMap = new THREE.CanvasTexture(roughCanvas);
+      roughnessMap.anisotropy = 4;
+
+      return { colorMap, bumpMap, roughnessMap };
+    }
+
+    /**
+     * Generates a radial granular golden-yellow texture & bump map for the central disc cushion.
+     */
+    function createDiscCushionTextures() {
+      const size = 512;
+      const cCanvas = document.createElement('canvas');
+      cCanvas.width = size;
+      cCanvas.height = size;
+      const ctx = cCanvas.getContext('2d');
+
+      const bCanvas = document.createElement('canvas');
+      bCanvas.width = size;
+      bCanvas.height = size;
+      const bCtx = bCanvas.getContext('2d');
+
+      const cx = size / 2;
+      const cy = size / 2;
+
+      // Rich golden-yellow radial gradient (#DDA01E -> #EBB62B -> #D48C17)
+      const grad = ctx.createRadialGradient(cx, cy, 8, cx, cy, size * 0.5);
+      grad.addColorStop(0.0, '#E8B228');
+      grad.addColorStop(0.65, '#DFA31F');
+      grad.addColorStop(0.90, '#CE8818');
+      grad.addColorStop(1.0, '#C46C22');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, size, size);
+
+      bCtx.fillStyle = '#555555';
+      bCtx.fillRect(0, 0, size, size);
+
+      // Fibonacci spiral dots matching tightly packed disc florets
+      const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+      const count = 650;
+      for (let i = 0; i < count; i++) {
+        const rNorm = Math.sqrt(i / count);
+        const r = rNorm * (size * 0.48);
+        const theta = i * goldenAngle;
+        const x = cx + Math.cos(theta) * r;
+        const y = cy + Math.sin(theta) * r;
+        const dotR = 3.2 + rNorm * 2.2;
+
+        ctx.beginPath();
+        ctx.arc(x, y, dotR, 0, Math.PI * 2);
+        ctx.fillStyle = i % 3 === 0 ? '#F3C744' : '#C98916';
+        ctx.fill();
+
+        const bGrad = bCtx.createRadialGradient(x, y, 0.5, x, y, dotR * 1.15);
+        bGrad.addColorStop(0, '#FFFFFF');
+        bGrad.addColorStop(1, '#3A3A3A');
+        bCtx.fillStyle = bGrad;
+        bCtx.beginPath();
+        bCtx.arc(x, y, dotR * 1.15, 0, Math.PI * 2);
+        bCtx.fill();
+      }
+
+      const colorMap = new THREE.CanvasTexture(cCanvas);
+      colorMap.colorSpace = THREE.SRGBColorSpace;
+      const bumpMap = new THREE.CanvasTexture(bCanvas);
+      return { colorMap, bumpMap };
+    }
+
+    /**
+     * Generates mottled grayish-sage green fibrous textures for the slender stem & involucral bracts.
+     */
+    function createSageStemTextures() {
+      const w = 256;
+      const h = 1024;
+      const cCanvas = document.createElement('canvas');
+      cCanvas.width = w;
+      cCanvas.height = h;
+      const ctx = cCanvas.getContext('2d');
+
+      const bCanvas = document.createElement('canvas');
+      bCanvas.width = w;
+      bCanvas.height = h;
+      const bCtx = bCanvas.getContext('2d');
+
+      // Base muted grayish-sage green (#959D8A)
+      ctx.fillStyle = '#959D8A';
+      ctx.fillRect(0, 0, w, h);
+
+      bCtx.fillStyle = '#808080';
+      bCtx.fillRect(0, 0, w, h);
+
+      const rand = createSeededRandom(3141);
+
+      // Longitudinal fibrous vascular ridges & organic botanical mottling
+      for (let i = 0; i < 64; i++) {
+        const x = (i / 64) * w;
+        const lineW = 1.5 + rand() * 2.5;
+        ctx.fillStyle = i % 2 === 0 ? 'rgba(134, 143, 122, 0.42)' : 'rgba(172, 180, 162, 0.36)';
+        ctx.fillRect(x, 0, lineW, h);
+
+        bCtx.fillStyle = i % 2 === 0 ? 'rgba(65, 65, 65, 0.45)' : 'rgba(195, 195, 195, 0.45)';
+        bCtx.fillRect(x, 0, lineW, h);
+      }
+
+      // Soft organic pubescence / velvety botanical speckles
+      for (let i = 0; i < 1800; i++) {
+        const x = rand() * w;
+        const y = rand() * h;
+        const rw = 1 + rand() * 3;
+        const rh = 6 + rand() * 26;
+        ctx.fillStyle = rand() > 0.48
+          ? 'rgba(176, 183, 168, 0.16)'
+          : 'rgba(124, 133, 113, 0.16)';
+        ctx.fillRect(x, y, rw, rh);
+      }
+
+      const colorMap = new THREE.CanvasTexture(cCanvas);
+      colorMap.colorSpace = THREE.SRGBColorSpace;
+      colorMap.wrapS = THREE.RepeatWrapping;
+      colorMap.wrapT = THREE.RepeatWrapping;
+      colorMap.repeat.set(1, 3);
+
+      const bumpMap = new THREE.CanvasTexture(bCanvas);
+      bumpMap.wrapS = THREE.RepeatWrapping;
+      bumpMap.wrapT = THREE.RepeatWrapping;
+      bumpMap.repeat.set(1, 3);
+
+      return { colorMap, bumpMap };
+    }
+
+    /**
+     * ============================================================================
+     * 3. SCULPTED 3D GERBERA PETAL & INVOLUCRAL BRACT GEOMETRY BUILDERS
+     * ============================================================================
+     */
+
+    /**
+     * Builds a custom-curved 3D BufferGeometry for an individual Gerbera ray petal (ligule).
+     * Local coordinate convention:
+     * - Base attached at origin (0, 0, 0)
+     * - Petal extends outward along +Y (length = `length`)
+     * - Petal width spans along X (max width = `maxWidth`)
+     * - Forward bloom face is +Z (curving gently along Z with longitudinal fluted crease)
+     */
+    function buildGerberaPetalGeometry({
+      length = 1.0,
+      maxWidth = 0.16,
+      archZ = 0.14,
+      recurveTip = -0.05,
+      fluteDepth = 0.016,
+      twistAngle = 0.0,
+      lateralWave = 0.0,
+      notchDepth = 0.022
+    }) {
+      const uSegs = 10; // across width
+      const vSegs = 20; // along length
+
+      const positions = [];
+      const uvs = [];
+      const indices = [];
+
+      for (let iv = 0; iv <= vSegs; iv++) {
+        const v = iv / vSegs; // 0 = base, 1 = tip
+
+        // Authentic Gerbera ligule width profile: narrow base -> widening mid-upper blade -> rounded tip
+        let widthEnvelope;
+        if (v < 0.18) {
+          widthEnvelope = 0.28 + 0.42 * (v / 0.18);
+        } else if (v < 0.78) {
+          const t = (v - 0.18) / 0.60;
+          widthEnvelope = 0.70 + 0.30 * Math.sin(t * Math.PI * 0.65);
+        } else {
+          const t = (v - 0.78) / 0.22;
+          widthEnvelope = 0.96 * Math.sqrt(Math.max(0.002, 1.0 - t * t));
+        }
+
+        const halfW = 0.5 * maxWidth * widthEnvelope;
+
+        // Longitudinal arch profile along Z (curves smoothly forward, then gently relaxes/recurves at tip)
+        const zArch =
+          archZ * Math.sin(v * Math.PI * 0.72) +
+          recurveTip * Math.pow(Math.max(0, (v - 0.65) / 0.35), 2);
+
+        // Subtle organic lateral S-wave & twist along the petal blade
+        const xSway = lateralWave * Math.sin(v * Math.PI * 1.15);
+        const localTwist = twistAngle * Math.pow(v, 1.2);
+        const cosTw = Math.cos(localTwist);
+        const sinTw = Math.sin(localTwist);
+
+        for (let iu = 0; iu <= uSegs; iu++) {
+          const u = iu / uSegs; // 0 = left edge, 0.5 = center rib, 1 = right edge
+          const s = (u - 0.5) * 2.0; // -1 to +1
+
+          // Characteristic subtle two-toothed / notched Gerbera tip indentation
+          const notchMask = Math.pow(v, 5) * Math.exp(-Math.pow(s / 0.26, 2));
+          const sideLobeBoost = Math.pow(v, 4) * Math.exp(-Math.pow((Math.abs(s) - 0.45) / 0.28, 2));
+          const effectiveV = Math.max(0, v - notchDepth * notchMask + notchDepth * 0.45 * sideLobeBoost);
+
+          const rawX = s * halfW;
+          const rawY = effectiveV * length;
+
+          // U/V-shaped longitudinal fluted trough (depressed along centerline s=0, raised along outer ribs)
+          const fluteProfile = fluteDepth * Math.sin(v * Math.PI * 0.92) * (Math.pow(Math.abs(s), 1.45) - 0.38);
+          // Micro longitudinal rib ripples for subtle light-catching texture
+          const microRib = 0.0018 * Math.sin(v * Math.PI) * Math.cos(s * Math.PI * 3.0);
+
+          const localZ = zArch + fluteProfile + microRib;
+
+          // Apply gentle longitudinal twist around petal Y axis
+          const twistedX = rawX * cosTw - localZ * sinTw + xSway;
+          const twistedZ = rawX * sinTw + localZ * cosTw;
+
+          positions.push(twistedX, rawY, twistedZ);
+          uvs.push(u, v);
+        }
+      }
+
+      const stride = uSegs + 1;
+      for (let iv = 0; iv < vSegs; iv++) {
+        for (let iu = 0; iu < uSegs; iu++) {
+          const a = iv * stride + iu;
+          const b = a + 1;
+          const c = (iv + 1) * stride + iu;
+          const d = c + 1;
+
+          // Counter-clockwise winding facing +Z (front of petal)
+          indices.push(a, b, c);
+          indices.push(b, d, c);
+        }
+      }
+
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      geo.setIndex(indices);
+      geo.computeVertexNormals();
+      return geo;
+    }
+
+    /**
+     * Builds a sculpted, pointed lanceolate green involucral bract (phyllary)
+     * with a central dorsal keel ridge for the back calyx of the Gerbera flower.
+     */
+    function buildInvolucralBractGeometry(length = 0.42, maxWidth = 0.088, cupCurve = 0.07) {
+      const uSegs = 6;
+      const vSegs = 12;
+      const positions = [];
+      const uvs = [];
+      const indices = [];
+
+      for (let iv = 0; iv <= vSegs; iv++) {
+        const v = iv / vSegs;
+        // Lanceolate pointed silhouette: broad lower-mid section tapering to sharp acuminate tip
+        const widthProfile = Math.sin(Math.pow(v, 0.72) * Math.PI) * (1.0 - 0.25 * v);
+        const halfW = 0.5 * maxWidth * Math.max(0.01, widthProfile);
+
+        // Curves forward (+Z) to hug the underside of the flower head
+        const zCup = cupCurve * Math.pow(v, 1.45);
+
+        for (let iu = 0; iu <= uSegs; iu++) {
+          const u = iu / uSegs;
+          const s = (u - 0.5) * 2.0; // -1 to +1
+
+          const x = s * halfW;
+          const y = v * length;
+          // Slight outward central dorsal ridge (-Z is outer back side of bract)
+          const keel = -0.008 * (1.0 - Math.abs(s)) * Math.sin(v * Math.PI);
+          const z = zCup + keel;
+
+          positions.push(x, y, z);
+          uvs.push(u, v);
+        }
+      }
+
+      const stride = uSegs + 1;
+      for (let iv = 0; iv < vSegs; iv++) {
+        for (let iu = 0; iu < uSegs; iu++) {
+          const a = iv * stride + iu;
+          const b = a + 1;
+          const c = (iv + 1) * stride + iu;
+          const d = c + 1;
+          indices.push(a, b, c);
+          indices.push(b, d, c);
+        }
+      }
+
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      geo.setIndex(indices);
+      geo.computeVertexNormals();
+      return geo;
+    }
+
+    /**
+     * ============================================================================
+     * 4. COMPLETE GERBERA FLOWER HEAD & STEM ASSEMBLY
+     * ============================================================================
+     */
+    function buildGerberaSpecimen() {
+      const rootGroup = new THREE.Group();
+      const rand = createSeededRandom(202611);
+
+      // Generate botanical textures
+      const petalTex = createPetalTextures();
+      const discTex = createDiscCushionTextures();
+      const stemTex = createSageStemTextures();
+
+      // ------------------------------------------------------------------------
+      // MATERIALS (Strictly 100% Opaque: transparent: false, opacity: 1.0, depthWrite: true)
+      // ------------------------------------------------------------------------
+
+      // Main vibrant tangerine-orange ray petal material
+      const mainPetalMaterial = new THREE.MeshPhysicalMaterial({
+        map: petalTex.colorMap,
+        bumpMap: petalTex.bumpMap,
+        bumpScale: 0.0045,
+        roughnessMap: petalTex.roughnessMap,
+        roughness: 0.58,
+        metalness: 0.0,
+        sheen: 0.45,
+        sheenColor: new THREE.Color(0xff9b4a),
+        sheenRoughness: 0.65,
+        clearcoat: 0.04,
+        transparent: false,
+        opacity: 1.0,
+        depthWrite: true,
+        depthTest: true,
+        side: THREE.DoubleSide
+      });
+
+      // Slightly deeper vermilion-tinted material for inner trans-floret petals
+      const innerPetalMaterial = new THREE.MeshPhysicalMaterial({
+        color: new THREE.Color(0xeb4a14),
+        map: petalTex.colorMap,
+        bumpMap: petalTex.bumpMap,
+        bumpScale: 0.004,
+        roughness: 0.62,
+        metalness: 0.0,
+        sheen: 0.35,
+        sheenColor: new THREE.Color(0xff7d36),
+        sheenRoughness: 0.7,
+        transparent: false,
+        opacity: 1.0,
+        depthWrite: true,
+        depthTest: true,
+        side: THREE.DoubleSide
+      });
+
+      // Golden-yellow central cushion material
+      const discCushionMaterial = new THREE.MeshStandardMaterial({
+        map: discTex.colorMap,
+        bumpMap: discTex.bumpMap,
+        bumpScale: 0.014,
+        roughness: 0.86,
+        metalness: 0.0,
+        transparent: false,
+        opacity: 1.0,
+        depthWrite: true,
+        side: THREE.DoubleSide
+      });
+
+      // Grayish-sage green stem & receptacle material (#8D9582 to #A3AB98)
+      const stemMaterial = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(0x98a08d),
+        map: stemTex.colorMap,
+        bumpMap: stemTex.bumpMap,
+        bumpScale: 0.0035,
+        roughness: 0.86,
+        metalness: 0.0,
+        transparent: false,
+        opacity: 1.0,
+        depthWrite: true,
+        side: THREE.DoubleSide
+      });
+
+      // Involucral bract material (#758166 to #8D987D)
+      const bractMaterial = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(0x838e74),
+        map: stemTex.colorMap,
+        bumpMap: stemTex.bumpMap,
+        bumpScale: 0.003,
+        roughness: 0.84,
+        metalness: 0.0,
+        transparent: false,
+        opacity: 1.0,
+        depthWrite: true,
+        side: THREE.DoubleSide
+      });
+
+      // ------------------------------------------------------------------------
+      // A. FLOWER HEAD GROUP (Oriented facing +Z in local flower space)
+      // ------------------------------------------------------------------------
+      const flowerHead = new THREE.Group();
+
+      // 1. Central Golden-Yellow Domed Cushion (Capitulum Core)
+      const coreRadius = 0.255;
+      const coreGeo = new THREE.SphereGeometry(coreRadius, 48, 32, 0, Math.PI * 2, 0, Math.PI * 0.52);
+      coreGeo.rotateX(Math.PI / 2); // Dome faces +Z
+      coreGeo.scale(1.0, 1.0, 0.34); // Gentle natural pillow dome
+      const coreMesh = new THREE.Mesh(coreGeo, discCushionMaterial);
+      coreMesh.position.z = 0.055;
+      coreMesh.castShadow = true;
+      coreMesh.receiveShadow = true;
+      flowerHead.add(coreMesh);
+
+      // Instanced golden-yellow micro-floret granules across the central cushion (Fibonacci spiral)
+      const yellowFloretCount = 340;
+      const yellowGranuleGeo = new THREE.SphereGeometry(0.0115, 8, 6);
+      yellowGranuleGeo.scale(1.0, 1.0, 1.35);
+      const yellowGranuleMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        roughness: 0.82,
+        metalness: 0.0,
+        transparent: false,
+        opacity: 1.0,
+        depthWrite: true
+      });
+      const yellowInstanced = new THREE.InstancedMesh(yellowGranuleGeo, yellowGranuleMat, yellowFloretCount);
+      const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+      const dummy = new THREE.Object3D();
+      const tmpColor = new THREE.Color();
+
+      for (let i = 0; i < yellowFloretCount; i++) {
+        const frac = (i + 0.5) / yellowFloretCount;
+        const r = Math.sqrt(frac) * (coreRadius * 0.94);
+        const theta = i * goldenAngle;
+
+        const x = Math.cos(theta) * r;
+        const y = Math.sin(theta) * r;
+        const domeZ = 0.055 + 0.34 * Math.sqrt(Math.max(0, coreRadius * coreRadius - r * r));
+
+        dummy.position.set(x, y, domeZ + 0.004);
+        dummy.rotation.set(0, 0, theta);
+        const s = 0.85 + rand() * 0.38;
+        dummy.scale.set(s, s, s);
+        dummy.updateMatrix();
+        yellowInstanced.setMatrixAt(i, dummy.matrix);
+
+        // Rich golden-ochre to warm canary variation (#DDA01E to #EBB62B)
+        tmpColor.setHSL(0.112 + (rand() - 0.5) * 0.014, 0.82, 0.49 + (1 - frac) * 0.07);
+        yellowInstanced.setColorAt(i, tmpColor);
+      }
+      yellowInstanced.instanceMatrix.needsUpdate = true;
+      if (yellowInstanced.instanceColor) yellowInstanced.instanceColor.needsUpdate = true;
+      flowerHead.add(yellowInstanced);
+
+      // 2. Fuzzy Frosted Creamy-White / Pale Peach-Ivory Anther Ring (r = 0.235 to 0.365)
+      // Solid underlying pale apricot-cream torus collar so there are zero see-through gaps
+      const fuzzyBaseGeo = new THREE.TorusGeometry(0.295, 0.064, 24, 64);
+      fuzzyBaseGeo.scale(1.0, 1.0, 0.78);
+      const fuzzyBaseMat = new THREE.MeshStandardMaterial({
+        color: 0xe6bfa6,
+        roughness: 0.9,
+        metalness: 0.0,
+        transparent: false,
+        opacity: 1.0,
+        depthWrite: true
+      });
+      const fuzzyBaseMesh = new THREE.Mesh(fuzzyBaseGeo, fuzzyBaseMat);
+      fuzzyBaseMesh.position.z = 0.072;
+      fuzzyBaseMesh.receiveShadow = true;
+      flowerHead.add(fuzzyBaseMesh);
+
+      // ~460 instanced tufted creamy-white & pale peach-apricot florets forming the plush frosted halo
+      const fuzzyCount = 460;
+      const tuftGeo = new THREE.CapsuleGeometry(0.0082, 0.024, 4, 7);
+      tuftGeo.rotateX(Math.PI / 2); // Align along +Z
+      const tuftMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        roughness: 0.92,
+        metalness: 0.0,
+        transparent: false,
+        opacity: 1.0,
+        depthWrite: true
+      });
+      const fuzzyInstanced = new THREE.InstancedMesh(tuftGeo, tuftMat, fuzzyCount);
+
+      for (let i = 0; i < fuzzyCount; i++) {
+        const ringT = (i % 7) / 6; // 7 concentric sub-rows across the ring width
+        const r = 0.238 + ringT * 0.125 + (rand() - 0.5) * 0.014;
+        const theta = (i / fuzzyCount) * Math.PI * 2 * 7 + rand() * 0.28;
+
+        const x = Math.cos(theta) * r;
+        const y = Math.sin(theta) * r;
+        const z = 0.088 + 0.032 * Math.sin(ringT * Math.PI) + rand() * 0.012;
+
+        dummy.position.set(x, y, z);
+        // Splay outward radially as ring progresses from inner yellow disc to outer petals
+        const splayAngle = 0.15 + ringT * 0.58 + (rand() - 0.5) * 0.22;
+        dummy.rotation.set(0, 0, theta);
+        dummy.rotateY(splayAngle);
+
+        const scaleXY = 0.85 + rand() * 0.45;
+        const scaleZ = 0.9 + rand() * 0.5;
+        dummy.scale.set(scaleXY, scaleXY, scaleZ);
+        dummy.updateMatrix();
+        fuzzyInstanced.setMatrixAt(i, dummy.matrix);
+
+        // Frosted creamy-white (#F3EAE0) on upper crown, warm pale apricot-rose (#E2B394) at outer base
+        if (ringT > 0.72 && rand() > 0.35) {
+          tmpColor.setHex(0xe4b292);
+        } else if (rand() > 0.25) {
+          tmpColor.setHex(0xf6efe6);
+        } else {
+          tmpColor.setHex(0xebd4c3);
+        }
+        fuzzyInstanced.setColorAt(i, tmpColor);
+      }
+      fuzzyInstanced.instanceMatrix.needsUpdate = true;
+      if (fuzzyInstanced.instanceColor) fuzzyInstanced.instanceColor.needsUpdate = true;
+      flowerHead.add(fuzzyInstanced);
+
+      // 3. Layered Vibrant Orange Ray Petals (~128 individual 3D sculpted petals across 4 staggered tiers)
+      const petalTiers = [
+        {
+          // Tier 1: Tight inner collar of ~28 short, upright, cupped vermilion trans-florets
+          count: 28,
+          baseRadius: 0.345,
+          zOffset: 0.055,
+          pitchAngle: 1.06, // Upright & slightly cupped inward around the creamy ring
+          lengthMin: 0.30,
+          lengthMax: 0.39,
+          widthMin: 0.072,
+          widthMax: 0.095,
+          archZ: 0.075,
+          recurveTip: 0.045,
+          fluteDepth: 0.013,
+          material: innerPetalMaterial,
+          phaseOffset: 0.0
+        },
+        {
+          // Tier 2: Mid-inner ring of ~32 lush medium-length petals rising around the center
+          count: 32,
+          baseRadius: 0.365,
+          zOffset: 0.032,
+          pitchAngle: 0.54, // ~31° forward tilt
+          lengthMin: 0.68,
+          lengthMax: 0.80,
+          widthMin: 0.125,
+          widthMax: 0.152,
+          archZ: 0.135,
+          recurveTip: -0.025,
+          fluteDepth: 0.017,
+          material: mainPetalMaterial,
+          phaseOffset: 0.095
+        },
+        {
+          // Tier 3: Mid-outer main ring of ~34 full-length vivid tangerine ray petals
+          count: 34,
+          baseRadius: 0.375,
+          zOffset: 0.010,
+          pitchAngle: 0.22, // ~12.5° forward sweep
+          lengthMin: 0.90,
+          lengthMax: 1.03,
+          widthMin: 0.145,
+          widthMax: 0.175,
+          archZ: 0.145,
+          recurveTip: -0.048,
+          fluteDepth: 0.018,
+          material: mainPetalMaterial,
+          phaseOffset: 0.045
+        },
+        {
+          // Tier 4: Outer backing ring of ~34 long ray petals forming the iconic scalloped perimeter
+          count: 34,
+          baseRadius: 0.370,
+          zOffset: -0.014,
+          pitchAngle: -0.03, // Nearly flat / very gently reflexed outward
+          lengthMin: 0.98,
+          lengthMax: 1.13,
+          widthMin: 0.155,
+          widthMax: 0.188,
+          archZ: 0.115,
+          recurveTip: -0.068,
+          fluteDepth: 0.016,
+          material: mainPetalMaterial,
+          phaseOffset: 0.14
+        }
+      ];
+
+      // Pre-generate 6 organic petal geometry variations per tier for rich natural diversity & fast load
+      petalTiers.forEach((tier, tierIdx) => {
+        const geoVariants = [];
+        const variantCount = 6;
+        for (let v = 0; v < variantCount; v++) {
+          const len = tier.lengthMin + (tier.lengthMax - tier.lengthMin) * (v / (variantCount - 1));
+          const wid = tier.widthMin + (tier.widthMax - tier.widthMin) * ((v % 3) / 2);
+          geoVariants.push(
+            buildGerberaPetalGeometry({
+              length: len,
+              maxWidth: wid,
+              archZ: tier.archZ * (0.9 + (v % 3) * 0.1),
+              recurveTip: tier.recurveTip * (0.85 + (v % 2) * 0.3),
+              fluteDepth: tier.fluteDepth,
+              twistAngle: ((v % 3) - 1) * 0.09,
+              lateralWave: ((v % 4) - 1.5) * 0.014,
+              notchDepth: tierIdx === 0 ? 0.010 : 0.022
+            })
+          );
+        }
+
+        for (let i = 0; i < tier.count; i++) {
+          const baseAngle = (i / tier.count) * Math.PI * 2 + tier.phaseOffset;
+          const angleJitter = (rand() - 0.5) * (Math.PI / tier.count) * 0.65;
+          const theta = baseAngle + angleJitter;
+
+          const geo = geoVariants[(i + tierIdx * 2) % variantCount];
+          const petalMesh = new THREE.Mesh(geo, tier.material);
+
+          // Position petal base on the capitulum receptacle perimeter
+          const r = tier.baseRadius + (rand() - 0.5) * 0.016;
+          petalMesh.position.set(
+            Math.cos(theta) * r,
+            Math.sin(theta) * r,
+            tier.zOffset + (rand() - 0.5) * 0.008
+          );
+
+          // Orient petal radially outward in XY plane, then pitch forward (+Z)
+          // Note: petal local +Y is outward length, local +Z is front face
+          petalMesh.rotation.order = 'ZYX';
+          petalMesh.rotation.z = theta - Math.PI / 2;
+          const pitchJitter = (rand() - 0.5) * 0.13;
+          petalMesh.rotation.x = tier.pitchAngle + pitchJitter;
+          // Subtle natural roll so neighboring petals overlap organically
+          petalMesh.rotation.y = (rand() - 0.5) * 0.14;
+
+          // Subtle scale jitter for organic asymmetry
+          const lenScale = 0.94 + rand() * 0.12;
+          const widScale = 0.94 + rand() * 0.12;
+          petalMesh.scale.set(widScale, lenScale, 1.0);
+
+          petalMesh.castShadow = true;
+          petalMesh.receiveShadow = true;
+          flowerHead.add(petalMesh);
+        }
+      });
+
+      // 4. Realistic Backside Receptacle Cup & 38 Overlapping Involucral Bracts (Calyx)
+      // Fleshy muted sage-olive green receptacle cup (#7E896E) behind the petals
+      const receptaclePoints = [
+        new THREE.Vector2(0.001, -0.24), // Smooth junction with top of peduncle stem
+        new THREE.Vector2(0.068, -0.20),
+        new THREE.Vector2(0.115, -0.14),
+        new THREE.Vector2(0.220, -0.07),
+        new THREE.Vector2(0.355, -0.025),
+        new THREE.Vector2(0.390, 0.015),
+        new THREE.Vector2(0.001, 0.025)
+      ];
+      const receptacleGeo = new THREE.LatheGeometry(receptaclePoints, 48);
+      receptacleGeo.rotateX(Math.PI / 2); // Cup opens toward +Z, tapers toward -Z stem attachment
+      const receptacleMesh = new THREE.Mesh(receptacleGeo, stemMaterial);
+      receptacleMesh.castShadow = true;
+      receptacleMesh.receiveShadow = true;
+      flowerHead.add(receptacleMesh);
+
+      // 3 imbricated spiral layers of pointed lanceolate green involucral bracts
+      const bractLayers = [
+        { count: 14, radius: 0.14, zPos: -0.14, length: 0.34, width: 0.076, pitch: 0.42, phase: 0.0 },
+        { count: 13, radius: 0.21, zPos: -0.09, length: 0.42, width: 0.086, pitch: 0.24, phase: 0.22 },
+        { count: 12, radius: 0.28, zPos: -0.045, length: 0.46, width: 0.092, pitch: 0.08, phase: 0.45 }
+      ];
+
+      bractLayers.forEach((layer) => {
+        const bractGeo = buildInvolucralBractGeometry(layer.length, layer.width, 0.065);
+        for (let i = 0; i < layer.count; i++) {
+          const theta = (i / layer.count) * Math.PI * 2 + layer.phase + (rand() - 0.5) * 0.08;
+          const bract = new THREE.Mesh(bractGeo, bractMaterial);
+          bract.position.set(
+            Math.cos(theta) * layer.radius,
+            Math.sin(theta) * layer.radius,
+            layer.zPos + (rand() - 0.5) * 0.006
+          );
+          bract.rotation.order = 'ZYX';
+          bract.rotation.z = theta - Math.PI / 2;
+          bract.rotation.x = layer.pitch + (rand() - 0.5) * 0.09;
+          bract.rotation.y = (rand() - 0.5) * 0.1;
+
+          const s = 0.92 + rand() * 0.16;
+          bract.scale.set(s, s, 1.0);
+          bract.castShadow = true;
+          bract.receiveShadow = true;
+          flowerHead.add(bract);
+        }
+      });
+
+      // Pose the flower head at the top of the stem matching gerbera.jpg:
+      // Positioned around y = 1.48, facing forward (+Z) with a gentle natural 3/4 tilt
+      flowerHead.position.set(0.0, 1.48, 0.18);
+      flowerHead.rotation.order = 'YXZ';
+      flowerHead.rotation.y = -0.05; // Subtle natural turn
+      flowerHead.rotation.x = 0.03;  // Very slight upward/forward poise matching photo
+      flowerHead.rotation.z = -0.02;
+      rootGroup.add(flowerHead);
+
+      // ------------------------------------------------------------------------
+      // B. SLENDER FIBROUS STEM (PEDUNCLE) WITH NATURAL BOTANICAL CURVE
+      // ------------------------------------------------------------------------
+      // Curve descends smoothly from the back receptacle socket (0, 1.45, -0.04) down to y = -3.6
+      const stemCurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0.00, 1.45, -0.03),  // Receptacle junction
+        new THREE.Vector3(-0.02, 0.85, -0.07), // Upper neck below flower head
+        new THREE.Vector3(-0.045, 0.05, -0.05),// Gentle upper-mid botanical bow
+        new THREE.Vector3(-0.055, -1.15, -0.02),
+        new THREE.Vector3(-0.035, -2.40, 0.01),
+        new THREE.Vector3(-0.015, -3.65, 0.03) // Lower stem base
+      ]);
+
+      // Custom finely-fluted tapering cylindrical geometry along the curve
+      const lengthSegs = 96;
+      const radialSegs = 24;
+      const stemPositions = [];
+      const stemUvs = [];
+      const stemIndices = [];
+
+      const frames = stemCurve.computeFrenetFrames(lengthSegs, false);
+
+      for (let il = 0; il <= lengthSegs; il++) {
+        const t = il / lengthSegs; // 0 = top receptacle, 1 = bottom cut end
+        const pt = stemCurve.getPointAt(t);
+        const normal = frames.normals[il];
+        const binormal = frames.binormals[il];
+
+        // Subtle botanical taper: slightly thicker near receptacle neck (0.064) -> slender stem (0.046)
+        const baseRadius = 0.062 - 0.014 * Math.pow(t, 0.65);
+
+        for (let ir = 0; ir <= radialSegs; ir++) {
+          const u = ir / radialSegs;
+          const angle = u * Math.PI * 2;
+
+          // Fine longitudinal botanical fluting ridges along stem circumference
+          const flute = 1.0 + 0.028 * Math.cos(angle * 10);
+          const r = baseRadius * flute;
+
+          const cosA = Math.cos(angle);
+          const sinA = Math.sin(angle);
+
+          const vx = pt.x + r * (cosA * normal.x + sinA * binormal.x);
+          const vy = pt.y + r * (cosA * normal.y + sinA * binormal.y);
+          const vz = pt.z + r * (cosA * normal.z + sinA * binormal.z);
+
+          stemPositions.push(vx, vy, vz);
+          stemUvs.push(u, t * 6.0);
+        }
+      }
+
+      const stemStride = radialSegs + 1;
+      for (let il = 0; il < lengthSegs; il++) {
+        for (let ir = 0; ir < radialSegs; ir++) {
+          const a = il * stemStride + ir;
+          const b = a + 1;
+          const c = (il + 1) * stemStride + ir;
+          const d = c + 1;
+
+          stemIndices.push(a, c, b);
+          stemIndices.push(b, c, d);
+        }
+      }
+
+      // Close bottom stem cut end cleanly so it is solid from underneath
+      const bottomCenterIdx = stemPositions.length / 3;
+      const endPt = stemCurve.getPointAt(1.0);
+      stemPositions.push(endPt.x, endPt.y, endPt.z);
+      stemUvs.push(0.5, 6.0);
+      const lastRingStart = lengthSegs * stemStride;
+      for (let ir = 0; ir < radialSegs; ir++) {
+        stemIndices.push(lastRingStart + ir, bottomCenterIdx, lastRingStart + ir + 1);
+      }
+
+      const stemGeo = new THREE.BufferGeometry();
+      stemGeo.setAttribute('position', new THREE.Float32BufferAttribute(stemPositions, 3));
+      stemGeo.setAttribute('uv', new THREE.Float32BufferAttribute(stemUvs, 2));
+      stemGeo.setIndex(stemIndices);
+      stemGeo.computeVertexNormals();
+
+      const stemMesh = new THREE.Mesh(stemGeo, stemMaterial);
+      stemMesh.castShadow = true;
+      stemMesh.receiveShadow = true;
+      rootGroup.add(stemMesh);
+
+      return rootGroup;
+    }
+
+    /**
+     * ============================================================================
+     * 5. STUDIO SCENE, LIGHTING, 360° ORBIT CONTROLS & CAMERA PRESETS
+     * ============================================================================
+     */
+    function initApp() {
+      const container = document.getElementById('canvas-container');
+
+      // WebGLRenderer with physically-based ACES Filmic tone mapping & soft shadows
+      const renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        powerPreference: 'high-performance'
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.03;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+
+      // Clean bright studio white background (#FFFFFF)
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xffffff);
+
+      // Soft studio IBL reflections via RoomEnvironment
+      const pmremGenerator = new THREE.PMREMGenerator(renderer);
+      const roomEnv = new RoomEnvironment();
+      const envRT = pmremGenerator.fromScene(roomEnv, 0.04);
+      scene.environment = envRT.texture;
+      scene.environmentIntensity = 0.48;
+      roomEnv.dispose();
+
+      // Perspective camera
+      const camera = new THREE.PerspectiveCamera(
+        34,
+        window.innerWidth / window.innerHeight,
+        0.05,
+        100
+      );
+
+      // Smooth 360-degree OrbitControls
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.06;
+      controls.rotateSpeed = 0.85;
+      controls.zoomSpeed = 0.95;
+      controls.panSpeed = 0.8;
+      controls.minDistance = 0.85;
+      controls.maxDistance = 14.0;
+      controls.minPolarAngle = 0.03;
+      controls.maxPolarAngle = Math.PI - 0.03;
+
+      // Balanced Three-Point Studio Lighting + Ambient Hemisphere
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0xf3ede6, 0.65);
+      hemiLight.position.set(0, 8, 0);
+      scene.add(hemiLight);
+
+      // Key Light (top-front-left soft studio key to sculpt petal tiers & center florets)
+      const keyLight = new THREE.DirectionalLight(0xfffdf9, 1.55);
+      keyLight.position.set(-2.8, 5.2, 5.5);
+      keyLight.castShadow = true;
+      keyLight.shadow.mapSize.width = 2048;
+      keyLight.shadow.mapSize.height = 2048;
+      keyLight.shadow.camera.near = 1.0;
+      keyLight.shadow.camera.far = 16.0;
+      const d = 2.4;
+      keyLight.shadow.camera.left = -d;
+      keyLight.shadow.camera.right = d;
+      keyLight.shadow.camera.top = d;
+      keyLight.shadow.camera.bottom = -d;
+      keyLight.shadow.bias = -0.0003;
+      keyLight.shadow.normalBias = 0.012;
+      scene.add(keyLight);
+
+      // Warm Fill Light (front-right soft fill to keep shadows warm and luminous)
+      const fillLight = new THREE.DirectionalLight(0xfff4e8, 0.72);
+      fillLight.position.set(4.2, 2.2, 3.8);
+      scene.add(fillLight);
+
+      // Rim / Back Light (illuminates the sage-green receptacle, bracts & petal edges in 360° views)
+      const rimLight = new THREE.DirectionalLight(0xffffff, 1.05);
+      rimLight.position.set(1.6, 3.5, -5.2);
+      scene.add(rimLight);
+
+      // Build and add the Gerbera daisy specimen
+      const gerberaSpecimen = buildGerberaSpecimen();
+      scene.add(gerberaSpecimen);
+
+      /**
+       * ==========================================================================
+       * 6. CAMERA PRESETS & SMOOTH TRANSITION ANIMATION
+       * ==========================================================================
+       */
+      const CAMERA_PRESETS = {
+        // Matches gerbera.jpg: flower head in upper-center, slender stem extending down
+        front: {
+          pos: new THREE.Vector3(-0.18, 0.28, 7.65),
+          target: new THREE.Vector3(-0.02, 0.12, 0.05)
+        },
+        // Natural 3/4 diagonal angle showcasing 3D petal depth & center dome
+        angle34: {
+          pos: new THREE.Vector3(2.45, 1.85, 3.85),
+          target: new THREE.Vector3(0.0, 1.32, 0.12)
+        },
+        // True side profile showing flower cup thickness, receptacle & stem curve
+        side: {
+          pos: new THREE.Vector3(4.35, 1.42, 0.15),
+          target: new THREE.Vector3(0.0, 1.35, 0.05)
+        },
+        // Back / Calyx view showing sculpted receptacle & overlapping green bracts
+        back: {
+          pos: new THREE.Vector3(-0.85, 1.62, -4.15),
+          target: new THREE.Vector3(0.0, 1.40, 0.02)
+        },
+        // Macro close-up on the golden-yellow florets, creamy-white ring & inner petals
+        macro: {
+          pos: new THREE.Vector3(-0.15, 1.56, 2.02),
+          target: new THREE.Vector3(0.0, 1.48, 0.22)
+        }
+      };
+
+      // Initialize at default Front view matching attached image
+      camera.position.copy(CAMERA_PRESETS.front.pos);
+      controls.target.copy(CAMERA_PRESETS.front.target);
+      controls.update();
+
+      let camAnim = null;
+
+      function animateCameraTo(presetKey) {
+        const key = presetKey === 'reset' ? 'front' : presetKey;
+        const preset = CAMERA_PRESETS[key];
+        if (!preset) return;
+
+        camAnim = {
+          startPos: camera.position.clone(),
+          endPos: preset.pos.clone(),
+          startTarget: controls.target.clone(),
+          endTarget: preset.target.clone(),
+          elapsed: 0,
+          duration: 0.85
+        };
+
+        document.querySelectorAll('.cam-btn[data-preset]').forEach((btn) => {
+          const btnKey = btn.getAttribute('data-preset');
+          btn.classList.toggle('active', btnKey === key);
+        });
+      }
+
+      // Cancel camera preset animation if user manually interacts
+      controls.addEventListener('start', () => {
+        camAnim = null;
+      });
+
+      // Bind preset buttons
+      document.querySelectorAll('.cam-btn[data-preset]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const preset = btn.getAttribute('data-preset');
+          if (preset === 'reset' && controls.autoRotate) {
+            setAutoRotate(false);
+          }
+          animateCameraTo(preset);
+        });
+      });
+
+      // Auto-Rotate toggle button
+      const autoRotateBtn = document.getElementById('toggle-autorotate');
+      const autoRotateDot = document.getElementById('autorotate-dot');
+
+      function setAutoRotate(enabled) {
+        controls.autoRotate = enabled;
+        controls.autoRotateSpeed = 1.65;
+        if (enabled) {
+          autoRotateBtn.classList.add('active');
+          autoRotateDot.classList.remove('bg-slate-300');
+          autoRotateDot.classList.add('bg-white');
+        } else {
+          autoRotateBtn.classList.remove('active');
+          autoRotateDot.classList.remove('bg-white');
+          autoRotateDot.classList.add('bg-slate-300');
+        }
+      }
+
+      autoRotateBtn.addEventListener('click', () => {
+        setAutoRotate(!controls.autoRotate);
+      });
+
+      // Responsive window resize
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      // Fade out loading screen once first frame renders
+      const loadingOverlay = document.getElementById('loading-overlay');
+      requestAnimationFrame(() => {
+        renderer.render(scene, camera);
+        loadingOverlay.style.opacity = '0';
+        setTimeout(() => {
+          loadingOverlay.style.display = 'none';
+        }, 500);
+      });
+
+      // Main animation loop
+      const clock = new THREE.Clock();
+      function animate() {
+        requestAnimationFrame(animate);
+        const dt = Math.min(clock.getDelta(), 0.05);
+
+        if (camAnim) {
+          camAnim.elapsed += dt;
+          const t = Math.min(1, camAnim.elapsed / camAnim.duration);
+          const ease = 1 - Math.pow(1 - t, 3);
+
+          camera.position.lerpVectors(camAnim.startPos, camAnim.endPos, ease);
+          controls.target.lerpVectors(camAnim.startTarget, camAnim.endTarget, ease);
+
+          if (t >= 1) {
+            camAnim = null;
+          }
+        }
+
+        controls.update();
+        renderer.render(scene, camera);
+      }
+
+      animate();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      try {
+        initApp();
+      } catch (err) {
+        console.error('Gerbera 3D Viewer initialization error:', err);
+        const errorBox = document.getElementById('error-box');
+        const errorMsg = document.getElementById('error-message');
+        if (errorBox && errorMsg) {
+          errorMsg.textContent = 'お使いのブラウザ環境でWebGLを初期化できませんでした。ページを再読み込みしてお試しください。';
+          errorBox.classList.remove('hidden');
+        }
+      }
+    });
+  </script>
+</body>
+</html>
