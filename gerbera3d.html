@@ -402,4 +402,770 @@
           const s = (u - 0.5) * 2.0;
 
           const notchMask = Math.pow(v, 5) * Math.exp(-Math.pow(s / 0.26, 2));
-          const sideLobeBoost = Math.pow(v, 4) * Math.exp(-Math.pow((Math.abs(s) -
+          const sideLobeBoost = Math.pow(v, 4) * Math.exp(-Math.pow((Math.abs(s) - 0.45) / 0.28, 2));
+          const effectiveV = Math.max(0, v - notchDepth * notchMask + notchDepth * 0.45 * sideLobeBoost);
+
+          const rawX = s * halfW;
+          const rawY = effectiveV * length;
+
+          const fluteProfile = fluteDepth * Math.sin(v * Math.PI * 0.92) * (Math.pow(Math.abs(s), 1.45) - 0.38);
+          const microRib = 0.0018 * Math.sin(v * Math.PI) * Math.cos(s * Math.PI * 3.0);
+
+          const localZ = zArch + fluteProfile + microRib;
+
+          const twistedX = rawX * cosTw - localZ * sinTw + xSway;
+          const twistedZ = rawX * sinTw + localZ * cosTw;
+
+          positions.push(twistedX, rawY, twistedZ);
+          uvs.push(u, v);
+        }
+      }
+
+      const stride = uSegs + 1;
+      for (let iv = 0; iv < vSegs; iv++) {
+        for (let iu = 0; iu < uSegs; iu++) {
+          const a = iv * stride + iu;
+          const b = a + 1;
+          const c = (iv + 1) * stride + iu;
+          const d = c + 1;
+
+          indices.push(a, b, c);
+          indices.push(b, d, c);
+        }
+      }
+
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      geo.setIndex(indices);
+      geo.computeVertexNormals();
+      return geo;
+    }
+
+    function buildInvolucralBractGeometry(length = 0.42, maxWidth = 0.088, cupCurve = 0.07) {
+      const uSegs = 6;
+      const vSegs = 12;
+      const positions = [];
+      const uvs = [];
+      const indices = [];
+
+      for (let iv = 0; iv <= vSegs; iv++) {
+        const v = iv / vSegs;
+        const widthProfile = Math.sin(Math.pow(v, 0.72) * Math.PI) * (1.0 - 0.25 * v);
+        const halfW = 0.5 * maxWidth * Math.max(0.01, widthProfile);
+        const zCup = cupCurve * Math.pow(v, 1.45);
+
+        for (let iu = 0; iu <= uSegs; iu++) {
+          const u = iu / uSegs;
+          const s = (u - 0.5) * 2.0;
+
+          const x = s * halfW;
+          const y = v * length;
+          const keel = -0.008 * (1.0 - Math.abs(s)) * Math.sin(v * Math.PI);
+          const z = zCup + keel;
+
+          positions.push(x, y, z);
+          uvs.push(u, v);
+        }
+      }
+
+      const stride = uSegs + 1;
+      for (let iv = 0; iv < vSegs; iv++) {
+        for (let iu = 0; iu < uSegs; iu++) {
+          const a = iv * stride + iu;
+          const b = a + 1;
+          const c = (iv + 1) * stride + iu;
+          const d = c + 1;
+          indices.push(a, b, c);
+          indices.push(b, d, c);
+        }
+      }
+
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      geo.setIndex(indices);
+      geo.computeVertexNormals();
+      return geo;
+    }
+
+    function buildGerberaSpecimen() {
+      const rootGroup = new THREE.Group();
+      const rand = createSeededRandom(202611);
+
+      const petalTex = createPetalTextures();
+      const discTex = createDiscCushionTextures();
+      const stemTex = createSageStemTextures();
+
+      const mainPetalMaterial = new THREE.MeshPhysicalMaterial({
+        map: petalTex.colorMap,
+        bumpMap: petalTex.bumpMap,
+        bumpScale: 0.0045,
+        roughnessMap: petalTex.roughnessMap,
+        roughness: 0.58,
+        metalness: 0.0,
+        sheen: 0.45,
+        sheenColor: new THREE.Color(0xff9b4a),
+        sheenRoughness: 0.65,
+        clearcoat: 0.04,
+        transparent: false,
+        opacity: 1.0,
+        depthWrite: true,
+        depthTest: true,
+        side: THREE.DoubleSide
+      });
+
+      const innerPetalMaterial = new THREE.MeshPhysicalMaterial({
+        color: new THREE.Color(0xeb4a14),
+        map: petalTex.colorMap,
+        bumpMap: petalTex.bumpMap,
+        bumpScale: 0.004,
+        roughness: 0.62,
+        metalness: 0.0,
+        sheen: 0.35,
+        sheenColor: new THREE.Color(0xff7d36),
+        sheenRoughness: 0.7,
+        transparent: false,
+        opacity: 1.0,
+        depthWrite: true,
+        depthTest: true,
+        side: THREE.DoubleSide
+      });
+
+      const discCushionMaterial = new THREE.MeshStandardMaterial({
+        map: discTex.colorMap,
+        bumpMap: discTex.bumpMap,
+        bumpScale: 0.014,
+        roughness: 0.86,
+        metalness: 0.0,
+        transparent: false,
+        opacity: 1.0,
+        depthWrite: true,
+        side: THREE.DoubleSide
+      });
+
+      const stemMaterial = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(0x98a08d),
+        map: stemTex.colorMap,
+        bumpMap: stemTex.bumpMap,
+        bumpScale: 0.0035,
+        roughness: 0.86,
+        metalness: 0.0,
+        transparent: false,
+        opacity: 1.0,
+        depthWrite: true,
+        side: THREE.DoubleSide
+      });
+
+      const bractMaterial = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(0x838e74),
+        map: stemTex.colorMap,
+        bumpMap: stemTex.bumpMap,
+        bumpScale: 0.003,
+        roughness: 0.84,
+        metalness: 0.0,
+        transparent: false,
+        opacity: 1.0,
+        depthWrite: true,
+        side: THREE.DoubleSide
+      });
+
+      const flowerHead = new THREE.Group();
+
+      const coreRadius = 0.255;
+      const coreGeo = new THREE.SphereGeometry(coreRadius, 48, 32, 0, Math.PI * 2, 0, Math.PI * 0.52);
+      coreGeo.rotateX(Math.PI / 2);
+      coreGeo.scale(1.0, 1.0, 0.34);
+      const coreMesh = new THREE.Mesh(coreGeo, discCushionMaterial);
+      coreMesh.position.z = 0.055;
+      coreMesh.castShadow = true;
+      coreMesh.receiveShadow = true;
+      flowerHead.add(coreMesh);
+
+      const yellowFloretCount = 340;
+      const yellowGranuleGeo = new THREE.SphereGeometry(0.0115, 8, 6);
+      yellowGranuleGeo.scale(1.0, 1.0, 1.35);
+      const yellowGranuleMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        roughness: 0.82,
+        metalness: 0.0,
+        transparent: false,
+        opacity: 1.0,
+        depthWrite: true
+      });
+      const yellowInstanced = new THREE.InstancedMesh(yellowGranuleGeo, yellowGranuleMat, yellowFloretCount);
+      const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+      const dummy = new THREE.Object3D();
+      const tmpColor = new THREE.Color();
+
+      for (let i = 0; i < yellowFloretCount; i++) {
+        const frac = (i + 0.5) / yellowFloretCount;
+        const r = Math.sqrt(frac) * (coreRadius * 0.94);
+        const theta = i * goldenAngle;
+
+        const x = Math.cos(theta) * r;
+        const y = Math.sin(theta) * r;
+        const domeZ = 0.055 + 0.34 * Math.sqrt(Math.max(0, coreRadius * coreRadius - r * r));
+
+        dummy.position.set(x, y, domeZ + 0.004);
+        dummy.rotation.set(0, 0, theta);
+        const s = 0.85 + rand() * 0.38;
+        dummy.scale.set(s, s, s);
+        dummy.updateMatrix();
+        yellowInstanced.setMatrixAt(i, dummy.matrix);
+
+        tmpColor.setHSL(0.112 + (rand() - 0.5) * 0.014, 0.82, 0.49 + (1 - frac) * 0.07);
+        yellowInstanced.setColorAt(i, tmpColor);
+      }
+      yellowInstanced.instanceMatrix.needsUpdate = true;
+      if (yellowInstanced.instanceColor) yellowInstanced.instanceColor.needsUpdate = true;
+      flowerHead.add(yellowInstanced);
+
+      const fuzzyBaseGeo = new THREE.TorusGeometry(0.295, 0.064, 24, 64);
+      fuzzyBaseGeo.scale(1.0, 1.0, 0.78);
+      const fuzzyBaseMat = new THREE.MeshStandardMaterial({
+        color: 0xe6bfa6,
+        roughness: 0.9,
+        metalness: 0.0,
+        transparent: false,
+        opacity: 1.0,
+        depthWrite: true
+      });
+      const fuzzyBaseMesh = new THREE.Mesh(fuzzyBaseGeo, fuzzyBaseMat);
+      fuzzyBaseMesh.position.z = 0.072;
+      fuzzyBaseMesh.receiveShadow = true;
+      flowerHead.add(fuzzyBaseMesh);
+
+      const fuzzyCount = 460;
+      const tuftGeo = new THREE.CapsuleGeometry(0.0082, 0.024, 4, 7);
+      tuftGeo.rotateX(Math.PI / 2);
+      const tuftMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        roughness: 0.92,
+        metalness: 0.0,
+        transparent: false,
+        opacity: 1.0,
+        depthWrite: true
+      });
+      const fuzzyInstanced = new THREE.InstancedMesh(tuftGeo, tuftMat, fuzzyCount);
+
+      for (let i = 0; i < fuzzyCount; i++) {
+        const ringT = (i % 7) / 6;
+        const r = 0.238 + ringT * 0.125 + (rand() - 0.5) * 0.014;
+        const theta = (i / fuzzyCount) * Math.PI * 2 * 7 + rand() * 0.28;
+
+        const x = Math.cos(theta) * r;
+        const y = Math.sin(theta) * r;
+        const z = 0.088 + 0.032 * Math.sin(ringT * Math.PI) + rand() * 0.012;
+
+        dummy.position.set(x, y, z);
+        const splayAngle = 0.15 + ringT * 0.58 + (rand() - 0.5) * 0.22;
+        dummy.rotation.set(0, 0, theta);
+        dummy.rotateY(splayAngle);
+
+        const scaleXY = 0.85 + rand() * 0.45;
+        const scaleZ = 0.9 + rand() * 0.5;
+        dummy.scale.set(scaleXY, scaleXY, scaleZ);
+        dummy.updateMatrix();
+        fuzzyInstanced.setMatrixAt(i, dummy.matrix);
+
+        if (ringT > 0.72 && rand() > 0.35) {
+          tmpColor.setHex(0xe4b292);
+        } else if (rand() > 0.25) {
+          tmpColor.setHex(0xf6efe6);
+        } else {
+          tmpColor.setHex(0xebd4c3);
+        }
+        fuzzyInstanced.setColorAt(i, tmpColor);
+      }
+      fuzzyInstanced.instanceMatrix.needsUpdate = true;
+      if (fuzzyInstanced.instanceColor) fuzzyInstanced.instanceColor.needsUpdate = true;
+      flowerHead.add(fuzzyInstanced);
+
+      const petalTiers = [
+        {
+          count: 28,
+          baseRadius: 0.345,
+          zOffset: 0.055,
+          pitchAngle: 1.06,
+          lengthMin: 0.30,
+          lengthMax: 0.39,
+          widthMin: 0.072,
+          widthMax: 0.095,
+          archZ: 0.075,
+          recurveTip: 0.045,
+          fluteDepth: 0.013,
+          material: innerPetalMaterial,
+          phaseOffset: 0.0
+        },
+        {
+          count: 32,
+          baseRadius: 0.365,
+          zOffset: 0.032,
+          pitchAngle: 0.54,
+          lengthMin: 0.68,
+          lengthMax: 0.80,
+          widthMin: 0.125,
+          widthMax: 0.152,
+          archZ: 0.135,
+          recurveTip: -0.025,
+          fluteDepth: 0.017,
+          material: mainPetalMaterial,
+          phaseOffset: 0.095
+        },
+        {
+          count: 34,
+          baseRadius: 0.375,
+          zOffset: 0.010,
+          pitchAngle: 0.22,
+          lengthMin: 0.90,
+          lengthMax: 1.03,
+          widthMin: 0.145,
+          widthMax: 0.175,
+          archZ: 0.145,
+          recurveTip: -0.048,
+          fluteDepth: 0.018,
+          material: mainPetalMaterial,
+          phaseOffset: 0.045
+        },
+        {
+          count: 34,
+          baseRadius: 0.370,
+          zOffset: -0.014,
+          pitchAngle: -0.03,
+          lengthMin: 0.98,
+          lengthMax: 1.13,
+          widthMin: 0.155,
+          widthMax: 0.188,
+          archZ: 0.115,
+          recurveTip: -0.068,
+          fluteDepth: 0.016,
+          material: mainPetalMaterial,
+          phaseOffset: 0.14
+        }
+      ];
+
+      petalTiers.forEach((tier, tierIdx) => {
+        const geoVariants = [];
+        const variantCount = 6;
+        for (let v = 0; v < variantCount; v++) {
+          const len = tier.lengthMin + (tier.lengthMax - tier.lengthMin) * (v / (variantCount - 1));
+          const wid = tier.widthMin + (tier.widthMax - tier.widthMin) * ((v % 3) / 2);
+          geoVariants.push(
+            buildGerberaPetalGeometry({
+              length: len,
+              maxWidth: wid,
+              archZ: tier.archZ * (0.9 + (v % 3) * 0.1),
+              recurveTip: tier.recurveTip * (0.85 + (v % 2) * 0.3),
+              fluteDepth: tier.fluteDepth,
+              twistAngle: ((v % 3) - 1) * 0.09,
+              lateralWave: ((v % 4) - 1.5) * 0.014,
+              notchDepth: tierIdx === 0 ? 0.010 : 0.022
+            })
+          );
+        }
+
+        for (let i = 0; i < tier.count; i++) {
+          const baseAngle = (i / tier.count) * Math.PI * 2 + tier.phaseOffset;
+          const angleJitter = (rand() - 0.5) * (Math.PI / tier.count) * 0.65;
+          const theta = baseAngle + angleJitter;
+
+          const geo = geoVariants[(i + tierIdx * 2) % variantCount];
+          const petalMesh = new THREE.Mesh(geo, tier.material);
+
+          const r = tier.baseRadius + (rand() - 0.5) * 0.016;
+          petalMesh.position.set(
+            Math.cos(theta) * r,
+            Math.sin(theta) * r,
+            tier.zOffset + (rand() - 0.5) * 0.008
+          );
+
+          petalMesh.rotation.order = 'ZYX';
+          petalMesh.rotation.z = theta - Math.PI / 2;
+          const pitchJitter = (rand() - 0.5) * 0.13;
+          petalMesh.rotation.x = tier.pitchAngle + pitchJitter;
+          petalMesh.rotation.y = (rand() - 0.5) * 0.14;
+
+          const lenScale = 0.94 + rand() * 0.12;
+          const widScale = 0.94 + rand() * 0.12;
+          petalMesh.scale.set(widScale, lenScale, 1.0);
+
+          petalMesh.castShadow = true;
+          petalMesh.receiveShadow = true;
+          flowerHead.add(petalMesh);
+        }
+      });
+
+      const receptaclePoints = [
+        new THREE.Vector2(0.001, -0.24),
+        new THREE.Vector2(0.068, -0.20),
+        new THREE.Vector2(0.115, -0.14),
+        new THREE.Vector2(0.220, -0.07),
+        new THREE.Vector2(0.355, -0.025),
+        new THREE.Vector2(0.390, 0.015),
+        new THREE.Vector2(0.001, 0.025)
+      ];
+      const receptacleGeo = new THREE.LatheGeometry(receptaclePoints, 48);
+      receptacleGeo.rotateX(Math.PI / 2);
+      const receptacleMesh = new THREE.Mesh(receptacleGeo, stemMaterial);
+      receptacleMesh.castShadow = true;
+      receptacleMesh.receiveShadow = true;
+      flowerHead.add(receptacleMesh);
+
+      const bractLayers = [
+        { count: 14, radius: 0.14, zPos: -0.14, length: 0.34, width: 0.076, pitch: 0.42, phase: 0.0 },
+        { count: 13, radius: 0.21, zPos: -0.09, length: 0.42, width: 0.086, pitch: 0.24, phase: 0.22 },
+        { count: 12, radius: 0.28, zPos: -0.045, length: 0.46, width: 0.092, pitch: 0.08, phase: 0.45 }
+      ];
+
+      bractLayers.forEach((layer) => {
+        const bractGeo = buildInvolucralBractGeometry(layer.length, layer.width, 0.065);
+        for (let i = 0; i < layer.count; i++) {
+          const theta = (i / layer.count) * Math.PI * 2 + layer.phase + (rand() - 0.5) * 0.08;
+          const bract = new THREE.Mesh(bractGeo, bractMaterial);
+          bract.position.set(
+            Math.cos(theta) * layer.radius,
+            Math.sin(theta) * layer.radius,
+            layer.zPos + (rand() - 0.5) * 0.006
+          );
+          bract.rotation.order = 'ZYX';
+          bract.rotation.z = theta - Math.PI / 2;
+          bract.rotation.x = layer.pitch + (rand() - 0.5) * 0.09;
+          bract.rotation.y = (rand() - 0.5) * 0.1;
+
+          const s = 0.92 + rand() * 0.16;
+          bract.scale.set(s, s, 1.0);
+          bract.castShadow = true;
+          bract.receiveShadow = true;
+          flowerHead.add(bract);
+        }
+      });
+
+      flowerHead.position.set(0.0, 1.48, 0.18);
+      flowerHead.rotation.order = 'YXZ';
+      flowerHead.rotation.y = -0.05;
+      flowerHead.rotation.x = 0.03;
+      flowerHead.rotation.z = -0.02;
+      rootGroup.add(flowerHead);
+
+      const stemCurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0.00, 1.45, -0.03),
+        new THREE.Vector3(-0.02, 0.85, -0.07),
+        new THREE.Vector3(-0.045, 0.05, -0.05),
+        new THREE.Vector3(-0.055, -1.15, -0.02),
+        new THREE.Vector3(-0.035, -2.40, 0.01),
+        new THREE.Vector3(-0.015, -3.65, 0.03)
+      ]);
+
+      const lengthSegs = 96;
+      const radialSegs = 24;
+      const stemPositions = [];
+      const stemUvs = [];
+      const stemIndices = [];
+
+      const frames = stemCurve.computeFrenetFrames(lengthSegs, false);
+
+      for (let il = 0; il <= lengthSegs; il++) {
+        const t = il / lengthSegs;
+        const pt = stemCurve.getPointAt(t);
+        const normal = frames.normals[il];
+        const binormal = frames.binormals[il];
+
+        const baseRadius = 0.062 - 0.014 * Math.pow(t, 0.65);
+
+        for (let ir = 0; ir <= radialSegs; ir++) {
+          const u = ir / radialSegs;
+          const angle = u * Math.PI * 2;
+
+          const flute = 1.0 + 0.028 * Math.cos(angle * 10);
+          const r = baseRadius * flute;
+
+          const cosA = Math.cos(angle);
+          const sinA = Math.sin(angle);
+
+          const vx = pt.x + r * (cosA * normal.x + sinA * binormal.x);
+          const vy = pt.y + r * (cosA * normal.y + sinA * binormal.y);
+          const vz = pt.z + r * (cosA * normal.z + sinA * binormal.z);
+
+          stemPositions.push(vx, vy, vz);
+          stemUvs.push(u, t * 6.0);
+        }
+      }
+
+      const stemStride = radialSegs + 1;
+      for (let il = 0; il < lengthSegs; il++) {
+        for (let ir = 0; ir < radialSegs; ir++) {
+          const a = il * stemStride + ir;
+          const b = a + 1;
+          const c = (il + 1) * stemStride + ir;
+          const d = c + 1;
+
+          stemIndices.push(a, c, b);
+          stemIndices.push(b, c, d);
+        }
+      }
+
+      const bottomCenterIdx = stemPositions.length / 3;
+      const endPt = stemCurve.getPointAt(1.0);
+      stemPositions.push(endPt.x, endPt.y, endPt.z);
+      stemUvs.push(0.5, 6.0);
+      const lastRingStart = lengthSegs * stemStride;
+      for (let ir = 0; ir < radialSegs; ir++) {
+        stemIndices.push(lastRingStart + ir, bottomCenterIdx, lastRingStart + ir + 1);
+      }
+
+      const stemGeo = new THREE.BufferGeometry();
+      stemGeo.setAttribute('position', new THREE.Float32BufferAttribute(stemPositions, 3));
+      stemGeo.setAttribute('uv', new THREE.Float32BufferAttribute(stemUvs, 2));
+      stemGeo.setIndex(stemIndices);
+      stemGeo.computeVertexNormals();
+
+      const stemMesh = new THREE.Mesh(stemGeo, stemMaterial);
+      stemMesh.castShadow = true;
+      stemMesh.receiveShadow = true;
+      rootGroup.add(stemMesh);
+
+      return rootGroup;
+    }
+
+    function initApp() {
+      const container = document.getElementById('canvas-container');
+
+      function getViewportSize() {
+        const w = container.clientWidth || window.innerWidth || 300;
+        const h = container.clientHeight || window.innerHeight || 300;
+        return { w, h };
+      }
+      const initSize = getViewportSize();
+
+      const renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+        powerPreference: 'high-performance'
+      });
+      renderer.setClearColor(0x000000, 0);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(initSize.w, initSize.h);
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.03;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+
+      const scene = new THREE.Scene();
+      scene.background = null;
+
+      const pmremGenerator = new THREE.PMREMGenerator(renderer);
+      const roomEnv = new RoomEnvironment();
+      const envRT = pmremGenerator.fromScene(roomEnv, 0.04);
+      scene.environment = envRT.texture;
+      scene.environmentIntensity = 0.48;
+      roomEnv.dispose();
+
+      const camera = new THREE.PerspectiveCamera(
+        34,
+        initSize.w / initSize.h,
+        0.05,
+        100
+      );
+
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.06;
+      controls.rotateSpeed = 0.85;
+      controls.zoomSpeed = 0.95;
+      controls.panSpeed = 0.8;
+      controls.minDistance = 0.85;
+      controls.maxDistance = 14.0;
+      controls.minPolarAngle = 0.03;
+      controls.maxPolarAngle = Math.PI - 0.03;
+
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0xf3ede6, 0.65);
+      hemiLight.position.set(0, 8, 0);
+      scene.add(hemiLight);
+
+      const keyLight = new THREE.DirectionalLight(0xfffdf9, 1.55);
+      keyLight.position.set(-2.8, 5.2, 5.5);
+      keyLight.castShadow = true;
+      keyLight.shadow.mapSize.width = 2048;
+      keyLight.shadow.mapSize.height = 2048;
+      keyLight.shadow.camera.near = 1.0;
+      keyLight.shadow.camera.far = 16.0;
+      const d = 2.4;
+      keyLight.shadow.camera.left = -d;
+      keyLight.shadow.camera.right = d;
+      keyLight.shadow.camera.top = d;
+      keyLight.shadow.camera.bottom = -d;
+      keyLight.shadow.bias = -0.0003;
+      keyLight.shadow.normalBias = 0.012;
+      scene.add(keyLight);
+
+      const fillLight = new THREE.DirectionalLight(0xfff4e8, 0.72);
+      fillLight.position.set(4.2, 2.2, 3.8);
+      scene.add(fillLight);
+
+      const rimLight = new THREE.DirectionalLight(0xffffff, 1.05);
+      rimLight.position.set(1.6, 3.5, -5.2);
+      scene.add(rimLight);
+
+      const gerberaSpecimen = buildGerberaSpecimen();
+      scene.add(gerberaSpecimen);
+
+      const CAMERA_PRESETS = {
+        front: {
+          pos: new THREE.Vector3(-0.18, 0.28, 7.65),
+          target: new THREE.Vector3(-0.02, 0.12, 0.05)
+        },
+        angle34: {
+          pos: new THREE.Vector3(2.45, 1.85, 3.85),
+          target: new THREE.Vector3(0.0, 1.32, 0.12)
+        },
+        side: {
+          pos: new THREE.Vector3(4.35, 1.42, 0.15),
+          target: new THREE.Vector3(0.0, 1.35, 0.05)
+        },
+        back: {
+          pos: new THREE.Vector3(-0.85, 1.62, -4.15),
+          target: new THREE.Vector3(0.0, 1.40, 0.02)
+        },
+        macro: {
+          pos: new THREE.Vector3(-0.15, 1.56, 2.02),
+          target: new THREE.Vector3(0.0, 1.48, 0.22)
+        }
+      };
+
+      camera.position.copy(CAMERA_PRESETS.front.pos);
+      controls.target.copy(CAMERA_PRESETS.front.target);
+      controls.update();
+
+      let camAnim = null;
+
+      function animateCameraTo(presetKey) {
+        const key = presetKey === 'reset' ? 'front' : presetKey;
+        const preset = CAMERA_PRESETS[key];
+        if (!preset) return;
+
+        camAnim = {
+          startPos: camera.position.clone(),
+          endPos: preset.pos.clone(),
+          startTarget: controls.target.clone(),
+          endTarget: preset.target.clone(),
+          elapsed: 0,
+          duration: 0.85
+        };
+
+        document.querySelectorAll('.cam-btn[data-preset]').forEach((btn) => {
+          const btnKey = btn.getAttribute('data-preset');
+          btn.classList.toggle('active', btnKey === key);
+        });
+      }
+
+      controls.addEventListener('start', () => {
+        camAnim = null;
+      });
+
+      document.querySelectorAll('.cam-btn[data-preset]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const preset = btn.getAttribute('data-preset');
+          if (preset === 'reset' && controls.autoRotate) {
+            setAutoRotate(false);
+          }
+          animateCameraTo(preset);
+        });
+      });
+
+      const autoRotateBtn = document.getElementById('toggle-autorotate');
+      const autoRotateDot = document.getElementById('autorotate-dot');
+
+      function setAutoRotate(enabled) {
+        controls.autoRotate = enabled;
+        controls.autoRotateSpeed = 1.65;
+        if (enabled) {
+          autoRotateBtn.classList.add('active');
+          autoRotateDot.classList.remove('bg-slate-300');
+          autoRotateDot.classList.add('bg-white');
+        } else {
+          autoRotateBtn.classList.remove('active');
+          autoRotateDot.classList.remove('bg-white');
+          autoRotateDot.classList.add('bg-slate-300');
+        }
+      }
+
+      autoRotateBtn.addEventListener('click', () => {
+        setAutoRotate(!controls.autoRotate);
+      });
+
+      function updateSize() {
+        const { w, h } = getViewportSize();
+        if (w <= 0 || h <= 0) return;
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h);
+      }
+
+      if (typeof ResizeObserver !== 'undefined') {
+        const ro = new ResizeObserver(() => updateSize());
+        ro.observe(container);
+      }
+      window.addEventListener('resize', updateSize);
+      window.addEventListener('load', updateSize);
+
+      const loadingOverlay = document.getElementById('loading-overlay');
+      requestAnimationFrame(() => {
+        updateSize();
+        renderer.render(scene, camera);
+        loadingOverlay.style.opacity = '0';
+        setTimeout(() => {
+          loadingOverlay.style.display = 'none';
+        }, 500);
+      });
+
+      const clock = new THREE.Clock();
+      function animate() {
+        requestAnimationFrame(animate);
+        const dt = Math.min(clock.getDelta(), 0.05);
+
+        if (camAnim) {
+          camAnim.elapsed += dt;
+          const t = Math.min(1, camAnim.elapsed / camAnim.duration);
+          const ease = 1 - Math.pow(1 - t, 3);
+
+          camera.position.lerpVectors(camAnim.startPos, camAnim.endPos, ease);
+          controls.target.lerpVectors(camAnim.startTarget, camAnim.endTarget, ease);
+
+          if (t >= 1) {
+            camAnim = null;
+          }
+        }
+
+        controls.update();
+        renderer.render(scene, camera);
+      }
+
+      animate();
+    }
+
+    function boot() {
+      try {
+        initApp();
+      } catch (err) {
+        console.error('Gerbera 3D Viewer initialization error:', err);
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (loadingOverlay) loadingOverlay.style.display = 'none';
+        const errorBox = document.getElementById('error-box');
+        const errorMsg = document.getElementById('error-message');
+        if (errorBox && errorMsg) {
+          errorMsg.textContent = 'お使いのブラウザ環境でWebGLを初期化できませんでした。ページを再読み込みしてお試しください。';
+          errorBox.classList.remove('hidden');
+        }
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      window.addEventListener('DOMContentLoaded', boot);
+    } else {
+      boot();
+    }
+  </script>
+</body>
+</html>
