@@ -1,12 +1,10 @@
-<!DOCTYPE html>
+\<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>TAMBURINS BOTTARI 11ML 3D ビューア</title>
-  <!-- Tailwind CSS for minimal luxury studio UI -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Google Fonts: Cormorant Garamond (Luxury Serif), Inter & Noto Sans JP -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet" />
@@ -21,7 +19,7 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background-color: #E5E9EF;
+      background: transparent !important;
       font-family: 'Inter', 'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif;
       user-select: none;
     }
@@ -40,11 +38,11 @@
     }
     /* Minimal frosted architectural studio glassmorphism */
     .studio-glass {
-      background: rgba(255, 255, 255, 0.80);
+      background: rgba(255, 255, 255, 0.84);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(255, 255, 255, 0.92);
-      box-shadow: 0 10px 32px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.03);
+      box-shadow: 0 10px 32px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.04);
     }
     .cam-btn {
       transition: all 0.22s cubic-bezier(0.22, 1, 0.36, 1);
@@ -61,56 +59,26 @@
       box-shadow: 0 4px 12px rgba(24, 25, 28, 0.24);
     }
   </style>
-
-  <!-- ES Module Import Map for Three.js v0.170.0 & Official Addons -->
-  <script type="importmap">
-    {
-      "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
-      }
-    }
-  </script>
 </head>
 <body>
-  <!-- Fullscreen 3D Canvas Container -->
+  <!-- Fullscreen Transparent 3D Canvas Container -->
   <div id="canvas-container"></div>
 
-  <!-- Top-Left Minimal Luxury Brand Header -->
-  <header class="fixed top-4 left-4 sm:top-6 sm:left-6 z-10 pointer-events-none max-w-[calc(100vw-2rem)]">
-    <div class="studio-glass rounded-2xl px-4 py-3 sm:px-5 sm:py-3.5 inline-block pointer-events-auto">
-      <div class="flex items-center gap-2.5">
-        <span class="inline-block w-2.5 h-2.5 rounded-full bg-slate-900 shadow-sm"></span>
-        <h1 class="text-sm sm:text-base font-bold tracking-tight text-slate-900">
-          TAMBURINS BOTTARI 11ML 3D
-        </h1>
-      </div>
-      <p class="mt-1 text-[11px] sm:text-xs text-slate-500 font-medium tracking-wide">
-        左ドラッグ：360度回転 <span class="mx-1 text-slate-300">/</span>
-        ホイール：拡大縮小 <span class="mx-1 text-slate-300">/</span>
-        右ドラッグ：移動
-      </p>
-    </div>
-  </header>
-
-  <!-- Loading Overlay -->
-  <div id="loading-overlay" class="fixed inset-0 z-30 flex items-center justify-center bg-[#E7EBF0] transition-opacity duration-500">
-    <div class="flex flex-col items-center gap-3">
-      <div class="w-9 h-9 border-2 border-slate-300 border-t-slate-900 rounded-full animate-spin"></div>
-      <p class="text-xs font-medium text-slate-600 tracking-wider">TAMBURINS BOTTARI 3Dモデルを生成中...</p>
-    </div>
+  <!-- Transparent Loading Spinner -->
+  <div id="loading-overlay" class="fixed inset-0 z-30 flex items-center justify-center transition-opacity duration-300 pointer-events-none">
+    <div class="w-8 h-8 border-2 border-slate-300/60 border-t-slate-900 rounded-full animate-spin"></div>
   </div>
 
-  <!-- Error Message Box (Hidden unless WebGL fails) -->
-  <div id="error-box" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 p-4">
-    <div class="bg-white rounded-2xl p-6 max-w-md shadow-xl text-center">
-      <h2 class="text-base font-bold text-slate-900 mb-2">3Dビューアの初期化エラー</h2>
-      <p id="error-message" class="text-sm text-slate-600"></p>
+  <!-- Error Message Box (Hidden unless WebGL/network fails) -->
+  <div id="error-box" class="hidden fixed inset-0 z-40 flex items-center justify-center p-4 pointer-events-none">
+    <div class="bg-white/95 backdrop-blur rounded-2xl p-5 max-w-sm shadow-lg border border-slate-200 text-center pointer-events-auto">
+      <h2 class="text-sm font-bold text-slate-900 mb-1.5">3Dモデルを表示できませんでした</h2>
+      <p id="error-message" class="text-xs text-slate-600 leading-relaxed"></p>
     </div>
   </div>
 
   <!-- Bottom Floating Camera Preset & Interactive Cap / Spray Toolbar -->
-  <nav aria-label="カメラ・ボトル操作パネル" class="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-10 w-[calc(100vw-1rem)] max-w-4xl flex justify-center pointer-events-none">
+  <nav aria-label="カメラ・ボトル操作パネル" class="fixed bottom-3 sm:bottom-5 left-1/2 -translate-x-1/2 z-10 w-[calc(100vw-1rem)] max-w-4xl flex justify-center pointer-events-none">
     <div class="studio-glass rounded-2xl sm:rounded-full p-1.5 sm:px-2.5 sm:py-2 flex flex-wrap items-center justify-center gap-1 sm:gap-1.5 pointer-events-auto">
       <button type="button" data-preset="front" class="cam-btn active px-2.5 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-xs font-semibold text-slate-700 hover:bg-slate-200/70">
         正面
@@ -153,15 +121,238 @@
 
   <!-- Main Three.js Application Script -->
   <script type="module">
-    import * as THREE from 'three';
-    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    function hideLoader() {
+      const loadingOverlay = document.getElementById('loading-overlay');
+      if (loadingOverlay) {
+        loadingOverlay.style.opacity = '0';
+        setTimeout(() => {
+          loadingOverlay.style.display = 'none';
+        }, 250);
+      }
+    }
+
+    function showError(text) {
+      const loadingOverlay = document.getElementById('loading-overlay');
+      if (loadingOverlay) loadingOverlay.style.display = 'none';
+      const errorBox = document.getElementById('error-box');
+      const errorMsg = document.getElementById('error-message');
+      if (errorBox && errorMsg) {
+        errorMsg.textContent = text;
+        errorBox.classList.remove('hidden');
+      }
+    }
+
+    function importWithTimeout(url, ms = 4500) {
+      return Promise.race([
+        import(url),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout: ' + url)), ms))
+      ]);
+    }
+
+    async function loadThreeCore() {
+      const cdnUrls = [
+        'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js',
+        'https://unpkg.com/three@0.170.0/build/three.module.js',
+        'https://esm.sh/three@0.170.0'
+      ];
+      let lastErr = null;
+      for (const url of cdnUrls) {
+        try {
+          const mod = await importWithTimeout(url, 4500);
+          if (mod && mod.WebGLRenderer) return mod;
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+      throw lastErr || new Error('Failed to load Three.js');
+    }
+
+    // Built-in smooth 360-degree Orbit/Pinch/Pan controller (zero external addon dependency)
+    function createBuiltInOrbitController(THREE, camera, domElement) {
+      const target = new THREE.Vector3();
+      const spherical = new THREE.Spherical();
+      const sphericalDelta = new THREE.Spherical();
+      const panOffset = new THREE.Vector3();
+      let scale = 1;
+
+      const listeners = { start: [] };
+      const pointers = new Map();
+      let prevPinchDist = 0;
+      let mode = 'none';
+      let prevX = 0;
+      let prevY = 0;
+
+      const controller = {
+        target,
+        enableDamping: true,
+        dampingFactor: 0.065,
+        rotateSpeed: 0.85,
+        zoomSpeed: 0.95,
+        panSpeed: 0.8,
+        minDistance: 2.1,
+        maxDistance: 16.0,
+        minPolarAngle: 0.03,
+        maxPolarAngle: Math.PI - 0.03,
+        autoRotate: false,
+        autoRotateSpeed: 1.65,
+        addEventListener(type, fn) {
+          if (listeners[type]) listeners[type].push(fn);
+        },
+        update() {
+          const offset = new THREE.Vector3().copy(camera.position).sub(target);
+          spherical.setFromVector3(offset);
+
+          if (controller.autoRotate && mode === 'none') {
+            sphericalDelta.theta -= ((2 * Math.PI) / 60 / 60) * controller.autoRotateSpeed;
+          }
+
+          if (controller.enableDamping) {
+            spherical.theta += sphericalDelta.theta * controller.dampingFactor;
+            spherical.phi += sphericalDelta.phi * controller.dampingFactor;
+          } else {
+            spherical.theta += sphericalDelta.theta;
+            spherical.phi += sphericalDelta.phi;
+          }
+
+          spherical.phi = Math.max(controller.minPolarAngle, Math.min(controller.maxPolarAngle, spherical.phi));
+          spherical.makeSafe();
+          spherical.radius *= scale;
+          spherical.radius = Math.max(controller.minDistance, Math.min(controller.maxDistance, spherical.radius));
+
+          if (controller.enableDamping) {
+            target.addScaledVector(panOffset, controller.dampingFactor);
+            panOffset.multiplyScalar(1 - controller.dampingFactor);
+            sphericalDelta.theta *= 1 - controller.dampingFactor;
+            sphericalDelta.phi *= 1 - controller.dampingFactor;
+          } else {
+            target.add(panOffset);
+            panOffset.set(0, 0, 0);
+            sphericalDelta.set(0, 0, 0);
+          }
+
+          scale = 1;
+          offset.setFromSpherical(spherical);
+          camera.position.copy(target).add(offset);
+          camera.lookAt(target);
+        }
+      };
+
+      function notifyStart() {
+        for (const fn of listeners.start) fn();
+      }
+
+      function pan(deltaX, deltaY) {
+        const element = domElement;
+        const offset = new THREE.Vector3().copy(camera.position).sub(target);
+        let targetDistance = offset.length();
+        targetDistance *= Math.tan(((camera.fov / 2) * Math.PI) / 180.0);
+
+        const panLeftDist = (2 * deltaX * targetDistance) / (element.clientHeight || 1);
+        const panUpDist = (2 * deltaY * targetDistance) / (element.clientHeight || 1);
+
+        const v = new THREE.Vector3();
+        v.setFromMatrixColumn(camera.matrix, 0);
+        v.multiplyScalar(-panLeftDist * controller.panSpeed);
+        panOffset.add(v);
+
+        v.setFromMatrixColumn(camera.matrix, 1);
+        v.multiplyScalar(panUpDist * controller.panSpeed);
+        panOffset.add(v);
+      }
+
+      domElement.addEventListener('contextmenu', (e) => e.preventDefault());
+
+      domElement.addEventListener('pointerdown', (e) => {
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        domElement.setPointerCapture(e.pointerId);
+        notifyStart();
+
+        if (pointers.size === 1) {
+          prevX = e.clientX;
+          prevY = e.clientY;
+          mode = e.button === 2 || e.button === 1 || e.shiftKey ? 'pan' : 'rotate';
+        } else if (pointers.size === 2) {
+          const pts = Array.from(pointers.values());
+          prevPinchDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+          prevX = (pts[0].x + pts[1].x) * 0.5;
+          prevY = (pts[0].y + pts[1].y) * 0.5;
+          mode = 'pinch';
+        }
+      });
+
+      domElement.addEventListener('pointermove', (e) => {
+        if (!pointers.has(e.pointerId)) return;
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+        if (pointers.size === 1 && (mode === 'rotate' || mode === 'pan')) {
+          const dx = e.clientX - prevX;
+          const dy = e.clientY - prevY;
+          prevX = e.clientX;
+          prevY = e.clientY;
+          const h = domElement.clientHeight || 500;
+
+          if (mode === 'rotate') {
+            sphericalDelta.theta -= ((2 * Math.PI * dx) / h) * controller.rotateSpeed;
+            sphericalDelta.phi -= ((2 * Math.PI * dy) / h) * controller.rotateSpeed;
+          } else {
+            pan(dx, dy);
+          }
+        } else if (pointers.size === 2) {
+          const pts = Array.from(pointers.values());
+          const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+          if (prevPinchDist > 0 && dist > 0) {
+            scale *= Math.pow(prevPinchDist / dist, controller.zoomSpeed);
+          }
+          prevPinchDist = dist;
+
+          const cx = (pts[0].x + pts[1].x) * 0.5;
+          const cy = (pts[0].y + pts[1].y) * 0.5;
+          pan(cx - prevX, cy - prevY);
+          prevX = cx;
+          prevY = cy;
+        }
+      });
+
+      function onPointerUp(e) {
+        pointers.delete(e.pointerId);
+        if (pointers.size === 0) {
+          mode = 'none';
+          prevPinchDist = 0;
+        } else if (pointers.size === 1) {
+          const rem = Array.from(pointers.values())[0];
+          prevX = rem.x;
+          prevY = rem.y;
+          mode = 'rotate';
+        }
+      }
+
+      domElement.addEventListener('pointerup', onPointerUp);
+      domElement.addEventListener('pointercancel', onPointerUp);
+
+      domElement.addEventListener(
+        'wheel',
+        (e) => {
+          e.preventDefault();
+          notifyStart();
+          const zoomFactor = Math.pow(0.95, controller.zoomSpeed);
+          if (e.deltaY < 0) {
+            scale *= zoomFactor;
+          } else if (e.deltaY > 0) {
+            scale /= zoomFactor;
+          }
+        },
+        { passive: false }
+      );
+
+      return controller;
+    }
 
     /**
      * ============================================================================
      * 1. CUSTOM STUDIO REFLECTION ENVIRONMENT (For Liquid-Mirror Chrome & Optical Glass)
      * ============================================================================
      */
-    function createStudioReflectionEnvMap(renderer) {
+    function createStudioReflectionEnvMap(THREE, renderer) {
       const w = 2048;
       const h = 1024;
       const canvas = document.createElement('canvas');
@@ -169,25 +360,23 @@
       canvas.height = h;
       const ctx = canvas.getContext('2d');
 
-      // High-contrast liquid-mirror silver chrome studio environment gradient
       const skyFloorGrad = ctx.createLinearGradient(0, 0, 0, h);
-      skyFloorGrad.addColorStop(0.00, '#FFFFFF');   // Luminous white crown rim highlight
-      skyFloorGrad.addColorStop(0.11, '#F2F4F8');   // Bright overhead softbox falloff
-      skyFloorGrad.addColorStop(0.17, '#A7AFB9');   // Crisp upper silver-to-dark-chrome transition
-      skyFloorGrad.addColorStop(0.24, '#4B505A');   // Deep gunmetal-chrome upper arch
-      skyFloorGrad.addColorStop(0.34, '#24272E');   // Rich dark mirror-chrome reflection band
-      skyFloorGrad.addColorStop(0.45, '#333740');   // Lower dark-chrome gradient
-      skyFloorGrad.addColorStop(0.492, '#1C1F25');  // Sharp dark charcoal equator horizon edge
-      skyFloorGrad.addColorStop(0.506, '#AEB5BF');  // Crisp horizon transition
-      skyFloorGrad.addColorStop(0.520, '#E9ECEF');  // Bright pearl-silver lower tabletop reflection
-      skyFloorGrad.addColorStop(0.64, '#F5F6F8');   // Luminous studio tabletop bounce
-      skyFloorGrad.addColorStop(0.80, '#E3E6EC');   // Subtle mid-lower silver contour
-      skyFloorGrad.addColorStop(0.92, '#C2C8D1');   // Soft underside shadow near neck collar
-      skyFloorGrad.addColorStop(1.00, '#AEB5C0');   // Base collar reflection
+      skyFloorGrad.addColorStop(0.00, '#FFFFFF');
+      skyFloorGrad.addColorStop(0.11, '#F2F4F8');
+      skyFloorGrad.addColorStop(0.17, '#A7AFB9');
+      skyFloorGrad.addColorStop(0.24, '#4B505A');
+      skyFloorGrad.addColorStop(0.34, '#24272E');
+      skyFloorGrad.addColorStop(0.45, '#333740');
+      skyFloorGrad.addColorStop(0.492, '#1C1F25');
+      skyFloorGrad.addColorStop(0.506, '#AEB5BF');
+      skyFloorGrad.addColorStop(0.520, '#E9ECEF');
+      skyFloorGrad.addColorStop(0.64, '#F5F6F8');
+      skyFloorGrad.addColorStop(0.80, '#E3E6EC');
+      skyFloorGrad.addColorStop(0.92, '#C2C8D1');
+      skyFloorGrad.addColorStop(1.00, '#AEB5C0');
       ctx.fillStyle = skyFloorGrad;
       ctx.fillRect(0, 0, w, h);
 
-      // Helper for soft-edged studio softbox light panels
       const drawStudioSoftbox = (cx, cy, rx, ry, innerAlpha = 0.98) => {
         ctx.save();
         ctx.translate(cx, cy);
@@ -204,15 +393,11 @@
         ctx.restore();
       };
 
-      // Signature upper-left-center studio softbox reflection inside the dark chrome arch
       drawStudioSoftbox(w * 0.455, h * 0.31, w * 0.048, h * 0.058, 0.98);
-
-      // Left & right side rim softboxes for bright white edge highlights & 360-degree luster
       drawStudioSoftbox(w * 0.255, h * 0.35, w * 0.068, h * 0.095, 0.96);
       drawStudioSoftbox(w * 0.725, h * 0.34, w * 0.065, h * 0.090, 0.95);
       drawStudioSoftbox(w * 0.945, h * 0.35, w * 0.060, h * 0.085, 0.92);
 
-      // Crisp vertical dark/light reflection columns along the horizon for the cylindrical neck collar
       const collarStripes = [
         [0.18, 0.022, 'rgba(32, 36, 44, 0.38)'],
         [0.29, 0.018, 'rgba(255, 255, 255, 0.55)'],
@@ -247,50 +432,9 @@
     }
 
     /**
-     * Generates the cool architectural silver-mist studio backdrop texture
-     * matching the vertical brushed wall-to-white-tabletop gradient in the photo.
-     */
-    function createStudioBackdropTexture() {
-      const w = 1024;
-      const h = 1024;
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext('2d');
-
-      const bgGrad = ctx.createLinearGradient(0, 0, 0, h);
-      bgGrad.addColorStop(0.00, '#EEF1F5');
-      bgGrad.addColorStop(0.28, '#DCE1E7');
-      bgGrad.addColorStop(0.68, '#D6DCE3');
-      bgGrad.addColorStop(0.81, '#E6EAF0');
-      bgGrad.addColorStop(0.86, '#F7F8FA');
-      bgGrad.addColorStop(1.00, '#FFFFFF');
-      ctx.fillStyle = bgGrad;
-      ctx.fillRect(0, 0, w, h);
-
-      let seed = 4099;
-      const rand = () => {
-        seed = (seed * 16807) % 2147483647;
-        return (seed - 1) / 2147483646;
-      };
-      for (let i = 0; i < 420; i++) {
-        const x = rand() * w;
-        const y = rand() * (h * 0.80);
-        const len = 40 + rand() * 160;
-        ctx.fillStyle = rand() > 0.5 ? 'rgba(255, 255, 255, 0.08)' : 'rgba(175, 184, 196, 0.07)';
-        ctx.fillRect(x, y, 1.5, len);
-      }
-
-      const tex = new THREE.CanvasTexture(canvas);
-      tex.colorSpace = THREE.SRGBColorSpace;
-      return tex;
-    }
-
-    /**
      * Generates the crisp vertical "TAMBURINS" and "BOTTARI" silkscreen print texture
-     * for the front glass face (transparent background with crisp jet-black ink).
      */
-    function createBottleTypographyTexture() {
+    function createBottleTypographyTexture(THREE) {
       const w = 1024;
       const h = 2048;
       const canvas = document.createElement('canvas');
@@ -300,7 +444,7 @@
 
       ctx.clearRect(0, 0, w, h);
 
-      // 1. Primary Brand Wordmark: "TAMBURINS" (Vertical bottom-to-top, luxury serif)
+      // 1. Primary Brand Wordmark: "TAMBURINS"
       ctx.save();
       ctx.translate(w * 0.432, h * 0.515);
       ctx.rotate(-Math.PI / 2);
@@ -330,7 +474,7 @@
       }
       ctx.restore();
 
-      // 2. Fragrance Name: "BOTTARI" (Vertical bottom-to-top, clean tracked sans-serif)
+      // 2. Fragrance Name: "BOTTARI"
       ctx.save();
       ctx.translate(w * 0.562, h * 0.585);
       ctx.rotate(-Math.PI / 2);
@@ -362,10 +506,7 @@
       return tex;
     }
 
-    /**
-     * Generates a soft tabletop contact shadow texture.
-     */
-    function createTableShadowTexture() {
+    function createTableShadowTexture(THREE) {
       const size = 512;
       const canvas = document.createElement('canvas');
       canvas.width = size;
@@ -385,10 +526,7 @@
       return new THREE.CanvasTexture(canvas);
     }
 
-    /**
-     * Generates a soft radial mist & micro-droplet texture for the atomizer spray plume.
-     */
-    function createMistParticleTexture() {
+    function createMistParticleTexture(THREE) {
       const size = 128;
       const canvas = document.createElement('canvas');
       canvas.width = size;
@@ -415,11 +553,6 @@
      * 2. SCULPTED 3D GEOMETRY BUILDERS (Chamfered Glass Flacon & Pebble Cap)
      * ============================================================================
      */
-
-    /**
-     * Evaluates a smooth superellipse point (rounded-corner square cross-section)
-     * for the architectural glass bottle.
-     */
     function evalRoundedSquarePoint(theta, halfW, exponent = 6.5) {
       const cosT = Math.cos(theta);
       const sinT = Math.sin(theta);
@@ -429,11 +562,7 @@
       return { x, z };
     }
 
-    /**
-     * Builds the closed outer optical crystal glass bottle (y = 0 to height)
-     * with a subtle chamfered base foot, smooth vertical edges, and sculpted shoulder.
-     */
-    function buildOuterGlassFlaconGeometry(width = 0.94, height = 3.24) {
+    function buildOuterGlassFlaconGeometry(THREE, width = 0.94, height = 3.24) {
       const halfW = width * 0.5;
       const radSegs = 96;
       const yProfile = [
@@ -474,7 +603,6 @@
         }
       }
 
-      // Close bottom glass base cap (facing -Y)
       const botCenterIdx = positions.length / 3;
       positions.push(0, 0, 0);
       uvs.push(0.5, 0.0);
@@ -482,7 +610,6 @@
         indices.push(ir + 1, botCenterIdx, ir);
       }
 
-      // Close top neck opening cap (facing +Y)
       const topCenterIdx = positions.length / 3;
       positions.push(0, height, 0);
       uvs.push(0.5, 1.0);
@@ -499,20 +626,15 @@
       return geo;
     }
 
-    /**
-     * Builds the thick-walled inner glass chamber with the signature rounded U-cup bottom
-     * (y = bottomY to topY), used both for inner prism wall refraction and the perfume volume.
-     */
-    function buildInnerGlassCavityGeometry(width = 0.70, bottomY = 0.36, topY = 2.94) {
+    function buildInnerGlassCavityGeometry(THREE, width = 0.70, bottomY = 0.36, topY = 2.94) {
       const halfW = width * 0.5;
       const radSegs = 88;
       const uCupHeight = 0.22;
 
       const rings = [];
-      // Smooth rounded U-cup bottom curvature
       const cupSteps = 14;
       for (let i = 0; i <= cupSteps; i++) {
-        const t = i / cupSteps; // 0 (bottom apex) -> 1 (full chamber width)
+        const t = i / cupSteps;
         const angle = t * (Math.PI * 0.5);
         const y = bottomY + uCupHeight * (1.0 - Math.cos(angle));
         const scale = Math.max(0.02, Math.sin(angle));
@@ -520,7 +642,6 @@
         rings.push({ y, scale, exp });
       }
 
-      // Vertical inner walls up to shoulder
       const wallSteps = 12;
       for (let i = 1; i <= wallSteps; i++) {
         const t = i / wallSteps;
@@ -528,7 +649,6 @@
         rings.push({ y, scale: 1.0, exp: 6.0 });
       }
 
-      // Rounded upper shoulder taper into neck
       rings.push({ y: topY - 0.05, scale: 0.84, exp: 4.2 });
       rings.push({ y: topY, scale: 0.42, exp: 2.0 });
 
@@ -560,7 +680,6 @@
         }
       }
 
-      // Close bottom apex & top neck cap
       const botCenterIdx = positions.length / 3;
       positions.push(0, bottomY, 0);
       uvs.push(0.5, 0.0);
@@ -584,11 +703,7 @@
       return geo;
     }
 
-    /**
-     * Builds the iconic sculptural oversized silver pebble cap (y = 0 at underside collar
-     * up to y = height at dome crown) with an authentic recessed inner neck socket.
-     */
-    function buildSculpturalPebbleCapGeometry({
+    function buildSculpturalPebbleCapGeometry(THREE, {
       radiusX = 0.945,
       radiusZ = 0.685,
       height = 1.31,
@@ -601,8 +716,6 @@
       const uvs = [];
       const indices = [];
 
-      // Profile starts inside the recessed underside socket (iv = 0) -> bottom lip ->
-      // full pebble equator -> smooth organic dome crown (iv = vSegs)
       const halfH = height * 0.5;
       const centerY = halfH;
 
@@ -611,20 +724,17 @@
         let rx, rz, y;
 
         if (v <= 0.14) {
-          // Recessed underside cylindrical socket that fits over the silver neck collar
-          const t = v / 0.14; // 0 (socket ceiling) -> 1 (socket bottom rim)
+          const t = v / 0.14;
           const rSock = socketRadius * (0.96 + 0.04 * t);
           rx = rSock;
           rz = rSock;
           y = socketDepth * (1.0 - t) + 0.012;
         } else {
-          // Outer organic pebble ellipsoid from underside rim (-PI*0.44) to crown (+PI*0.5)
           const t = (v - 0.14) / 0.86;
           const phi = -Math.PI * 0.44 + t * (Math.PI * 0.94);
           const cosP = Math.cos(phi);
           const sinP = Math.sin(phi);
 
-          // Subtle organic river-pebble asymmetry (slightly fuller upper shoulders, smooth dome)
           const fullness = 1.0 + 0.035 * Math.sin(phi * 1.4);
           rx = radiusX * cosP * fullness;
           rz = radiusZ * cosP * fullness;
@@ -634,7 +744,6 @@
         for (let iu = 0; iu <= uSegs; iu++) {
           const u = iu / uSegs;
           const theta = u * Math.PI * 2;
-          // Whisper of organic sculptural asymmetry along X
           const organicSkew = 1.0 + 0.014 * Math.cos(theta) * Math.sin(v * Math.PI);
           const x = rx * Math.cos(theta) * organicSkew;
           const z = rz * Math.sin(theta);
@@ -647,7 +756,7 @@
       const stride = uSegs + 1;
       for (let iv = 0; iv < vSegs; iv++) {
         for (let iu = 0; iu < uSegs; iu++) {
-          const a = iv * stride + irNext(iu, 0);
+          const a = iv * stride + iu;
           const b = a + 1;
           const c = (iv + 1) * stride + iu;
           const d = c + 1;
@@ -656,11 +765,6 @@
         }
       }
 
-      function irNext(i, offset) {
-        return i + offset;
-      }
-
-      // Close inner socket ceiling cap
       const socketCenterIdx = positions.length / 3;
       positions.push(0, socketDepth + 0.012, 0);
       uvs.push(0.5, 0.0);
@@ -668,7 +772,6 @@
         indices.push(iu + 1, socketCenterIdx, iu);
       }
 
-      // Close crown pole
       const crownCenterIdx = positions.length / 3;
       positions.push(0, height, 0);
       uvs.push(0.5, 1.0);
@@ -690,14 +793,11 @@
      * 3. COMPLETE TAMBURINS BOTTARI 11ML BOTTLE ASSEMBLY
      * ============================================================================
      */
-    function buildTamburinsBottariBottle() {
+    function buildTamburinsBottariBottle(THREE) {
       const bottleGroup = new THREE.Group();
       const bottleW = 0.94;
       const bottleH = 3.24;
 
-      // ------------------------------------------------------------------------
-      // MATERIALS (Liquid-Mirror Silver Chrome & Crystal Clear Optical Glass)
-      // ------------------------------------------------------------------------
       const mirrorChromeMat = new THREE.MeshPhysicalMaterial({
         color: new THREE.Color(0xffffff),
         metalness: 1.0,
@@ -735,16 +835,14 @@
         depthWrite: false
       });
 
-      // ------------------------------------------------------------------------
-      // 1A. OUTER CRYSTAL GLASS FLACON & INNER THICK-WALLED U-CUP CAVITY
-      // ------------------------------------------------------------------------
-      const outerGlassGeo = buildOuterGlassFlaconGeometry(bottleW, bottleH);
+      // 1A. Outer crystal glass flacon & inner U-cup cavity
+      const outerGlassGeo = buildOuterGlassFlaconGeometry(THREE, bottleW, bottleH);
       const outerGlassMesh = new THREE.Mesh(outerGlassGeo, outerGlassMat);
       outerGlassMesh.castShadow = true;
       outerGlassMesh.renderOrder = 5;
       bottleGroup.add(outerGlassMesh);
 
-      const innerCavityGeo = buildInnerGlassCavityGeometry(0.70, 0.36, 2.94);
+      const innerCavityGeo = buildInnerGlassCavityGeometry(THREE, 0.70, 0.36, 2.94);
       const innerCavityMat = new THREE.ShaderMaterial({
         vertexShader: `
           varying vec3 vNormalView;
@@ -765,7 +863,6 @@
           void main() {
             float ndotv = abs(dot(normalize(vNormalView), normalize(vViewDir)));
             float rim = pow(1.0 - ndotv, 2.35);
-            // U-shaped thick bottom glass rim highlight
             float uCupMask = 1.0 - smoothstep(0.36, 0.62, vLocalPos.y);
             float edgeStrength = clamp(rim * 0.92 + uCupMask * rim * 0.45, 0.0, 1.0);
             vec3 brightGlass = vec3(0.98, 0.99, 1.0);
@@ -784,9 +881,7 @@
       innerCavityMesh.renderOrder = 4;
       bottleGroup.add(innerCavityMesh);
 
-      // ------------------------------------------------------------------------
-      // 1B. LUMINOUS PERFUME LIQUID VOLUME & RIPPLING MENISCUS SURFACE
-      // ------------------------------------------------------------------------
+      // 1B. Perfume liquid volume & rippling meniscus surface
       const liquidMinY = 0.362;
       const liquidFullY = 2.78;
       const liquidState = {
@@ -797,7 +892,7 @@
         waveTime: 0.0
       };
 
-      const perfumeLiquidGeo = buildInnerGlassCavityGeometry(0.692, liquidMinY, 2.92);
+      const perfumeLiquidGeo = buildInnerGlassCavityGeometry(THREE, 0.692, liquidMinY, 2.92);
       const perfumeLiquidMat = new THREE.ShaderMaterial({
         uniforms: {
           uLiquidTopY: { value: liquidFullY },
@@ -849,7 +944,6 @@
       perfumeLiquidMesh.renderOrder = 2;
       bottleGroup.add(perfumeLiquidMesh);
 
-      // Sculpted Superellipse Top Liquid Meniscus Disc with Capillary Wall Curve & Ripples
       const buildMeniscusSurfaceGeo = (halfW = 0.344) => {
         const ringSegs = 28;
         const radSegs = 64;
@@ -945,10 +1039,8 @@
       meniscusMesh.renderOrder = 3;
       bottleGroup.add(meniscusMesh);
 
-      // ------------------------------------------------------------------------
-      // 2. FRONT VERTICAL SILKSCREEN TYPOGRAPHY ("TAMBURINS / BOTTARI")
-      // ------------------------------------------------------------------------
-      const typographyTex = createBottleTypographyTexture();
+      // 2. Front vertical silkscreen typography ("TAMBURINS / BOTTARI")
+      const typographyTex = createBottleTypographyTexture(THREE);
       const labelGeo = new THREE.PlaneGeometry(0.84, 2.72);
       const labelMat = new THREE.MeshBasicMaterial({
         map: typographyTex,
@@ -963,9 +1055,7 @@
       labelMesh.renderOrder = 6;
       bottleGroup.add(labelMesh);
 
-      // ------------------------------------------------------------------------
-      // 3. INTERNAL DIP TUBE (STRAW) & PUMP VALVE HOUSING
-      // ------------------------------------------------------------------------
+      // 3. Internal dip tube & pump valve housing
       const dipTubeCurve = new THREE.CatmullRomCurve3([
         new THREE.Vector3(0.0, 3.12, 0.0),
         new THREE.Vector3(-0.008, 2.25, 0.004),
@@ -988,7 +1078,6 @@
       dipTubeMesh.renderOrder = 1;
       bottleGroup.add(dipTubeMesh);
 
-      // Internal pump housing cylinder visible near top glass shoulder
       const pumpHousing = new THREE.Mesh(
         new THREE.CylinderGeometry(0.115, 0.095, 0.32, 24),
         new THREE.MeshPhysicalMaterial({
@@ -1003,9 +1092,7 @@
       pumpHousing.renderOrder = 2;
       bottleGroup.add(pumpHousing);
 
-      // ------------------------------------------------------------------------
-      // 4. METALLIC SILVER NECK COLLAR & PRESSABLE ATOMIZER ACTUATOR
-      // ------------------------------------------------------------------------
+      // 4. Metallic silver neck collar & pressable atomizer actuator
       const neckCollar = new THREE.Mesh(
         new THREE.CylinderGeometry(0.242, 0.246, 0.135, 48),
         mirrorChromeMat
@@ -1014,7 +1101,6 @@
       neckCollar.castShadow = true;
       bottleGroup.add(neckCollar);
 
-      // Collar top bevel ring
       const collarRim = new THREE.Mesh(
         new THREE.TorusGeometry(0.236, 0.010, 14, 48),
         mirrorChromeMat
@@ -1023,7 +1109,6 @@
       collarRim.position.set(0, 3.362, 0);
       bottleGroup.add(collarRim);
 
-      // Pressable Atomizer Actuator Group (moves down when spraying)
       const actuatorGroup = new THREE.Group();
 
       const actuatorStem = new THREE.Mesh(
@@ -1048,7 +1133,6 @@
       actuatorTopCap.position.set(0, 3.582, 0);
       actuatorGroup.add(actuatorTopCap);
 
-      // Spray orifice insert on front (+Z) of actuator head
       const nozzleInsert = new THREE.Mesh(
         new THREE.CylinderGeometry(0.032, 0.032, 0.024, 24),
         mirrorChromeMat
@@ -1065,12 +1149,10 @@
       nozzlePin.position.set(0, 3.49, 0.201);
       actuatorGroup.add(nozzlePin);
 
-      // Anchor point directly at the spray orifice tip (moves with actuator depression)
       const nozzleOrigin = new THREE.Object3D();
       nozzleOrigin.position.set(0, 3.49, 0.216);
       actuatorGroup.add(nozzleOrigin);
 
-      // Tiny glistening perfume droplet on the nozzle orifice right after spraying
       const nozzleDroplet = new THREE.Mesh(
         new THREE.SphereGeometry(0.011, 14, 12),
         new THREE.MeshPhysicalMaterial({
@@ -1087,10 +1169,8 @@
 
       bottleGroup.add(actuatorGroup);
 
-      // ------------------------------------------------------------------------
-      // 5. ICONIC OVERSIZED SCULPTURAL SILVER PEBBLE CAP
-      // ------------------------------------------------------------------------
-      const pebbleCapGeo = buildSculpturalPebbleCapGeometry({
+      // 5. Iconic oversized sculptural silver pebble cap
+      const pebbleCapGeo = buildSculpturalPebbleCapGeometry(THREE, {
         radiusX: 0.945,
         radiusZ: 0.685,
         height: 1.31,
@@ -1127,7 +1207,7 @@
      * 3B. VOLUMETRIC ATOMIZER MIST & INTERNAL RISING BUBBLES SYSTEM
      * ============================================================================
      */
-    function createPerfumeSprayController(scene, bottleAssembly) {
+    function createPerfumeSprayController(THREE, scene, bottleAssembly) {
       const maxMistParticles = 720;
       const mistPositions = new Float32Array(maxMistParticles * 3);
       const mistSizes = new Float32Array(maxMistParticles);
@@ -1150,11 +1230,11 @@
       mistGeo.setAttribute('aSize', new THREE.BufferAttribute(mistSizes, 1));
       mistGeo.setAttribute('aAlpha', new THREE.BufferAttribute(mistAlphas, 1));
 
-      const mistTexture = createMistParticleTexture();
+      const mistTexture = createMistParticleTexture(THREE);
       const mistMat = new THREE.ShaderMaterial({
         uniforms: {
           uMap: { value: mistTexture },
-          uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) }
+          uPixelRatio: { value: Math.min(window.devicePixelRatio || 1, 2) }
         },
         vertexShader: `
           attribute float aSize;
@@ -1189,7 +1269,6 @@
       mistPoints.renderOrder = 6;
       scene.add(mistPoints);
 
-      // Internal Rising Micro-Bubbles inside the Perfume Chamber
       const maxBubbles = 36;
       const bubbleGeo = new THREE.SphereGeometry(0.011, 10, 8);
       const bubbleMat = new THREE.MeshBasicMaterial({
@@ -1213,7 +1292,6 @@
         };
       });
 
-      // Synthesized crisp atomizer spray sound ("シュッ") via Web Audio API
       let audioCtx = null;
       function playAtomizerSound() {
         try {
@@ -1298,7 +1376,6 @@
           p.peakAlpha = isMicroDroplet ? 0.85 : 0.42;
         }
 
-        // Spawn 11 tiny rising micro-bubbles from the bottom of the dip tube inside the bottle
         for (let b = 0; b < 11; b++) {
           const bub = bubblePool[nextBubbleIdx];
           nextBubbleIdx = (nextBubbleIdx + 1) % maxBubbles;
@@ -1418,25 +1495,36 @@
         refillPerfume,
         update,
         onResize: () => {
-          mistMat.uniforms.uPixelRatio.value = Math.min(window.devicePixelRatio, 2);
+          mistMat.uniforms.uPixelRatio.value = Math.min(window.devicePixelRatio || 1, 2);
         }
       };
     }
 
     /**
      * ============================================================================
-     * 4. STUDIO SCENE, LIGHTING, SUBTLE TABLETOP REFLECTION & 360° CONTROLS
+     * 4. TRANSPARENT SCENE, STUDIO LIGHTING & 360° CONTROLS
      * ============================================================================
      */
-    function initApp() {
-      const container = document.getElementById('canvas-container');
+    async function initApp() {
+      const THREE = await loadThreeCore();
 
+      const container = document.getElementById('canvas-container');
+      function getViewportSize() {
+        const w = container.clientWidth || window.innerWidth || 360;
+        const h = container.clientHeight || window.innerHeight || 360;
+        return { w, h };
+      }
+      const initSize = getViewportSize();
+
+      // Transparent WebGLRenderer so index.html background shows seamlessly behind the 3D bottle
       const renderer = new THREE.WebGLRenderer({
         antialias: true,
-        powerPreference: 'high-performance'
+        alpha: true,
+        powerPreference: 'default'
       });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setClearColor(0x000000, 0);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(initSize.w, initSize.h);
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 1.03;
       renderer.shadowMap.enabled = true;
@@ -1444,32 +1532,22 @@
       container.appendChild(renderer.domElement);
 
       const scene = new THREE.Scene();
-      scene.background = createStudioBackdropTexture();
+      scene.background = null;
 
-      // Custom Studio Softbox & Horizon Reflection Map for the Liquid-Mirror Silver Cap
-      const studioEnvMap = createStudioReflectionEnvMap(renderer);
+      // Studio Softbox & Horizon Reflection Map for the Liquid-Mirror Silver Cap
+      const studioEnvMap = createStudioReflectionEnvMap(THREE, renderer);
       scene.environment = studioEnvMap;
       scene.environmentIntensity = 1.0;
 
       const camera = new THREE.PerspectiveCamera(
         33,
-        window.innerWidth / window.innerHeight,
+        initSize.w / initSize.h,
         0.05,
         100
       );
 
-      const controls = new OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = true;
-      controls.dampingFactor = 0.065;
-      controls.rotateSpeed = 0.85;
-      controls.zoomSpeed = 0.95;
-      controls.panSpeed = 0.8;
-      controls.minDistance = 2.1;
-      controls.maxDistance = 16.0;
-      controls.minPolarAngle = 0.03;
-      controls.maxPolarAngle = Math.PI - 0.03;
+      const controls = createBuiltInOrbitController(THREE, camera, renderer.domElement);
 
-      // Balanced Studio Lighting
       const hemiLight = new THREE.HemisphereLight(0xffffff, 0xe2e7ee, 0.72);
       hemiLight.position.set(0, 10, 0);
       scene.add(hemiLight);
@@ -1477,8 +1555,8 @@
       const keyLight = new THREE.DirectionalLight(0xffffff, 1.45);
       keyLight.position.set(-2.4, 6.2, 5.2);
       keyLight.castShadow = true;
-      keyLight.shadow.mapSize.width = 2048;
-      keyLight.shadow.mapSize.height = 2048;
+      keyLight.shadow.mapSize.width = 1024;
+      keyLight.shadow.mapSize.height = 1024;
       keyLight.shadow.camera.near = 1.0;
       keyLight.shadow.camera.far = 18.0;
       const d = 2.8;
@@ -1498,20 +1576,18 @@
       rimLight.position.set(1.2, 4.8, -5.0);
       scene.add(rimLight);
 
-      // Build and add the TAMBURINS BOTTARI 11ML Bottle
-      const bottleAssembly = buildTamburinsBottariBottle();
+      const bottleAssembly = buildTamburinsBottariBottle(THREE);
       scene.add(bottleAssembly.bottleGroup);
 
-      // Initialize Perfume Spray & Internal Liquid Ripple System
-      const sprayController = createPerfumeSprayController(scene, bottleAssembly);
+      const sprayController = createPerfumeSprayController(THREE, scene, bottleAssembly);
 
-      // Soft studio tabletop contact shadow & glass base reflection beneath y = 0
+      // Soft contact shadow directly beneath the bottle base
       const reflectionGroup = new THREE.Group();
 
       const shadowPlaneGeo = new THREE.PlaneGeometry(2.6, 2.6);
       shadowPlaneGeo.rotateX(-Math.PI / 2);
       const shadowPlaneMat = new THREE.MeshBasicMaterial({
-        map: createTableShadowTexture(),
+        map: createTableShadowTexture(THREE),
         transparent: true,
         depthWrite: false,
         side: THREE.FrontSide
@@ -1520,27 +1596,8 @@
       shadowPlane.position.y = -0.002;
       reflectionGroup.add(shadowPlane);
 
-      // Subtle glossy white tabletop glass reflection ghost directly under the base
-      const ghostGeo = buildOuterGlassFlaconGeometry(0.92, 1.35);
-      ghostGeo.scale(1, -1, 1);
-      const ghostMat = new THREE.MeshBasicMaterial({
-        color: new THREE.Color(0xcbd2dc),
-        transparent: true,
-        opacity: 0.14,
-        depthWrite: false,
-        side: THREE.FrontSide
-      });
-      const ghostMesh = new THREE.Mesh(ghostGeo, ghostMat);
-      ghostMesh.position.y = -0.01;
-      reflectionGroup.add(ghostMesh);
-
       scene.add(reflectionGroup);
 
-      /**
-       * ==========================================================================
-       * 5. CAMERA PRESETS, SMOOTH TRANSITIONS & CAP / SPRAY INTERACTIONS
-       * ==========================================================================
-       */
       const CAMERA_PRESETS = {
         front: {
           pos: new THREE.Vector3(0.0, 2.38, 9.25),
@@ -1640,7 +1697,7 @@
 
       sprayBtn.addEventListener('click', triggerPerfumeSpray);
 
-      // Allow clicking/tapping directly on the chrome pebble cap (open/close) or spray actuator (spray)
+      // Direct click/tap on pebble cap (open/close) or spray actuator (spray)
       const raycaster = new THREE.Raycaster();
       const pointerDownPos = new THREE.Vector2();
       renderer.domElement.addEventListener('pointerdown', (e) => {
@@ -1683,7 +1740,6 @@
         setAutoRotate(!controls.autoRotate);
       });
 
-      // Bind camera preset & reset buttons
       document.querySelectorAll('.cam-btn[data-preset]').forEach((btn) => {
         btn.addEventListener('click', () => {
           const preset = btn.getAttribute('data-preset');
@@ -1696,41 +1752,41 @@
         });
       });
 
-      // Responsive window resize
-      window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
+      function updateSize() {
+        const { w, h } = getViewportSize();
+        if (w <= 0 || h <= 0) return;
+        camera.aspect = w / h;
         camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setSize(w, h);
         sprayController.onResize();
-      });
-
-      // Fade out loading overlay once first frame renders
-      const loadingOverlay = document.getElementById('loading-overlay');
-      requestAnimationFrame(() => {
         renderer.render(scene, camera);
-        loadingOverlay.style.opacity = '0';
-        setTimeout(() => {
-          loadingOverlay.style.display = 'none';
-        }, 500);
+      }
+
+      if (typeof ResizeObserver !== 'undefined') {
+        const ro = new ResizeObserver(() => updateSize());
+        ro.observe(container);
+      }
+      window.addEventListener('resize', updateSize);
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) updateSize();
       });
 
-      // Main animation loop
+      renderer.render(scene, camera);
+      hideLoader();
+
       const clock = new THREE.Clock();
       function animate() {
         requestAnimationFrame(animate);
         const dt = Math.min(clock.getDelta(), 0.05);
 
-        // Smoothly interpolate sculptural pebble cap elevation when toggled
         const currentCapY = bottleAssembly.pebbleCapMesh.position.y;
         if (Math.abs(capTargetY - currentCapY) > 0.0005) {
           const lerpFactor = 1 - Math.exp(-8.0 * dt);
           bottleAssembly.pebbleCapMesh.position.y += (capTargetY - currentCapY) * lerpFactor;
         }
 
-        // Only show tabletop reflection when camera is above tabletop level (y > 0.05)
         reflectionGroup.visible = camera.position.y > 0.05;
 
-        // Update atomizer mist particles, actuator recoil & internal liquid ripples
         sprayController.update(dt);
 
         if (camAnim) {
@@ -1753,17 +1809,12 @@
       animate();
     }
 
-    window.addEventListener('DOMContentLoaded', () => {
-      try {
-        initApp();
-      } catch (err) {
-        console.error('TAMBURINS 3D Viewer initialization error:', err);
-        const errorBox = document.getElementById('error-box');
-        const errorMsg = document.getElementById('error-message');
-        if (errorBox && errorMsg) {
-          errorMsg.textContent = 'お使いのブラウザ環境でWebGLを初期化できませんでした。ページを再読み込みしてお試しください。';
-          errorBox.classList.remove('hidden');
-        }
+    initApp().catch((err) => {
+      console.error('TAMBURINS 3D Viewer initialization error:', err);
+      if (location.protocol === 'file:') {
+        showError('HTMLファイルを直接開くとブラウザ制限で3D表示がブロックされます。Live ServerまたはGitHub Pagesから開いてください。');
+      } else {
+        showError('3Dモデルの読み込みに失敗しました（' + (err && err.message ? err.message : '通信エラー') + '）。ページを再読み込みしてお試しください。');
       }
     });
   </script>
