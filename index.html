@@ -1,4 +1,4 @@
-x<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="utf-8">
@@ -37,17 +37,403 @@ ul{list-style:none;margin:0;padding:0}
 .qr{background:#fff;padding:6px;border-radius:10px;line-height:0}
 .qr img,.qr canvas{width:96px!important;height:96px!important}
 @media(max-width:700px){.row{grid-template-columns:44px 72px 1fr}.thumb{width:72px;height:72px;font-size:32px}.qr{grid-column:2/-1;justify-self:start}}
-.center{min-height:calc(100vh - 140px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;padding:36px 0 56px;text-align:center}
-.ticket{width:min(100%,420px);aspect-ratio:4/3;border-radius:24px;padding:26px;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;color:#f2efe8;position:relative;overflow:hidden;background:radial-gradient(120% 120% at 20% 0%,#2e4a12 0%,#0f1a06 55%,#050802 100%);text-align:left}
-.ticket::after{content:"";position:absolute;right:-50px;bottom:-70px;width:260px;height:260px;border-radius:50%;background:conic-gradient(from 90deg,#a8e05f,#e8ff9a,#3f7d1a,#a8e05f);opacity:.9}
-.ticket .tag{border:1px solid currentColor;border-radius:999px;padding:4px 12px;font-size:12px;letter-spacing:.06em;position:relative;z-index:1}
-.ticket h2{margin:0;font-size:clamp(40px,10vw,64px);letter-spacing:-.04em;position:relative;z-index:1}
-.track{position:relative;width:min(100%,420px);height:64px;border-radius:999px;border:1px solid var(--line);background:var(--card);touch-action:none;user-select:none;-webkit-user-select:none;overflow:hidden}
-.track span{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:14px;pointer-events:none}
-.fill{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--accent);opacity:.35}
-.handle{position:absolute;left:4px;top:4px;width:56px;height:56px;border-radius:50%;background:var(--chip);color:var(--chipfg);display:grid;place-items:center;font-size:20px;cursor:grab;transform:translateX(var(--x,0px));transition:transform .45s cubic-bezier(.2,.8,.2,1)}
-.track:not(.drag):hover .handle{transform:translateX(calc(var(--x,0px) + 10px))}
-.track.drag .handle{transition:none;cursor:grabbing}
+.center{min-height:calc(100vh - 140px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:36px 0 56px;text-align:center}
+
+/* ==========================================================================
+   本物の一番くじ風「めくる」くじ券ステージ
+   ========================================================================== */
+.ik-wrap{width:min(100%,440px);display:flex;flex-direction:column;align-items:center;gap:18px;perspective:1200px}
+.ik-ticket{
+  position:relative;
+  width:100%;
+  aspect-ratio:1.58/1;
+  border-radius:6px;
+  user-select:none;
+  -webkit-user-select:none;
+  touch-action:none;
+  cursor:grab;
+  transform-style:preserve-3d;
+  filter:drop-shadow(0 18px 34px rgba(0,0,0,.22));
+  transition:transform .25s cubic-bezier(.2,.8,.2,1);
+}
+.ik-ticket.dragging{cursor:grabbing}
+.ik-ticket.opened{cursor:pointer}
+
+/* 1. ベース層（めくった後に現れる当選面 + 外周の青い紙枠） */
+.ik-base{
+  position:absolute;
+  inset:0;
+  border-radius:6px;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 50% 45%,#ffffff 0%,#f7f4eb 68%,#ece6d6 100%);
+  border:1px solid rgba(0,0,0,.12);
+}
+/* 紙の繊維テクスチャ（ベース） */
+.ik-base::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  opacity:.24;
+  pointer-events:none;
+  background-image:radial-gradient(rgba(0,0,0,.16) .6px,transparent .6px),radial-gradient(rgba(0,0,0,.1) .6px,transparent .6px);
+  background-size:14px 14px;
+  background-position:0 0,7px 7px;
+}
+/* 外周フレーム（ミシン目の外側に残る本物の一番くじ特有の青い縁） */
+.ik-outer-frame{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  border-style:solid;
+  border-color:#359be0;
+  border-top-width:clamp(10px,3.2vw,14px);
+  border-bottom-width:clamp(10px,3.2vw,14px);
+  border-right-width:clamp(12px,3.6vw,16px);
+  border-left-width:clamp(12px,3.6vw,16px);
+  box-shadow:inset 0 0 0 1px rgba(15,65,105,.25);
+}
+
+/* 内側の当選デザイン（「A賞」など） */
+.ik-inside{
+  position:absolute;
+  inset:clamp(12px,3.6vw,16px);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:8px 14px;
+  text-align:center;
+  color:#141414;
+}
+.ik-inside-top{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:clamp(10px,2.5vw,12px);
+  font-weight:800;
+  letter-spacing:.08em;
+  color:#b91c1c;
+  border:1.5px solid #b91c1c;
+  padding:2px 10px;
+  border-radius:999px;
+  background:#fff8f8;
+}
+.ik-inside-rank{
+  margin:4px 0 2px;
+  font-size:clamp(46px,13vw,68px);
+  font-weight:900;
+  line-height:1;
+  letter-spacing:-.04em;
+  background:linear-gradient(180deg,#e11d48 0%,#9f1239 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+  filter:drop-shadow(0 2px 0 rgba(255,255,255,.9));
+}
+.ik-inside-sub{
+  font-size:clamp(11px,2.7vw,13px);
+  font-weight:700;
+  color:#333;
+  letter-spacing:.02em;
+}
+.ik-inside-tap{
+  margin-top:6px;
+  font-size:11px;
+  font-weight:700;
+  color:#fff;
+  background:#111;
+  padding:4px 12px;
+  border-radius:999px;
+  opacity:0;
+  transform:translateY(4px);
+  transition:opacity .3s,transform .3s;
+}
+.ik-ticket.opened .ik-inside-tap{opacity:1;transform:none}
+
+/* 2. めくられる青い表面フラップ（未剥離部分：左端から右へクリップされて縮む） */
+.ik-cover-clip{
+  position:absolute;
+  inset:0;
+  border-radius:6px;
+  overflow:hidden;
+  pointer-events:none;
+  will-change:clip-path;
+}
+.ik-face{
+  position:absolute;
+  inset:0;
+  background:linear-gradient(165deg,#45a8ea 0%,#359be0 48%,#2b89ca 100%);
+  color:#fff;
+  overflow:hidden;
+}
+/* 紙の質感オーバーレイ */
+.ik-face::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  opacity:.16;
+  pointer-events:none;
+  background-image:radial-gradient(rgba(255,255,255,.55) .6px,transparent .6px),radial-gradient(rgba(0,30,60,.25) .6px,transparent .6px);
+  background-size:12px 12px;
+  background-position:0 0,6px 6px;
+}
+
+/* ミシン目（ダイカットスリット）SVG */
+.ik-perforation{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  pointer-events:none;
+}
+
+/* 左端の白い縦帯「ここからゆっくりめくる」 */
+.ik-strip{
+  position:absolute;
+  left:4.2%;
+  top:7.5%;
+  bottom:7.5%;
+  width:9.2%;
+  background:#ffffff;
+  border-radius:999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow:0 1px 2px rgba(0,40,80,.18);
+  z-index:2;
+}
+.ik-strip span{
+  writing-mode:vertical-rl;
+  text-orientation:upright;
+  color:#111315;
+  font-weight:900;
+  font-size:clamp(9px,2.35vw,12.5px);
+  letter-spacing:.03em;
+  line-height:1;
+  white-space:nowrap;
+}
+
+/* つまみ用の型抜きウィンドウ＋青い曲がり矢印（添付画像再現） */
+.ik-notch{
+  position:absolute;
+  left:13.8%;
+  top:20%;
+  width:17.5%;
+  height:52%;
+  z-index:2;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  animation:nudgeTab 2.2s ease-in-out infinite;
+}
+.ik-ticket.dragging .ik-notch,
+.ik-ticket.opened .ik-notch{
+  animation:none;
+}
+@keyframes nudgeTab{
+  0%,100%{transform:translateX(0)}
+  50%{transform:translateX(3px)}
+}
+
+/* 左中央の白いギザギザ吹き出し（店舗固有ID枠オマージュ） */
+.ik-burst{
+  position:absolute;
+  left:32%;
+  top:11%;
+  width:31%;
+  height:44%;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  color:#111;
+  z-index:2;
+}
+.ik-burst svg{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  filter:drop-shadow(0 2px 6px rgba(255,255,255,.55));
+}
+.ik-burst-text{
+  position:relative;
+  z-index:1;
+  font-size:clamp(8px,2vw,10.5px);
+  font-weight:800;
+  line-height:1.25;
+  color:#111;
+}
+.ik-burst-id{
+  display:inline-block;
+  margin:2px 0;
+  padding:1px 7px;
+  background:#111;
+  color:#fff;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:clamp(11px,2.8vw,14px);
+  font-weight:900;
+  letter-spacing:.06em;
+  border-radius:2px;
+}
+
+/* 右側のタイトル・価格・注意書き（添付画像レイアウト再現） */
+.ik-meta{
+  position:absolute;
+  left:62%;
+  right:5.5%;
+  top:12%;
+  text-align:center;
+  color:#fff;
+  z-index:2;
+  text-shadow:0 1px 2px rgba(10,55,95,.32);
+}
+.ik-meta-series{
+  font-size:clamp(9px,2.2vw,11.5px);
+  font-weight:800;
+  letter-spacing:.04em;
+}
+.ik-meta-title{
+  font-size:clamp(12px,3.1vw,16.5px);
+  font-weight:900;
+  letter-spacing:-.02em;
+  line-height:1.15;
+  margin:2px 0 3px;
+  white-space:nowrap;
+}
+.ik-meta-sub{
+  font-size:clamp(7.5px,1.85vw,9.5px);
+  font-weight:700;
+  opacity:.95;
+}
+.ik-meta-price{
+  font-size:clamp(10.5px,2.7vw,14px);
+  font-weight:900;
+  margin-top:2px;
+  letter-spacing:-.01em;
+}
+.ik-meta-price small{font-size:.72em;font-weight:700}
+
+/* 注意書き行 */
+.ik-note{
+  position:absolute;
+  left:33.5%;
+  right:5.5%;
+  top:54.5%;
+  font-size:clamp(7.2px,1.75vw,9px);
+  font-weight:700;
+  line-height:1.32;
+  color:#fff;
+  text-align:left;
+  z-index:2;
+  text-shadow:0 1px 1px rgba(10,55,95,.25);
+}
+
+/* 下部のJAN風バーコードボックス（添付画像再現） */
+.ik-barcode{
+  position:absolute;
+  left:33.5%;
+  right:8.5%;
+  bottom:10.5%;
+  height:25.5%;
+  background:#ffffff;
+  border-radius:2px;
+  padding:3px 10px 2px;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  z-index:2;
+  box-shadow:0 1px 2px rgba(0,40,80,.15);
+}
+.ik-bars{
+  width:100%;
+  height:68%;
+  display:flex;
+  align-items:stretch;
+  justify-content:space-between;
+}
+.ik-bars i{
+  display:block;
+  background:#111;
+  height:100%;
+}
+.ik-bar-nums{
+  display:flex;
+  justify-content:space-between;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:clamp(9px,2.3vw,12px);
+  font-weight:800;
+  color:#111;
+  letter-spacing:.12em;
+  line-height:1;
+}
+
+/* 3. 折り目ラインのハイライト＆シャドウ */
+.ik-crease-shadow{
+  position:absolute;
+  top:0;
+  bottom:0;
+  width:26px;
+  pointer-events:none;
+  opacity:0;
+  background:linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(0,0,0,.22) 72%,rgba(0,0,0,.38) 100%);
+  transform:translateX(-100%);
+  will-change:left,opacity;
+}
+
+/* 4. めくれて裏返った紙フラップ（裏面は白紙＋表面のうっすら透け＋立体影） */
+.ik-peeled-flap{
+  position:absolute;
+  top:0;
+  bottom:0;
+  left:0;
+  width:0;
+  overflow:hidden;
+  border-radius:0 6px 6px 0;
+  pointer-events:none;
+  transform-origin:left center;
+  background:
+    linear-gradient(90deg,
+      #d8d4c8 0%,
+      #f6f4ed 8%,
+      #ffffff 24%,
+      #f8f6ef 76%,
+      #e6e2d6 100%);
+  box-shadow:
+    8px 4px 18px rgba(0,0,0,.26),
+    inset 1px 0 0 rgba(255,255,255,.9);
+  will-change:left,width,transform;
+  z-index:5;
+}
+/* 紙の裏面から表面の青い印刷がうっすら透ける表現 */
+.ik-peeled-ghost{
+  position:absolute;
+  top:0;
+  bottom:0;
+  right:0;
+  opacity:.11;
+  transform:scaleX(-1);
+  pointer-events:none;
+  filter:blur(.4px);
+}
+
+/* 操作ガイドピル */
+.ik-hint{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 16px;
+  border-radius:999px;
+  background:var(--card);
+  border:1px solid var(--line);
+  color:var(--muted);
+  font-size:13px;
+  font-weight:600;
+}
+.ik-hint b{color:var(--fg)}
+
 .prize{width:min(100%,460px);animation:pop .7s cubic-bezier(.2,.9,.3,1.2)}
 @keyframes pop{from{opacity:0;transform:scale(.85) translateY(20px)}to{opacity:1;transform:none}}
 .pimg{width:100%;aspect-ratio:1;border-radius:24px;overflow:hidden;display:grid;place-items:center;font-size:clamp(90px,28vw,150px);background:var(--card);border:1px solid var(--line)}
@@ -56,6 +442,15 @@ ul{list-style:none;margin:0;padding:0}
 .prize h2{font-size:clamp(34px,8vw,56px);letter-spacing:-.045em;margin:22px 0 10px;line-height:1.05}
 .prize p{color:var(--muted);line-height:1.8;margin:0;white-space:pre-line}
 #cf{position:fixed;inset:0;pointer-events:none;z-index:50}
+
+/* 管理画面用カスタムダイアログ（alert/confirm/prompt不使用） */
+.modal-backdrop{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.48);display:flex;align-items:center;justify-content:center;padding:16px}
+.modal-card{width:min(100%,400px);background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.modal-card h3{margin:0 0 8px;font-size:18px}
+.modal-card p{margin:0 0 16px;font-size:13px;color:var(--muted);line-height:1.6}
+.modal-card input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font-size:14px;margin-bottom:16px}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px}
+
 footer{padding:48px clamp(16px,4vw,48px) 36px;border-top:1px solid var(--line);margin-top:60px;color:var(--muted);font-size:13px}
 @media print{header,.bar,footer{display:none}.row{break-inside:avoid}}
 </style>
@@ -89,11 +484,89 @@ document.getElementById("theme").onclick=function(){var d=document.documentEleme
 /* ---- 紙吹雪 ---- */
 function confetti(){var c=document.getElementById("cf"),x=c.getContext("2d");c.width=innerWidth;c.height=innerHeight;
  var cols=["#a8e05f","#e8ff9a","#f2c14e","#ff7aa2","#7ab8ff","#fff"],a=[];
- for(var i=0;i<160;i++)a.push({x:innerWidth/2,y:innerHeight*.55,vx:(Math.random()-.5)*16,vy:-Math.random()*17-4,s:5+Math.random()*7,r:Math.random()*6,vr:(Math.random()-.5)*.4,c:cols[i%6]});
+ for(var i=0;i<160;i++)a.push({x:innerWidth/2,y:innerHeight*.52,vx:(Math.random()-.5)*16,vy:-Math.random()*17-4,s:5+Math.random()*7,r:Math.random()*6,vr:(Math.random()-.5)*.4,c:cols[i%6]});
  var t=0;(function f(){x.clearRect(0,0,c.width,c.height);a.forEach(function(p){p.vy+=.38;p.x+=p.vx;p.y+=p.vy;p.vx*=.99;p.r+=p.vr;x.save();x.translate(p.x,p.y);x.rotate(p.r);x.fillStyle=p.c;x.fillRect(-p.s/2,-p.s/3,p.s,p.s*.6);x.restore()});
  if(++t<170)requestAnimationFrame(f);else x.clearRect(0,0,c.width,c.height)})()}
 
-/* ---- くじ画面（QRから開く） ---- */
+/* ---- 紙のミシン目破り効果音（Web Audio API） ---- */
+var audioCtx=null;
+function playPaperTick(isSnap){
+ try{
+  var AC=window.AudioContext||window.webkitAudioContext;
+  if(!AC)return;
+  if(!audioCtx)audioCtx=new AC();
+  if(audioCtx.state==="suspended")audioCtx.resume();
+  var dur=isSnap?0.16:0.042;
+  var len=Math.floor(audioCtx.sampleRate*dur);
+  var buf=audioCtx.createBuffer(1,len,audioCtx.sampleRate);
+  var data=buf.getChannelData(0);
+  for(var i=0;i<len;i++){
+   var env=Math.exp(-i/(len*(isSnap?0.35:0.45)));
+   data[i]=(Math.random()*2-1)*env;
+  }
+  var src=audioCtx.createBufferSource();
+  src.buffer=buf;
+  var filter=audioCtx.createBiquadFilter();
+  filter.type="bandpass";
+  filter.frequency.value=isSnap?1900:2900+Math.random()*900;
+  filter.Q.value=isSnap?0.9:2.2;
+  var gain=audioCtx.createGain();
+  gain.gain.value=isSnap?0.18:0.08;
+  src.connect(filter);filter.connect(gain);gain.connect(audioCtx.destination);
+  src.start();
+ }catch(e){}
+}
+
+/* ---- バーコードHTML生成 ---- */
+function buildBarcodeHTML(id){
+ var pattern=[2,1,3,1,1,2,3,1,2,1,1,3,2,1,2,2,1,3,1,1,2,1,3,2,1,1,2,3,1,2,1,2];
+ var bars=pattern.map(function(w,idx){
+  var opacity=(idx%2===0)?1:0;
+  return '<i style="flex:'+w+';opacity:'+opacity+'"></i>';
+ }).join("");
+ return '<div class="ik-barcode"><div class="ik-bars">'+bars+'</div><div class="ik-bar-nums"><span>4</span><span>573102</span><span>2026'+pad(id)+'</span></div></div>';
+}
+
+/* ---- 本物の一番くじ風「表面デザイン」HTML生成 ---- */
+function buildKujiFaceHTML(id){
+ return '<div class="ik-face">'+
+  /* ミシン目ダイカット線（添付画像の斜めスリット入りミシン目を再現） */
+  '<svg class="ik-perforation" viewBox="0 0 440 278" preserveAspectRatio="none" aria-hidden="true">'+
+   '<path d="M 118 22 L 138 30 L 386 30 L 404 44 L 404 234 L 386 248 L 138 248 L 118 256" fill="none" stroke="rgba(12,56,96,0.48)" stroke-width="1.6" stroke-dasharray="11 5" stroke-linecap="round"/>'+
+   '<path d="M 118 23 L 138 31 L 386 31 L 404 45 L 404 235 L 386 249 L 138 249 L 118 257" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="1" stroke-dasharray="11 5" stroke-linecap="round"/>'+
+  '</svg>'+
+  /* 左端の白い縦帯「ここからゆっくりめくる」 */
+  '<div class="ik-strip"><span>ここからゆっくりめくる</span></div>'+
+  /* 指でめくる型抜きウィンドウ＋青い曲がり矢印 */
+  '<div class="ik-notch" aria-hidden="true">'+
+   '<svg viewBox="0 0 80 140" width="100%" height="100%">'+
+    '<path d="M 16 14 Q 68 70 16 126 Q 4 70 16 14 Z" fill="#ffffff" stroke="rgba(15,65,105,0.28)" stroke-width="1.5"/>'+
+    '<path d="M 14 28 Q 34 70 14 112" fill="none" stroke="#d5dde6" stroke-width="1.5" stroke-dasharray="4 3"/>'+
+    '<path d="M 27 62 L 44 62 L 44 53 L 61 70 L 44 87 L 44 78 L 31 78 Q 25 78 25 70 Q 25 62 27 62 Z" fill="#359be0" stroke="#111" stroke-width="2" stroke-linejoin="round"/>'+
+   '</svg>'+
+  '</div>'+
+  /* 左中央の白いギザギザ吹き出し（くじ番号表示） */
+  '<div class="ik-burst">'+
+   '<svg viewBox="0 0 140 120" preserveAspectRatio="none" aria-hidden="true">'+
+    '<polygon points="70,4 86,20 116,12 114,38 136,56 114,76 122,104 92,98 72,116 52,98 22,106 30,78 6,60 28,40 24,14 54,22" fill="#ffffff"/>'+
+   '</svg>'+
+   '<div class="ik-burst-text">このくじの番号は<br><span class="ik-burst-id">No.'+pad(id)+'</span><br>です。</div>'+
+  '</div>'+
+  /* 右側のタイトル・価格情報 */
+  '<div class="ik-meta">'+
+   '<div class="ik-meta-series">Birthday Kuji</div>'+
+   '<div class="ik-meta-title">〈Kanna Birthday〉</div>'+
+   '<div class="ik-meta-sub">Happy Birthday Special</div>'+
+   '<div class="ik-meta-price">1回 0円<small>（愛情100%込）</small></div>'+
+  '</div>'+
+  /* 注意書き */
+  '<div class="ik-note">※くじ券はその場でめくって開封し、プレゼントと交換してください。</div>'+
+  /* 下部バーコード */
+  buildBarcodeHTML(id)+
+ '</div>';
+}
+
+/* ---- くじ画面（QRから開く：本物の一番くじ風めくり開封） ---- */
 function kuji(id){
  var p=PRIZES[id-1],k=P.get("k")||"1",key="kuji:open:"+k+":"+id,prev=P.get("p")==="1";
  if(!p){app.innerHTML='<div class="center"><h1>くじが見つかりません</h1></div>';return}
@@ -105,15 +578,187 @@ function kuji(id){
   if(anim)confetti();
  }
  if(st(key)==="1"&&!prev){show(false);return}
- app.innerHTML='<div class="center"><div class="ticket"><span class="tag">No.'+pad(id)+' · Happy Birthday</span><h2>'+p.r+'</h2></div>'+
-  '<div class="track" id="tr"><div class="fill" id="fl"></div><span>スライドして開ける →</span><div class="handle" id="hd">➜</div></div></div>';
- var tr=document.getElementById("tr"),hd=document.getElementById("hd"),fl=document.getElementById("fl"),sx=0,x=0,drag=false,max=0;
- function set(v){x=v;hd.style.setProperty("--x",v+"px");fl.style.width=(v+60)+"px"}
- hd.addEventListener("pointerdown",function(e){drag=true;sx=e.clientX-x;max=tr.clientWidth-68;tr.classList.add("drag");hd.setPointerCapture(e.pointerId)});
- hd.addEventListener("pointermove",function(e){if(drag)set(Math.max(0,Math.min(max,e.clientX-sx)))});
- function end(){if(!drag)return;drag=false;tr.classList.remove("drag");
-  if(x>=max*.92){set(max);if(!prev)st(key,"1");setTimeout(function(){show(true)},180)}else set(0)}
- hd.addEventListener("pointerup",end);hd.addEventListener("pointercancel",end);
+
+ var faceHTML=buildKujiFaceHTML(id);
+ app.innerHTML=
+  '<div class="center">'+
+   '<div class="ik-wrap">'+
+    '<div class="ik-ticket" id="ikTicket" role="button" tabindex="0" aria-label="くじ券を左から右へめくって開封する">'+
+     /* 1. 内側の当選面＋青い外枠 */
+     '<div class="ik-base">'+
+      '<div class="ik-inside">'+
+       '<div class="ik-inside-top">No.'+pad(id)+' · HAPPY BIRTHDAY</div>'+
+       '<div class="ik-inside-rank">'+p.r+'</div>'+
+       '<div class="ik-inside-sub">おめでとう！最後までめくってね</div>'+
+       '<div class="ik-inside-tap">タップして景品を見る →</div>'+
+      '</div>'+
+      '<div class="ik-outer-frame"></div>'+
+     '</div>'+
+     /* 2. 未剥離の表面フラップ */
+     '<div class="ik-cover-clip" id="ikCover">'+faceHTML+'</div>'+
+     /* 3. 折り目の影 */
+     '<div class="ik-crease-shadow" id="ikCrease"></div>'+
+     /* 4. めくれて右へ折り返された紙フラップ（裏面） */
+     '<div class="ik-peeled-flap" id="ikFlap">'+
+      '<div class="ik-peeled-ghost" id="ikGhost">'+faceHTML+'</div>'+
+     '</div>'+
+    '</div>'+
+    '<div class="ik-hint" id="ikHint">👈 <b>「ここからゆっくりめくる」</b>を右へドラッグ</div>'+
+   '</div>'+
+  '</div>';
+
+ var ticket=document.getElementById("ikTicket"),
+     cover=document.getElementById("ikCover"),
+     crease=document.getElementById("ikCrease"),
+     flap=document.getElementById("ikFlap"),
+     ghost=document.getElementById("ikGhost"),
+     hint=document.getElementById("ikHint");
+
+ var progress=0,dragging=false,opened=false,startX=0,startY=0,startProg=0,lastTickStep=0,animId=null;
+
+ function renderPeel(pVal,tiltDeg){
+  var w=ticket.clientWidth||360;
+  ghost.style.width=w+"px";
+
+  var clamped=Math.max(0,Math.min(1.06,pVal));
+  var peelPx=clamped*w;
+  var pct=Math.min(100,clamped*100);
+
+  /* 表面フラップを左から右へクリップ（ミシン目の内側が剥がれていく様子） */
+  cover.style.clipPath="inset(0 0 0 "+pct.toFixed(2)+"%)";
+  cover.style.webkitClipPath="inset(0 0 0 "+pct.toFixed(2)+"%)";
+
+  /* 折り目ラインの影 */
+  crease.style.left=peelPx.toFixed(1)+"px";
+  crease.style.opacity=(clamped>0.01&&clamped<1.02)?Math.min(1,clamped*3.2).toFixed(2):"0";
+
+  /* 折り返された白い紙フラップ */
+  if(clamped<=0.005){
+   flap.style.width="0px";
+   flap.style.opacity="0";
+  }else{
+   flap.style.opacity="1";
+   flap.style.left=peelPx.toFixed(1)+"px";
+   var flapW=Math.min(peelPx,w*0.92);
+   flap.style.width=flapW.toFixed(1)+"px";
+   var curlAngle=Math.max(-28,-(1-Math.min(1,clamped))*24);
+   var skew=tiltDeg||0;
+   flap.style.transform="perspective(800px) rotateY("+curlAngle.toFixed(1)+"deg) skewY("+skew.toFixed(2)+"deg)";
+  }
+ }
+
+ function animateTo(target,onDone){
+  if(animId)cancelAnimationFrame(animId);
+  var from=progress,t0=performance.now(),dur=target>0.5?340:380;
+  function step(now){
+   var t=Math.min(1,(now-t0)/dur);
+   var ease=1-Math.pow(1-t,3);
+   progress=from+(target-from)*ease;
+   renderPeel(progress,0);
+   if(t<1){animId=requestAnimationFrame(step)}
+   else{animId=null;if(onDone)onDone()}
+  }
+  animId=requestAnimationFrame(step);
+ }
+
+ function completeOpen(){
+  if(opened)return;
+  opened=true;
+  ticket.classList.remove("dragging");
+  ticket.classList.add("opened");
+  if(!prev)st(key,"1");
+  playPaperTick(true);
+  if(navigator.vibrate)try{navigator.vibrate([18,30,24])}catch(e){}
+  hint.innerHTML="🎉 <b>"+p.r+"</b> 当選！景品を表示します…";
+  animateTo(1.06,function(){
+   confetti();
+   setTimeout(function(){show(false)},1150);
+  });
+ }
+
+ renderPeel(0,0);
+
+ ticket.addEventListener("pointerdown",function(e){
+  if(opened){show(false);return}
+  if(animId){cancelAnimationFrame(animId);animId=null}
+  dragging=true;
+  startX=e.clientX;
+  startY=e.clientY;
+  startProg=progress;
+  ticket.classList.add("dragging");
+  ticket.setPointerCapture(e.pointerId);
+ });
+
+ ticket.addEventListener("pointermove",function(e){
+  if(!dragging||opened)return;
+  var w=ticket.clientWidth||360;
+  var dx=e.clientX-startX;
+  var dy=e.clientY-startY;
+  /* 実物の紙をめくる手応えに合わせて1.08倍の感度で追従 */
+  var nextProg=Math.max(0,Math.min(1,startProg+(dx/(w*0.86))));
+  progress=nextProg;
+  var tilt=Math.max(-3.5,Math.min(3.5,dy*0.035));
+  renderPeel(progress,tilt);
+
+  /* ミシン目が「ビリビリッ」と切れる間隔で音と振動を発生 */
+  var tickStep=Math.floor(progress*12);
+  if(tickStep!==lastTickStep&&progress>0.04){
+   lastTickStep=tickStep;
+   playPaperTick(false);
+   if(navigator.vibrate)try{navigator.vibrate(7)}catch(err){}
+  }
+
+  /* 82%以上めくったらそのまま最後まで気持ちよく開封 */
+  if(progress>=0.82){
+   dragging=false;
+   completeOpen();
+  }
+ });
+
+ function handleRelease(e){
+  if(!dragging)return;
+  dragging=false;
+  ticket.classList.remove("dragging");
+  if(opened)return;
+
+  var dx=e&&typeof e.clientX==="number"?(e.clientX-startX):0;
+  /* ほとんど動かさずタップした場合は「めくり方」をチラ見せバウンス */
+  if(Math.abs(dx)<8&&progress<0.06){
+   playPaperTick(false);
+   animateTo(0.22,function(){
+    setTimeout(function(){if(!dragging&&!opened)animateTo(0)},160);
+   });
+   return;
+  }
+
+  if(progress>=0.62){
+   completeOpen();
+  }else{
+   animateTo(0);
+  }
+ }
+
+ ticket.addEventListener("pointerup",handleRelease);
+ ticket.addEventListener("pointercancel",handleRelease);
+ ticket.addEventListener("keydown",function(e){
+  if(e.key==="Enter"||e.key===" "){e.preventDefault();completeOpen()}
+ });
+}
+
+/* ---- カスタム確認・入力モーダル（alert/confirm/prompt不使用） ---- */
+function openModal(opts){
+ var wrap=document.createElement("div");
+ wrap.className="modal-backdrop";
+ wrap.innerHTML='<div class="modal-card"><h3>'+opts.title+'</h3><p>'+opts.desc+'</p>'+
+  (opts.input?'<input type="text" id="mInp" value="'+opts.value.replace(/"/g,"&quot;")+'">':'')+
+  '<div class="modal-actions"><button class="btn ghost" id="mCancel">キャンセル</button><button class="btn" id="mOk">'+(opts.okText||"OK")+'</button></div></div>';
+ document.body.appendChild(wrap);
+ var inp=wrap.querySelector("#mInp");
+ if(inp){inp.focus();inp.select()}
+ function close(){if(wrap.parentNode)wrap.parentNode.removeChild(wrap)}
+ wrap.querySelector("#mCancel").onclick=close;
+ wrap.onclick=function(e){if(e.target===wrap)close()};
+ wrap.querySelector("#mOk").onclick=function(){var val=inp?inp.value:true;close();if(opts.onOk)opts.onOk(val)};
 }
 
 /* ---- 管理画面 ---- */
@@ -126,8 +771,24 @@ function admin(){
   '<div class="bar"><button class="btn" id="rs">くじをリセット（QR再発行）</button><button class="btn ghost" id="bs">URLを変更</button><button class="btn ghost" onclick="print()">QRを印刷</button><small>QRの飛び先: '+base+'<br>コード世代: '+tok+'</small></div>'+
   '<div class="list-head"><span>No. / Prize</span><span>QR</span></div><ul>'+rows+'</ul>';
  if(window.QRCode)PRIZES.forEach(function(_,i){new QRCode(document.getElementById("q"+(i+1)),{text:url(i+1),width:192,height:192,correctLevel:QRCode.CorrectLevel.M})});
- document.getElementById("rs").onclick=function(){if(confirm("くじをリセットしてQRコードを新しく発行します。印刷済みのQRは使えなくなります。よろしいですか？")){st("kuji:token",Math.random().toString(36).slice(2,8));admin()}};
- document.getElementById("bs").onclick=function(){var v=prompt("QRに埋め込む公開URL（例: https://ユーザー名.github.io/repo/）",base);if(v){st("kuji:base",v.split("?")[0]);admin()}};
+ document.getElementById("rs").onclick=function(){
+  openModal({
+   title:"くじをリセット（QR再発行）",
+   desc:"くじをリセットしてQRコードを新しく発行します。印刷済みのQRは使えなくなります。よろしいですか？",
+   okText:"リセットする",
+   onOk:function(){st("kuji:token",Math.random().toString(36).slice(2,8));admin()}
+  });
+ };
+ document.getElementById("bs").onclick=function(){
+  openModal({
+   title:"QRコードの公開URLを変更",
+   desc:"QRに埋め込む公開URLを入力してください（例: https://ユーザー名.github.io/repo/）",
+   input:true,
+   value:base,
+   okText:"保存",
+   onOk:function(v){if(v&&v.trim()){st("kuji:base",v.trim().split("?")[0]);admin()}}
+  });
+ };
 }
 
 if(P.get("id"))kuji(parseInt(P.get("id"),10));
