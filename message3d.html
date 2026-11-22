@@ -686,3 +686,1314 @@
           } else {
             ctx.fillStyle = '#233396';
             ctx.beginPath();
+            ctx.arc(Math.cos(a) * 15, Math.sin(a) * 15, 1.9, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        ctx.restore();
+      }
+
+      drawSmileyDoodle(ctx, 0.845 * size, (1 - 0.145) * size, 1.0, -0.04, rand);
+      drawHeartDoodle(ctx, 0.88 * size, (1 - 0.45) * size, 1.0, 0.08, rand, false);
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 8;
+      return tex;
+    }
+
+    function createDecoratedCardBackTexture() {
+      const size = 1024;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      paintHandmadeCottonBase(ctx, size, size, {
+        baseColor: '#F5EFE0',
+        warmEdgeTint: true,
+        seed: 44812
+      });
+
+      const rand = createSeededRandom(73519);
+
+      drawCrownDoodle(ctx, size * 0.50, size * 0.145, 1.25, -0.04, rand);
+      drawSparkleDoodle(ctx, size * 0.35, size * 0.135, 0.85, 0.15, rand);
+      drawSparkleDoodle(ctx, size * 0.65, size * 0.14, 0.82, -0.18, rand);
+
+      drawHeartDoodle(ctx, size * 0.19, size * 0.21, 1.22, -0.16, rand, true);
+      drawStarDoodle(ctx, size * 0.31, size * 0.28, 0.92, 0.22, rand);
+
+      drawShootingStarDoodle(ctx, size * 0.79, size * 0.23, 1.15, -0.12, rand);
+      drawHeartDoodle(ctx, size * 0.85, size * 0.35, 0.78, 0.20, rand, false);
+
+      drawSmileyDoodle(ctx, size * 0.20, size * 0.43, 1.38, 0.08, rand);
+      drawSparkleDoodle(ctx, size * 0.34, size * 0.48, 0.75, 0.05, rand);
+
+      drawHeartDoodle(ctx, size * 0.51, size * 0.38, 1.35, 0.07, rand, false);
+      drawStarDoodle(ctx, size * 0.63, size * 0.46, 1.18, -0.15, rand);
+
+      drawFlowerDoodle(ctx, size * 0.80, size * 0.52, 1.28, -0.14, rand);
+
+      drawFlowerDoodle(ctx, size * 0.22, size * 0.67, 1.22, 0.16, rand);
+      drawStarDoodle(ctx, size * 0.36, size * 0.77, 0.95, -0.24, rand);
+
+      drawSmileyDoodle(ctx, size * 0.53, size * 0.65, 1.32, -0.07, rand);
+      drawHeartDoodle(ctx, size * 0.43, size * 0.56, 0.72, -0.22, rand, false);
+      drawHeartDoodle(ctx, size * 0.65, size * 0.75, 0.85, 0.18, rand, false);
+
+      drawHeartDoodle(ctx, size * 0.80, size * 0.72, 1.18, 0.12, rand, true);
+      drawSparkleDoodle(ctx, size * 0.71, size * 0.60, 0.80, 0.25, rand);
+
+      drawHeartDoodle(ctx, size * 0.21, size * 0.85, 0.88, -0.12, rand, false);
+      drawSparkleDoodle(ctx, size * 0.51, size * 0.83, 0.92, 0.10, rand);
+      drawStarDoodle(ctx, size * 0.82, size * 0.86, 1.02, 0.18, rand);
+
+      const confettiCoords = [
+        [0.14, 0.32], [0.43, 0.24], [0.58, 0.25], [0.88, 0.16],
+        [0.14, 0.55], [0.45, 0.47], [0.73, 0.37], [0.87, 0.62],
+        [0.30, 0.59], [0.58, 0.55], [0.44, 0.73], [0.60, 0.85],
+        [0.15, 0.76], [0.88, 0.80]
+      ];
+      ctx.fillStyle = '#233396';
+      for (const [cxNorm, cyNorm] of confettiCoords) {
+        const r = 2.1 + rand() * 1.5;
+        ctx.beginPath();
+        ctx.arc(cxNorm * size, cyNorm * size, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 8;
+      return tex;
+    }
+
+    function createPlainCottonEdgeTexture() {
+      const size = 256;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      paintHandmadeCottonBase(ctx, size, size, {
+        baseColor: '#F5EFE0',
+        warmEdgeTint: false,
+        seed: 22901
+      });
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    const HAND_GLYPHS = {
+      R: [
+        [[0.15, 0.96], [0.16, 0.06]],
+        [[0.16, 0.07], [0.58, 0.06], [0.76, 0.16], [0.78, 0.32], [0.64, 0.46], [0.16, 0.49]],
+        [[0.44, 0.48], [0.82, 0.96]]
+      ],
+      E: [
+        [[0.76, 0.07], [0.18, 0.07], [0.17, 0.94], [0.80, 0.94]],
+        [[0.18, 0.49], [0.66, 0.48]]
+      ],
+      M: [
+        [[0.10, 0.95], [0.14, 0.07], [0.50, 0.62], [0.86, 0.07], [0.90, 0.95]]
+      ],
+      B: [
+        [[0.18, 0.06], [0.17, 0.95]],
+        [[0.18, 0.07], [0.58, 0.07], [0.73, 0.17], [0.72, 0.34], [0.56, 0.46], [0.18, 0.47]],
+        [[0.18, 0.47], [0.64, 0.48], [0.80, 0.62], [0.78, 0.82], [0.60, 0.95], [0.17, 0.95]]
+      ],
+      Y: [
+        [[0.14, 0.06], [0.50, 0.50], [0.86, 0.06]],
+        [[0.50, 0.50], [0.49, 0.96]]
+      ],
+      O: [
+        [[0.48, 0.05], [0.22, 0.16], [0.12, 0.48], [0.21, 0.82], [0.49, 0.95], [0.77, 0.83], [0.87, 0.49], [0.76, 0.16], [0.48, 0.05]]
+      ],
+      U: [
+        [[0.16, 0.06], [0.17, 0.68], [0.30, 0.89], [0.52, 0.95], [0.73, 0.88], [0.83, 0.66], [0.83, 0.06]]
+      ],
+      V: [
+        [[0.14, 0.06], [0.50, 0.95], [0.86, 0.06]]
+      ],
+      S: [
+        [[0.76, 0.18], [0.58, 0.06], [0.32, 0.07], [0.18, 0.21], [0.22, 0.38], [0.54, 0.50], [0.78, 0.64], [0.77, 0.83], [0.56, 0.95], [0.28, 0.93], [0.15, 0.80]]
+      ],
+      I: [
+        [[0.50, 0.06], [0.50, 0.95]]
+      ],
+      D: [
+        [[0.18, 0.06], [0.18, 0.95]],
+        [[0.18, 0.07], [0.54, 0.08], [0.78, 0.26], [0.82, 0.52], [0.74, 0.78], [0.50, 0.94], [0.18, 0.95]]
+      ],
+      C: [
+        [[0.80, 0.20], [0.62, 0.06], [0.36, 0.07], [0.18, 0.25], [0.14, 0.52], [0.20, 0.79], [0.40, 0.94], [0.66, 0.93], [0.82, 0.80]]
+      ],
+      A: [
+        [[0.12, 0.95], [0.50, 0.06], [0.88, 0.95]],
+        [[0.26, 0.63], [0.74, 0.62]]
+      ],
+      N: [
+        [[0.16, 0.95], [0.17, 0.06], [0.83, 0.94], [0.83, 0.06]]
+      ],
+      T: [
+        [[0.12, 0.07], [0.88, 0.07]],
+        [[0.50, 0.07], [0.49, 0.95]]
+      ],
+      H: [
+        [[0.17, 0.06], [0.17, 0.95]],
+        [[0.83, 0.06], [0.83, 0.95]],
+        [[0.17, 0.49], [0.83, 0.48]]
+      ],
+      F: [
+        [[0.78, 0.07], [0.20, 0.07], [0.19, 0.95]],
+        [[0.20, 0.49], [0.66, 0.48]]
+      ],
+      G: [
+        [[0.80, 0.22], [0.64, 0.07], [0.38, 0.07], [0.18, 0.24], [0.14, 0.52], [0.20, 0.80], [0.40, 0.94], [0.68, 0.93], [0.84, 0.76], [0.84, 0.54], [0.54, 0.54]]
+      ],
+      K: [
+        [[0.20, 0.06], [0.20, 0.95]],
+        [[0.80, 0.07], [0.22, 0.54]],
+        [[0.38, 0.42], [0.82, 0.95]]
+      ],
+      L: [
+        [[0.22, 0.06], [0.21, 0.94], [0.80, 0.94]]
+      ],
+      a: [
+        [[0.22, 0.44], [0.44, 0.36], [0.68, 0.38], [0.76, 0.54], [0.76, 0.95]],
+        [[0.76, 0.62], [0.46, 0.58], [0.22, 0.66], [0.18, 0.82], [0.32, 0.94], [0.58, 0.93], [0.76, 0.82]]
+      ],
+      b: [
+        [[0.22, 0.06], [0.22, 0.95]],
+        [[0.22, 0.48], [0.46, 0.36], [0.72, 0.42], [0.82, 0.64], [0.74, 0.88], [0.48, 0.95], [0.22, 0.86]]
+      ],
+      c: [
+        [[0.76, 0.46], [0.58, 0.36], [0.34, 0.38], [0.18, 0.56], [0.20, 0.80], [0.38, 0.94], [0.64, 0.93], [0.78, 0.84]]
+      ],
+      d: [
+        [[0.78, 0.06], [0.78, 0.95]],
+        [[0.78, 0.48], [0.54, 0.36], [0.28, 0.42], [0.18, 0.65], [0.26, 0.88], [0.52, 0.95], [0.78, 0.86]]
+      ],
+      e: [
+        [[0.20, 0.64], [0.78, 0.62], [0.76, 0.46], [0.58, 0.36], [0.34, 0.38], [0.18, 0.56], [0.20, 0.80], [0.38, 0.94], [0.66, 0.93], [0.80, 0.84]]
+      ],
+      f: [
+        [[0.74, 0.14], [0.60, 0.06], [0.44, 0.10], [0.38, 0.28], [0.38, 0.95]],
+        [[0.18, 0.44], [0.68, 0.43]]
+      ],
+      g: [
+        [[0.76, 0.46], [0.54, 0.36], [0.30, 0.42], [0.20, 0.64], [0.28, 0.86], [0.52, 0.92], [0.76, 0.82]],
+        [[0.76, 0.38], [0.76, 1.04], [0.64, 1.16], [0.42, 1.18], [0.24, 1.10]]
+      ],
+      h: [
+        [[0.22, 0.06], [0.22, 0.95]],
+        [[0.22, 0.52], [0.42, 0.37], [0.64, 0.38], [0.76, 0.54], [0.78, 0.95]]
+      ],
+      i: [
+        [[0.50, 0.38], [0.50, 0.95]]
+      ],
+      k: [
+        [[0.22, 0.06], [0.22, 0.95]],
+        [[0.76, 0.37], [0.26, 0.66]],
+        [[0.42, 0.57], [0.80, 0.95]]
+      ],
+      l: [
+        [[0.48, 0.06], [0.49, 0.86], [0.58, 0.95]]
+      ],
+      m: [
+        [[0.12, 0.38], [0.13, 0.95]],
+        [[0.13, 0.50], [0.28, 0.37], [0.44, 0.39], [0.50, 0.54], [0.50, 0.95]],
+        [[0.50, 0.50], [0.66, 0.37], [0.82, 0.39], [0.88, 0.54], [0.88, 0.95]]
+      ],
+      n: [
+        [[0.22, 0.38], [0.22, 0.95]],
+        [[0.22, 0.52], [0.42, 0.37], [0.64, 0.38], [0.76, 0.54], [0.78, 0.95]]
+      ],
+      o: [
+        [[0.50, 0.36], [0.26, 0.44], [0.18, 0.66], [0.26, 0.88], [0.50, 0.95], [0.74, 0.88], [0.82, 0.66], [0.74, 0.44], [0.50, 0.36]]
+      ],
+      p: [
+        [[0.22, 0.38], [0.22, 1.18]],
+        [[0.22, 0.48], [0.46, 0.36], [0.72, 0.42], [0.82, 0.64], [0.74, 0.88], [0.48, 0.95], [0.22, 0.86]]
+      ],
+      r: [
+        [[0.26, 0.38], [0.26, 0.95]],
+        [[0.26, 0.54], [0.42, 0.39], [0.62, 0.36], [0.76, 0.43]]
+      ],
+      s: [
+        [[0.74, 0.45], [0.56, 0.36], [0.34, 0.37], [0.22, 0.48], [0.28, 0.60], [0.56, 0.67], [0.76, 0.77], [0.72, 0.90], [0.50, 0.95], [0.26, 0.91], [0.18, 0.84]]
+      ],
+      t: [
+        [[0.46, 0.14], [0.46, 0.84], [0.54, 0.94], [0.68, 0.93]],
+        [[0.22, 0.38], [0.72, 0.38]]
+      ],
+      u: [
+        [[0.22, 0.38], [0.22, 0.76], [0.32, 0.92], [0.52, 0.95], [0.72, 0.84]],
+        [[0.76, 0.38], [0.76, 0.95]]
+      ],
+      v: [
+        [[0.20, 0.38], [0.50, 0.95], [0.80, 0.38]]
+      ],
+      w: [
+        [[0.12, 0.38], [0.30, 0.95], [0.50, 0.56], [0.70, 0.95], [0.88, 0.38]]
+      ],
+      y: [
+        [[0.20, 0.38], [0.48, 0.92]],
+        [[0.78, 0.38], [0.48, 0.92], [0.34, 1.14], [0.20, 1.18]]
+      ],
+      '1': [
+        [[0.30, 0.22], [0.50, 0.07], [0.50, 0.94]],
+        [[0.26, 0.94], [0.76, 0.94]]
+      ],
+      '2': [
+        [[0.20, 0.24], [0.34, 0.08], [0.58, 0.07], [0.76, 0.18], [0.78, 0.36], [0.62, 0.56], [0.18, 0.94], [0.82, 0.94]]
+      ],
+      "'": [
+        [[0.52, 0.06], [0.48, 0.22], [0.38, 0.34]]
+      ],
+      '’': [
+        [[0.55, 0.04], [0.52, 0.20], [0.40, 0.34]]
+      ],
+      '“': [
+        [[0.36, 0.04], [0.28, 0.19], [0.32, 0.32]],
+        [[0.68, 0.04], [0.60, 0.19], [0.64, 0.32]]
+      ],
+      '”': [
+        [[0.36, 0.04], [0.42, 0.18], [0.32, 0.32]],
+        [[0.68, 0.04], [0.74, 0.18], [0.64, 0.32]]
+      ]
+    };
+
+    const GLYPH_WIDTH_FACTOR = {
+      I: 0.46,
+      i: 0.38,
+      l: 0.40,
+      f: 0.56,
+      r: 0.58,
+      t: 0.56,
+      '.': 0.34,
+      "'": 0.34,
+      '’': 0.36,
+      '“': 0.56,
+      '”': 0.56,
+      M: 1.06,
+      W: 1.10,
+      m: 1.04,
+      w: 0.98,
+      O: 0.94,
+      G: 0.92,
+      D: 0.90,
+      C: 0.88,
+      K: 0.88,
+      a: 0.76,
+      b: 0.78,
+      c: 0.72,
+      d: 0.78,
+      e: 0.74,
+      g: 0.76,
+      h: 0.76,
+      k: 0.74,
+      n: 0.76,
+      o: 0.76,
+      p: 0.78,
+      s: 0.70,
+      u: 0.76,
+      v: 0.74,
+      y: 0.76,
+      '1': 0.64,
+      '2': 0.76,
+      '!': 0.38,
+      ' ': 0.56
+    };
+
+    function drawHandwrittenLine(ctx, text, options, rand) {
+      let {
+        centerX = null,
+        leftX = null,
+        y = 200,
+        charHeight = 34,
+        baseCharWidth = 24,
+        letterSpacing = 9,
+        strokeWidth = 5.2,
+        maxWidth = null
+      } = options;
+
+      const chars = Array.from(text);
+      let widths = chars.map((ch) => baseCharWidth * (GLYPH_WIDTH_FACTOR[ch] ?? 0.80));
+      let totalWidth = widths.reduce((sum, w) => sum + w, 0) + letterSpacing * Math.max(0, chars.length - 1);
+
+      if (maxWidth !== null && totalWidth > maxWidth) {
+        const fitScale = maxWidth / totalWidth;
+        baseCharWidth *= fitScale;
+        letterSpacing *= fitScale;
+        widths = widths.map((w) => w * fitScale);
+        totalWidth *= fitScale;
+      }
+
+      let cursorX = leftX !== null ? leftX : centerX - totalWidth * 0.5;
+      const startX = cursorX;
+
+      for (let i = 0; i < chars.length; i++) {
+        const ch = chars[i];
+        const gw = widths[i];
+        const strokes = HAND_GLYPHS[ch];
+
+        const baselineJitter = (rand() - 0.5) * 2.1;
+        const tilt = (rand() - 0.5) * 0.045;
+
+        if (ch === '.') {
+          const dotX = cursorX + gw * 0.52;
+          const dotY = y + charHeight * 0.91 + baselineJitter * 0.5;
+          const dotR = strokeWidth * 0.64;
+          ctx.save();
+          ctx.fillStyle = 'rgba(35, 51, 150, 0.22)';
+          ctx.beginPath();
+          ctx.arc(dotX, dotY, dotR * 1.32, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = '#233396';
+          ctx.beginPath();
+          ctx.arc(dotX, dotY, dotR, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        } else if (ch === '!') {
+          ctx.save();
+          ctx.translate(cursorX + gw * 0.5, y + charHeight * 0.5 + baselineJitter);
+          ctx.rotate(tilt);
+          ctx.translate(-gw * 0.5, -charHeight * 0.5);
+
+          strokeCobaltPenPath(
+            ctx,
+            [
+              [gw * 0.52, charHeight * 0.06],
+              [gw * 0.50, charHeight * 0.42],
+              [gw * 0.49, charHeight * 0.68]
+            ],
+            strokeWidth,
+            rand,
+            false
+          );
+
+          const dotX = gw * 0.49 + (rand() - 0.5) * 0.6;
+          const dotY = charHeight * 0.90 + (rand() - 0.5) * 0.6;
+          const dotR = strokeWidth * 0.64;
+          ctx.fillStyle = 'rgba(35, 51, 150, 0.22)';
+          ctx.beginPath();
+          ctx.arc(dotX, dotY, dotR * 1.32, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = '#233396';
+          ctx.beginPath();
+          ctx.arc(dotX, dotY, dotR, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        } else if (strokes) {
+          ctx.save();
+          ctx.translate(cursorX + gw * 0.5, y + charHeight * 0.5 + baselineJitter);
+          ctx.rotate(tilt);
+          ctx.translate(-gw * 0.5, -charHeight * 0.5);
+
+          for (const stroke of strokes) {
+            const pts = stroke.map(([nx, ny]) => [nx * gw, ny * charHeight]);
+            strokeCobaltPenPath(ctx, pts, strokeWidth, rand, false);
+          }
+
+          if (ch === 'i') {
+            const dotX = gw * 0.50 + (rand() - 0.5) * 0.8;
+            const dotY = charHeight * 0.16 + (rand() - 0.5) * 0.8;
+            const dotR = strokeWidth * 0.60;
+            ctx.fillStyle = 'rgba(35, 51, 150, 0.22)';
+            ctx.beginPath();
+            ctx.arc(dotX, dotY, dotR * 1.32, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#233396';
+            ctx.beginPath();
+            ctx.arc(dotX, dotY, dotR, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          ctx.restore();
+        }
+
+        cursorX += gw + letterSpacing;
+      }
+
+      return { startX, endX: cursorX - letterSpacing, totalWidth };
+    }
+
+    function createMessageCardTexture() {
+      const size = 1024;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      paintHandmadeCottonBase(ctx, size, size, {
+        baseColor: '#F5EFE0',
+        warmEdgeTint: true,
+        seed: 91234
+      });
+
+      const rand = createSeededRandom(61024);
+
+      const line1 = drawHandwrittenLine(
+        ctx,
+        'Dear Kanna',
+        {
+          leftX: size * 0.115,
+          y: size * 0.080,
+          charHeight: 32,
+          baseCharWidth: 23,
+          letterSpacing: 6,
+          strokeWidth: 4.7
+        },
+        rand
+      );
+
+      const waveStartX = line1.startX - 7;
+      const waveEndX = line1.endX + 10;
+      const waveBaseY = size * 0.080 + 40;
+      const wavePts = [];
+      const waveSamples = 70;
+      const numWaves = 8.5;
+      for (let i = 0; i <= waveSamples; i++) {
+        const t = i / waveSamples;
+        const wx = waveStartX + t * (waveEndX - waveStartX);
+        const wy = waveBaseY + Math.sin(t * Math.PI * 2 * numWaves) * 4.1 + (rand() - 0.5) * 0.6;
+        wavePts.push([wx, wy]);
+      }
+      strokeCobaltPenPath(ctx, wavePts, 4.4, rand, false);
+
+      drawHandwrittenLine(
+        ctx,
+        'Happy birthday.',
+        {
+          centerX: size * 0.50,
+          y: size * 0.205,
+          charHeight: 28,
+          baseCharWidth: 20,
+          letterSpacing: 5.2,
+          strokeWidth: 4.4,
+          maxWidth: size * 0.82
+        },
+        rand
+      );
+
+      drawHandwrittenLine(
+        ctx,
+        'I hope it’s a',
+        {
+          centerX: size * 0.50,
+          y: size * 0.320,
+          charHeight: 28,
+          baseCharWidth: 20,
+          letterSpacing: 5.2,
+          strokeWidth: 4.4,
+          maxWidth: size * 0.82
+        },
+        rand
+      );
+
+      drawHandwrittenLine(
+        ctx,
+        'very special birthday.',
+        {
+          centerX: size * 0.50,
+          y: size * 0.435,
+          charHeight: 27,
+          baseCharWidth: 18,
+          letterSpacing: 4.7,
+          strokeWidth: 4.25,
+          maxWidth: size * 0.82
+        },
+        rand
+      );
+
+      drawHandwrittenLine(
+        ctx,
+        'Let’s have a blast on',
+        {
+          centerX: size * 0.50,
+          y: size * 0.572,
+          charHeight: 27,
+          baseCharWidth: 18,
+          letterSpacing: 4.7,
+          strokeWidth: 4.25,
+          maxWidth: size * 0.82
+        },
+        rand
+      );
+
+      drawHandwrittenLine(
+        ctx,
+        'our trip to Fukuoka in a month!!!',
+        {
+          centerX: size * 0.50,
+          y: size * 0.685,
+          charHeight: 26,
+          baseCharWidth: 16,
+          letterSpacing: 4.2,
+          strokeWidth: 4.1,
+          maxWidth: size * 0.84
+        },
+        rand
+      );
+
+      drawHandwrittenLine(
+        ctx,
+        'From Gaku',
+        {
+          centerX: size * 0.50,
+          y: size * 0.805,
+          charHeight: 29,
+          baseCharWidth: 21,
+          letterSpacing: 5.5,
+          strokeWidth: 4.5,
+          maxWidth: size * 0.80
+        },
+        rand
+      );
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 8;
+      return tex;
+    }
+
+    function createStandingShadowTexture() {
+      const size = 256;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      ctx.clearRect(0, 0, size, size);
+      ctx.save();
+      ctx.translate(size * 0.5, size * 0.5);
+      ctx.scale(1.0, 0.24);
+      const grad = ctx.createRadialGradient(0, 0, 6, 0, 0, 110);
+      grad.addColorStop(0.0, 'rgba(35, 34, 48, 0.28)');
+      grad.addColorStop(0.45, 'rgba(35, 34, 48, 0.14)');
+      grad.addColorStop(0.8, 'rgba(35, 34, 48, 0.04)');
+      grad.addColorStop(1.0, 'rgba(35, 34, 48, 0.0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(0, 0, 110, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      return new THREE.CanvasTexture(canvas);
+    }
+
+    function buildDeckledContour(rawEdges, seed = 101) {
+      const rand = createSeededRandom(seed);
+      const pts = [];
+
+      for (const edge of rawEdges) {
+        const { from, to, segments = 16, deckleAmp = 0.0 } = edge;
+        const dx = to[0] - from[0];
+        const dy = to[1] - from[1];
+        const len = Math.hypot(dx, dy) || 1;
+        const nx = dy / len;
+        const ny = -dx / len;
+
+        for (let s = 0; s < segments; s++) {
+          const t = s / segments;
+          let x = from[0] + dx * t;
+          let y = from[1] + dy * t;
+
+          if (deckleAmp > 0) {
+            const cornerTaper = Math.sin(t * Math.PI);
+            const wave =
+              0.55 * Math.sin(t * Math.PI * 11.0 + rand() * 1.5) +
+              0.30 * Math.sin(t * Math.PI * 23.0 + rand() * 2.0) +
+              0.15 * (rand() - 0.5);
+            const disp = deckleAmp * cornerTaper * wave;
+            x += nx * disp;
+            y += ny * disp;
+          }
+          pts.push(new THREE.Vector2(x, y));
+        }
+      }
+
+      return pts;
+    }
+
+    function buildSolidPaperSlab({
+      contour2D,
+      thickness = 0.018,
+      zBase = 0.0,
+      zCurveFn = () => 0,
+      uvFn = (x, y) => [x, y],
+      backUvFn = null
+    }) {
+      const n = contour2D.length;
+      const triangles = THREE.ShapeUtils.triangulateShape(contour2D, []);
+
+      const positions = [];
+      const uvs = [];
+      const indices = [];
+
+      for (let i = 0; i < n; i++) {
+        const p = contour2D[i];
+        const zFront = zBase + thickness * 0.5 + zCurveFn(p.x, p.y);
+        positions.push(p.x, p.y, zFront);
+        const [u, v] = uvFn(p.x, p.y);
+        uvs.push(u, v);
+      }
+
+      for (let i = 0; i < n; i++) {
+        const p = contour2D[i];
+        const zBack = zBase - thickness * 0.5 + zCurveFn(p.x, p.y);
+        positions.push(p.x, p.y, zBack);
+        const [u, v] = backUvFn ? backUvFn(p.x, p.y) : uvFn(p.x, p.y);
+        uvs.push(u, v);
+      }
+
+      for (const [a, b, c] of triangles) {
+        indices.push(a, b, c);
+      }
+
+      for (const [a, b, c] of triangles) {
+        indices.push(n + a, n + c, n + b);
+      }
+
+      for (let i = 0; i < n; i++) {
+        const next = (i + 1) % n;
+        const f0 = i;
+        const f1 = next;
+        const b0 = n + i;
+        const b1 = n + next;
+
+        indices.push(f0, b0, b1);
+        indices.push(f0, b1, f1);
+      }
+
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      geo.setIndex(indices);
+      geo.computeVertexNormals();
+      return geo;
+    }
+
+    function buildEnvelopeAndCardAssembly() {
+      const rootGroup = new THREE.Group();
+
+      const W = 3.20;
+      const H = 2.32;
+      const halfW = W * 0.5;
+      const halfH = H * 0.5;
+      const flapPeakH = 1.38;
+      const flapApexX = -0.02;
+      const flapApexY = halfH + flapPeakH;
+      const paperThickness = 0.018;
+
+      const paperSurfaceMaps = createCottonPaperSurfaceMaps();
+      const bodyTopFlapTex = createEnvelopeBodyAndTopFlapTexture(W, H, flapPeakH);
+      const frontFlapsTex = createEnvelopeFrontFlapTexture();
+      const cardFrontTex = createMessageCardTexture();
+      const cardBackTex = createDecoratedCardBackTexture();
+      const cardEdgeTex = createPlainCottonEdgeTexture();
+
+      const bodyAndTopFlapMat = new THREE.MeshStandardMaterial({
+        map: bodyTopFlapTex,
+        bumpMap: paperSurfaceMaps.bumpMap,
+        bumpScale: 0.0042,
+        roughnessMap: paperSurfaceMaps.roughnessMap,
+        roughness: 0.88,
+        metalness: 0.0,
+        transparent: false,
+        opacity: 1.0,
+        depthWrite: true,
+        depthTest: true,
+        side: THREE.DoubleSide
+      });
+
+      const frontFlapsMat = new THREE.MeshStandardMaterial({
+        map: frontFlapsTex,
+        bumpMap: paperSurfaceMaps.bumpMap,
+        bumpScale: 0.0042,
+        roughnessMap: paperSurfaceMaps.roughnessMap,
+        roughness: 0.88,
+        metalness: 0.0,
+        transparent: false,
+        opacity: 1.0,
+        depthWrite: true,
+        depthTest: true,
+        side: THREE.DoubleSide
+      });
+
+      const navyLiningMat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(0x1c1e56),
+        bumpMap: paperSurfaceMaps.bumpMap,
+        bumpScale: 0.0025,
+        roughnessMap: paperSurfaceMaps.roughnessMap,
+        roughness: 0.90,
+        metalness: 0.0,
+        transparent: false,
+        opacity: 1.0,
+        depthWrite: true,
+        depthTest: true,
+        side: THREE.DoubleSide
+      });
+
+      const cardFrontMat = new THREE.MeshStandardMaterial({
+        map: cardFrontTex,
+        bumpMap: paperSurfaceMaps.bumpMap,
+        bumpScale: 0.0045,
+        roughnessMap: paperSurfaceMaps.roughnessMap,
+        roughness: 0.86,
+        metalness: 0.0,
+        transparent: false,
+        opacity: 1.0,
+        depthWrite: true,
+        depthTest: true,
+        side: THREE.DoubleSide
+      });
+
+      const cardBackMat = new THREE.MeshStandardMaterial({
+        map: cardBackTex,
+        bumpMap: paperSurfaceMaps.bumpMap,
+        bumpScale: 0.0045,
+        roughnessMap: paperSurfaceMaps.roughnessMap,
+        roughness: 0.86,
+        metalness: 0.0,
+        transparent: false,
+        opacity: 1.0,
+        depthWrite: true,
+        depthTest: true,
+        side: THREE.DoubleSide
+      });
+
+      const cardEdgeMat = new THREE.MeshStandardMaterial({
+        map: cardEdgeTex,
+        bumpMap: paperSurfaceMaps.bumpMap,
+        bumpScale: 0.0045,
+        roughnessMap: paperSurfaceMaps.roughnessMap,
+        roughness: 0.86,
+        metalness: 0.0,
+        transparent: false,
+        opacity: 1.0,
+        depthWrite: true,
+        depthTest: true,
+        side: THREE.DoubleSide
+      });
+
+      const apexRadius = 0.045;
+      const backContour = buildDeckledContour(
+        [
+          { from: [-halfW, -halfH], to: [halfW, -halfH], segments: 24, deckleAmp: 0.002 },
+          { from: [halfW, -halfH], to: [halfW, halfH], segments: 20, deckleAmp: 0.002 },
+          { from: [halfW, halfH], to: [flapApexX + apexRadius, flapApexY - apexRadius * 0.85], segments: 26, deckleAmp: 0.005 },
+          { from: [flapApexX + apexRadius, flapApexY - apexRadius * 0.85], to: [flapApexX, flapApexY], segments: 5, deckleAmp: 0.001 },
+          { from: [flapApexX, flapApexY], to: [flapApexX - apexRadius, flapApexY - apexRadius * 0.85], segments: 5, deckleAmp: 0.001 },
+          { from: [flapApexX - apexRadius, flapApexY - apexRadius * 0.85], to: [-halfW, halfH], segments: 26, deckleAmp: 0.005 },
+          { from: [-halfW, halfH], to: [-halfW, -halfH], segments: 20, deckleAmp: 0.002 }
+        ],
+        1011
+      );
+
+      const backSheetGeo = buildSolidPaperSlab({
+        contour2D: backContour,
+        thickness: paperThickness,
+        zBase: -0.036,
+        zCurveFn: (x, y) => {
+          const flapT = Math.max(0, (y - halfH) / flapPeakH);
+          const flapLean = -0.048 * Math.pow(flapT, 1.55);
+          const crossBow = -0.010 * (1.0 - Math.pow(x / halfW, 2));
+          return flapLean + crossBow;
+        },
+        uvFn: (x, y) => {
+          const u = (x + halfW) / W;
+          const v = (y + halfH) / (H + flapPeakH);
+          return [u, v];
+        }
+      });
+
+      const backSheetMesh = new THREE.Mesh(backSheetGeo, bodyAndTopFlapMat);
+      backSheetMesh.castShadow = true;
+      backSheetMesh.receiveShadow = true;
+      rootGroup.add(backSheetMesh);
+
+      const linerMarginX = 0.016;
+      const linerBottomY = -halfH + 0.018;
+      const linerTopY = halfH - 0.006;
+
+      const navyLinerContour = buildDeckledContour(
+        [
+          { from: [-halfW + linerMarginX, linerBottomY], to: [halfW - linerMarginX, linerBottomY], segments: 12, deckleAmp: 0 },
+          { from: [halfW - linerMarginX, linerBottomY], to: [halfW - linerMarginX, linerTopY], segments: 12, deckleAmp: 0 },
+          { from: [halfW - linerMarginX, linerTopY], to: [-halfW + linerMarginX, linerTopY], segments: 16, deckleAmp: 0.002 },
+          { from: [-halfW + linerMarginX, linerTopY], to: [-halfW + linerMarginX, linerBottomY], segments: 12, deckleAmp: 0 }
+        ],
+        2022
+      );
+
+      const navyLinerGeo = buildSolidPaperSlab({
+        contour2D: navyLinerContour,
+        thickness: 0.010,
+        zBase: -0.021,
+        zCurveFn: (x) => -0.009 * (1.0 - Math.pow(x / halfW, 2)),
+        uvFn: (x, y) => [(x + halfW) / W, (y + halfH) / H]
+      });
+
+      const navyLinerMesh = new THREE.Mesh(navyLinerGeo, navyLiningMat);
+      navyLinerMesh.receiveShadow = true;
+      rootGroup.add(navyLinerMesh);
+
+      const cardW = 0.79 * W;
+      const cardH = 2.74;
+      const cardHalfW = cardW * 0.5;
+      const cardRestCenterY = 0.25;
+
+      const cardContour = buildDeckledContour(
+        [
+          { from: [-cardHalfW, -cardH * 0.5], to: [cardHalfW, -cardH * 0.5], segments: 24, deckleAmp: 0.003 },
+          { from: [cardHalfW, -cardH * 0.5], to: [cardHalfW, cardH * 0.5], segments: 28, deckleAmp: 0.0045 },
+          { from: [cardHalfW, cardH * 0.5], to: [-cardHalfW, cardH * 0.5], segments: 28, deckleAmp: 0.005 },
+          { from: [-cardHalfW, cardH * 0.5], to: [-cardHalfW, -cardH * 0.5], segments: 28, deckleAmp: 0.0045 }
+        ],
+        3033
+      );
+
+      const cardGeo = buildSolidPaperSlab({
+        contour2D: cardContour,
+        thickness: 0.021,
+        zBase: 0.0,
+        zCurveFn: (x, y) => {
+          const archX = 0.011 * (1.0 - Math.pow(x / cardHalfW, 2));
+          const tiltY = 0.010 * ((y + cardH * 0.5) / cardH);
+          return archX + tiltY;
+        },
+        uvFn: (x, y) => {
+          const u = (x + cardHalfW) / cardW;
+          const v = (y + cardH * 0.5) / cardH;
+          return [u, v];
+        },
+        backUvFn: (x, y) => {
+          const u = 1.0 - (x + cardHalfW) / cardW;
+          const v = (y + cardH * 0.5) / cardH;
+          return [u, v];
+        }
+      });
+
+      const frontTriCount = (cardContour.length - 2) * 3;
+      cardGeo.clearGroups();
+      cardGeo.addGroup(0, frontTriCount, 0);
+      cardGeo.addGroup(frontTriCount, frontTriCount, 1);
+      cardGeo.addGroup(frontTriCount * 2, cardGeo.index.count - frontTriCount * 2, 2);
+
+      const cardMesh = new THREE.Mesh(cardGeo, [cardFrontMat, cardBackMat, cardEdgeMat]);
+      cardMesh.position.set(0, cardRestCenterY, -0.002);
+      cardMesh.castShadow = true;
+      cardMesh.receiveShadow = true;
+      rootGroup.add(cardMesh);
+
+      const centerApexX = 0.24 * W;
+      const centerApexY = 0.04 * H;
+
+      const leftFlapContour = buildDeckledContour(
+        [
+          { from: [-halfW, -halfH], to: [-centerApexX, centerApexY], segments: 18, deckleAmp: 0.003 },
+          { from: [-centerApexX, centerApexY], to: [-halfW, halfH], segments: 18, deckleAmp: 0.004 },
+          { from: [-halfW, halfH], to: [-halfW, -halfH], segments: 20, deckleAmp: 0.001 }
+        ],
+        4044
+      );
+
+      const leftFlapGeo = buildSolidPaperSlab({
+        contour2D: leftFlapContour,
+        thickness: paperThickness,
+        zBase: 0.023,
+        zCurveFn: (x) => {
+          const tIn = Math.max(0, Math.min(1, (x + halfW) / (halfW - centerApexX)));
+          return -0.032 * Math.pow(1.0 - tIn, 2.2) + 0.008 * Math.sin(tIn * Math.PI);
+        },
+        uvFn: (x, y) => [(x + halfW) / W, (y + halfH) / H]
+      });
+
+      const leftFlapMesh = new THREE.Mesh(leftFlapGeo, frontFlapsMat);
+      leftFlapMesh.castShadow = true;
+      leftFlapMesh.receiveShadow = true;
+      rootGroup.add(leftFlapMesh);
+
+      const rightFlapContour = buildDeckledContour(
+        [
+          { from: [halfW, -halfH], to: [halfW, halfH], segments: 20, deckleAmp: 0.001 },
+          { from: [halfW, halfH], to: [centerApexX, centerApexY], segments: 18, deckleAmp: 0.004 },
+          { from: [centerApexX, centerApexY], to: [halfW, -halfH], segments: 18, deckleAmp: 0.003 }
+        ],
+        5055
+      );
+
+      const rightFlapGeo = buildSolidPaperSlab({
+        contour2D: rightFlapContour,
+        thickness: paperThickness,
+        zBase: 0.023,
+        zCurveFn: (x) => {
+          const tIn = Math.max(0, Math.min(1, (halfW - x) / (halfW - centerApexX)));
+          return -0.032 * Math.pow(1.0 - tIn, 2.2) + 0.008 * Math.sin(tIn * Math.PI);
+        },
+        uvFn: (x, y) => [(x + halfW) / W, (y + halfH) / H]
+      });
+
+      const rightFlapMesh = new THREE.Mesh(rightFlapGeo, frontFlapsMat);
+      rightFlapMesh.castShadow = true;
+      rightFlapMesh.receiveShadow = true;
+      rootGroup.add(rightFlapMesh);
+
+      const bottomFlapContour = buildDeckledContour(
+        [
+          { from: [-halfW, -halfH], to: [halfW, -halfH], segments: 24, deckleAmp: 0.001 },
+          { from: [halfW, -halfH], to: [centerApexX, centerApexY], segments: 18, deckleAmp: 0.0035 },
+          { from: [centerApexX, centerApexY], to: [-centerApexX, centerApexY], segments: 24, deckleAmp: 0.0055 },
+          { from: [-centerApexX, centerApexY], to: [-halfW, -halfH], segments: 18, deckleAmp: 0.0035 }
+        ],
+        6066
+      );
+
+      const bottomFlapGeo = buildSolidPaperSlab({
+        contour2D: bottomFlapContour,
+        thickness: paperThickness,
+        zBase: 0.043,
+        zCurveFn: (x, y) => {
+          const tUp = Math.max(0, Math.min(1, (y + halfH) / (centerApexY + halfH)));
+          const bottomSpine = -0.045 * Math.pow(1.0 - tUp, 2.5);
+          const centerArch = 0.011 * (1.0 - Math.pow(x / halfW, 2));
+          return bottomSpine + centerArch;
+        },
+        uvFn: (x, y) => [(x + halfW) / W, (y + halfH) / H]
+      });
+
+      const bottomFlapMesh = new THREE.Mesh(bottomFlapGeo, frontFlapsMat);
+      bottomFlapMesh.castShadow = true;
+      bottomFlapMesh.receiveShadow = true;
+      rootGroup.add(bottomFlapMesh);
+
+      return {
+        rootGroup,
+        cardMesh,
+        cardRestCenterY,
+        cardSlideOutCenterY: cardRestCenterY + 1.05,
+        bottomY: -halfH
+      };
+    }
+
+    function initApp() {
+      const container = document.getElementById('canvas-container');
+
+      function getViewportSize() {
+        const w = container.clientWidth || window.innerWidth || 360;
+        const h = container.clientHeight || window.innerHeight || 360;
+        return { w, h };
+      }
+      const initSize = getViewportSize();
+
+      const renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+        powerPreference: 'default'
+      });
+      renderer.setClearColor(0x000000, 0);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(initSize.w, initSize.h);
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.02;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+
+      const scene = new THREE.Scene();
+      scene.background = null;
+
+      try {
+        const pmremGenerator = new THREE.PMREMGenerator(renderer);
+        const roomEnv = new RoomEnvironment();
+        const envRT = pmremGenerator.fromScene(roomEnv, 0.04);
+        scene.environment = envRT.texture;
+        scene.environmentIntensity = 0.42;
+        roomEnv.dispose();
+        pmremGenerator.dispose();
+      } catch (e) {
+        // Fallback smoothly if PMREM is unavailable on low-memory devices
+      }
+
+      const camera = new THREE.PerspectiveCamera(
+        34,
+        initSize.w / initSize.h,
+        0.05,
+        100
+      );
+
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.065;
+      controls.rotateSpeed = 0.85;
+      controls.zoomSpeed = 0.95;
+      controls.panSpeed = 0.8;
+      controls.minDistance = 1.6;
+      controls.maxDistance = 14.0;
+      controls.minPolarAngle = 0.03;
+      controls.maxPolarAngle = Math.PI - 0.03;
+
+      const hemiLight = new THREE.HemisphereLight(0xfffdf8, 0xe8e2d5, 0.78);
+      hemiLight.position.set(0, 8, 0);
+      scene.add(hemiLight);
+
+      const keyLight = new THREE.DirectionalLight(0xfffcf5, 1.45);
+      keyLight.position.set(-2.6, 4.8, 5.4);
+      keyLight.castShadow = true;
+      keyLight.shadow.mapSize.width = 1024;
+      keyLight.shadow.mapSize.height = 1024;
+      keyLight.shadow.camera.near = 1.0;
+      keyLight.shadow.camera.far = 16.0;
+      const d = 3.2;
+      keyLight.shadow.camera.left = -d;
+      keyLight.shadow.camera.right = d;
+      keyLight.shadow.camera.top = d;
+      keyLight.shadow.camera.bottom = -d;
+      keyLight.shadow.bias = -0.0003;
+      keyLight.shadow.normalBias = 0.012;
+      scene.add(keyLight);
+
+      const fillLight = new THREE.DirectionalLight(0xf6f8ff, 0.65);
+      fillLight.position.set(4.2, 2.2, 4.0);
+      scene.add(fillLight);
+
+      const rimLight = new THREE.DirectionalLight(0xfffaf0, 0.95);
+      rimLight.position.set(1.5, 3.6, -5.2);
+      scene.add(rimLight);
+
+      const envelopeAssembly = buildEnvelopeAndCardAssembly();
+      scene.add(envelopeAssembly.rootGroup);
+
+      const shadowGeo = new THREE.PlaneGeometry(4.2, 1.35);
+      shadowGeo.rotateX(-Math.PI / 2);
+      const shadowMat = new THREE.MeshBasicMaterial({
+        map: createStandingShadowTexture(),
+        transparent: true,
+        depthWrite: false,
+        side: THREE.FrontSide
+      });
+      const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
+      shadowMesh.position.set(0, envelopeAssembly.bottomY - 0.004, 0.0);
+      scene.add(shadowMesh);
+
+      const CAMERA_PRESETS = {
+        front: {
+          pos: new THREE.Vector3(0.0, 0.56, 7.35),
+          target: new THREE.Vector3(0.0, 0.56, 0.0)
+        },
+        angle34: {
+          pos: new THREE.Vector3(3.35, 1.68, 5.45),
+          target: new THREE.Vector3(0.0, 0.52, 0.0)
+        },
+        side: {
+          pos: new THREE.Vector3(5.65, 0.62, 0.25),
+          target: new THREE.Vector3(0.0, 0.56, 0.0)
+        },
+        cardBack: {
+          pos: new THREE.Vector3(0.0, 1.32, -5.65),
+          target: new THREE.Vector3(0.0, 1.24, 0.0)
+        },
+        back: {
+          pos: new THREE.Vector3(0.0, 0.62, -7.25),
+          target: new THREE.Vector3(0.0, 0.56, 0.0)
+        },
+        closeup: {
+          pos: new THREE.Vector3(0.0, 0.92, 3.35),
+          target: new THREE.Vector3(0.0, 0.88, 0.0)
+        }
+      };
+
+      camera.position.copy(CAMERA_PRESETS.front.pos);
+      controls.target.copy(CAMERA_PRESETS.front.target);
+      controls.update();
+
+      let camAnim = null;
+
+      function animateCameraTo(presetKey) {
+        const key = presetKey === 'reset' ? 'front' : presetKey;
+        const preset = CAMERA_PRESETS[key];
+        if (!preset) return;
+
+        if (key === 'cardBack' && !isCardSlidOut) {
+          setCardSlidOut(true);
+        }
+
+        camAnim = {
+          startPos: camera.position.clone(),
+          endPos: preset.pos.clone(),
+          startTarget: controls.target.clone(),
+          endTarget: preset.target.clone(),
+          elapsed: 0,
+          duration: 0.85
+        };
+
+        document.querySelectorAll('.cam-btn[data-preset]').forEach((btn) => {
+          const btnKey = btn.getAttribute('data-preset');
+          btn.classList.toggle('active', btnKey === key);
+        });
+      }
+
+      controls.addEventListener('start', () => {
+        camAnim = null;
+      });
+
+      let isCardSlidOut = false;
+      let cardTargetY = envelopeAssembly.cardRestCenterY;
+      const slideBtn = document.getElementById('toggle-slide-card');
+      const slideDot = document.getElementById('slide-dot');
+
+      function setCardSlidOut(slidOut) {
+        isCardSlidOut = slidOut;
+        cardTargetY = slidOut
+          ? envelopeAssembly.cardSlideOutCenterY
+          : envelopeAssembly.cardRestCenterY;
+
+        if (slidOut) {
+          slideBtn.classList.add('active');
+          slideDot.classList.remove('bg-slate-300');
+          slideDot.classList.add('bg-white');
+        } else {
+          slideBtn.classList.remove('active');
+          slideDot.classList.remove('bg-white');
+          slideDot.classList.add('bg-slate-300');
+        }
+
+        const targetY = slidOut ? 1.06 : 0.56;
+        const currentOffset = camera.position.clone().sub(controls.target);
+        const endTarget = new THREE.Vector3(controls.target.x, targetY, controls.target.z);
+        const endPos = endTarget.clone().add(currentOffset);
+
+        camAnim = {
+          startPos: camera.position.clone(),
+          endPos,
+          startTarget: controls.target.clone(),
+          endTarget,
+          elapsed: 0,
+          duration: 0.75
+        };
+      }
+
+      slideBtn.addEventListener('click', () => {
+        setCardSlidOut(!isCardSlidOut);
+      });
+
+      const raycaster = new THREE.Raycaster();
+      const pointerDownPos = new THREE.Vector2();
+      renderer.domElement.addEventListener('pointerdown', (e) => {
+        pointerDownPos.set(e.clientX, e.clientY);
+      });
+      renderer.domElement.addEventListener('pointerup', (e) => {
+        if (Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y) > 6) return;
+        const rect = renderer.domElement.getBoundingClientRect();
+        const ndc = new THREE.Vector2(
+          ((e.clientX - rect.left) / rect.width) * 2 - 1,
+          -((e.clientY - rect.top) / rect.height) * 2 + 1
+        );
+        raycaster.setFromCamera(ndc, camera);
+        if (raycaster.intersectObject(envelopeAssembly.cardMesh, false).length > 0) {
+          setCardSlidOut(!isCardSlidOut);
+        }
+      });
+
+      const autoRotateBtn = document.getElementById('toggle-autorotate');
+      const autoRotateDot = document.getElementById('autorotate-dot');
+
+      function setAutoRotate(enabled) {
+        controls.autoRotate = enabled;
+        controls.autoRotateSpeed = 1.65;
+        if (enabled) {
+          autoRotateBtn.classList.add('active');
+          autoRotateDot.classList.remove('bg-slate-300');
+          autoRotateDot.classList.add('bg-white');
+        } else {
+          autoRotateBtn.classList.remove('active');
+          autoRotateDot.classList.remove('bg-white');
+          autoRotateDot.classList.add('bg-slate-300');
+        }
+      }
+
+      autoRotateBtn.addEventListener('click', () => {
+        setAutoRotate(!controls.autoRotate);
+      });
+
+      document.querySelectorAll('.cam-btn[data-preset]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const preset = btn.getAttribute('data-preset');
+          if (preset === 'reset') {
+            if (controls.autoRotate) setAutoRotate(false);
+            if (isCardSlidOut) setCardSlidOut(false);
+          }
+          animateCameraTo(preset);
+        });
+      });
+
+      function updateSize() {
+        const { w, h } = getViewportSize();
+        if (w <= 0 || h <= 0) return;
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h);
+        renderer.render(scene, camera);
+      }
+
+      if (typeof ResizeObserver !== 'undefined') {
+        const ro = new ResizeObserver(() => updateSize());
+        ro.observe(container);
+      }
+      window.addEventListener('resize', updateSize);
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) updateSize();
+      });
+
+      // Render immediately and dismiss spinner synchronously
+      renderer.render(scene, camera);
+      hideLoader();
+
+      const clock = new THREE.Clock();
+      function animate() {
+        requestAnimationFrame(animate);
+        const dt = Math.min(clock.getDelta(), 0.05);
+
+        const currentCardY = envelopeAssembly.cardMesh.position.y;
+        if (Math.abs(cardTargetY - currentCardY) > 0.0005) {
+          const lerpFactor = 1 - Math.exp(-7.5 * dt);
+          envelopeAssembly.cardMesh.position.y += (cardTargetY - currentCardY) * lerpFactor;
+        }
+
+        if (camAnim) {
+          camAnim.elapsed += dt;
+          const t = Math.min(1, camAnim.elapsed / camAnim.duration);
+          const ease = 1 - Math.pow(1 - t, 3);
+
+          camera.position.lerpVectors(camAnim.startPos, camAnim.endPos, ease);
+          controls.target.lerpVectors(camAnim.startTarget, camAnim.endTarget, ease);
+
+          if (t >= 1) {
+            camAnim = null;
+          }
+        }
+
+        controls.update();
+        renderer.render(scene, camera);
+      }
+
+      animate();
+    }
+
+    try {
+      initApp();
+    } catch (err) {
+      console.error('Message Card 3D Viewer initialization error:', err);
+      showError('WebGLの初期化に失敗しました。ブラウザを再読み込みしてお試しください。');
+    }
+  </script>
+</body>
+</html>
