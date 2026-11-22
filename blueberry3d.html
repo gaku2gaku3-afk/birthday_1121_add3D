@@ -1,0 +1,1757 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>ブルーベリーチーズケーキ 3D ビューア</title>
+  <!-- Tailwind CSS for clean studio UI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & Noto Sans JP -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #FFFFFF;
+      font-family: 'Inter', 'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif;
+      user-select: none;
+    }
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      outline: none;
+    }
+    /* Minimal frosted studio glassmorphism */
+    .studio-glass {
+      background: rgba(255, 255, 255, 0.86);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(226, 232, 240, 0.88);
+      box-shadow: 0 8px 28px rgba(30, 27, 75, 0.06), 0 1px 3px rgba(30, 27, 75, 0.03);
+    }
+    .cam-btn {
+      transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .cam-btn:hover {
+      transform: translateY(-1px);
+    }
+    .cam-btn:active {
+      transform: translateY(0) scale(0.97);
+    }
+    .cam-btn.active {
+      background-color: #3B2874;
+      color: #FFFFFF;
+      box-shadow: 0 4px 12px rgba(59, 40, 116, 0.28);
+    }
+  </style>
+
+  <!-- ES Module Import Map for Three.js v0.170.0 & Official Addons -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <!-- Fullscreen 3D Canvas Container -->
+  <div id="canvas-container"></div>
+
+  <!-- Top-Left Studio Title & Control Hint -->
+  <header class="fixed top-4 left-4 sm:top-6 sm:left-6 z-10 pointer-events-none max-w-[calc(100vw-2rem)]">
+    <div class="studio-glass rounded-2xl px-4 py-3 sm:px-5 sm:py-3.5 inline-block pointer-events-auto">
+      <div class="flex items-center gap-2.5">
+        <span class="inline-block w-2.5 h-2.5 rounded-full bg-[#3B2874] shadow-sm"></span>
+        <h1 class="text-sm sm:text-base font-bold tracking-tight text-slate-900">
+          ブルーベリーチーズケーキ 3D ビューア
+        </h1>
+      </div>
+      <p class="mt-1 text-[11px] sm:text-xs text-slate-500 font-medium tracking-wide">
+        左ドラッグ：360度回転 <span class="mx-1 text-slate-300">/</span>
+        ホイール：拡大縮小 <span class="mx-1 text-slate-300">/</span>
+        右ドラッグ：移動
+      </p>
+    </div>
+  </header>
+
+  <!-- Loading Overlay -->
+  <div id="loading-overlay" class="fixed inset-0 z-30 flex items-center justify-center bg-white transition-opacity duration-500">
+    <div class="flex flex-col items-center gap-3">
+      <div class="w-9 h-9 border-2 border-indigo-100 border-t-[#3B2874] rounded-full animate-spin"></div>
+      <p class="text-xs font-medium text-slate-500 tracking-wider">ブルーベリーチーズケーキを生成中...</p>
+    </div>
+  </div>
+
+  <!-- Error Message Box (Hidden unless WebGL fails) -->
+  <div id="error-box" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 p-4">
+    <div class="bg-white rounded-2xl p-6 max-w-md shadow-xl text-center">
+      <h2 class="text-base font-bold text-slate-900 mb-2">3Dビューアの初期化エラー</h2>
+      <p id="error-message" class="text-sm text-slate-600"></p>
+    </div>
+  </div>
+
+  <!-- Bottom Floating Camera Preset & Auto-Rotate Toolbar -->
+  <nav aria-label="カメラ操作パネル" class="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-10 w-[calc(100vw-1.25rem)] max-w-3xl flex justify-center pointer-events-none">
+    <div class="studio-glass rounded-2xl sm:rounded-full p-1.5 sm:px-2.5 sm:py-2 flex flex-wrap items-center justify-center gap-1 sm:gap-1.5 pointer-events-auto">
+      <button type="button" data-preset="hero" class="cam-btn active px-3 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-xs font-semibold text-slate-700 hover:bg-indigo-50">
+        斜め正面
+      </button>
+      <button type="button" data-preset="top" class="cam-btn px-3 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-xs font-semibold text-slate-700 hover:bg-indigo-50">
+        真上から
+      </button>
+      <button type="button" data-preset="side" class="cam-btn px-3 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-xs font-semibold text-slate-700 hover:bg-indigo-50">
+        真横から
+      </button>
+      <button type="button" data-preset="macro" class="cam-btn px-3 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-xs font-semibold text-slate-700 hover:bg-indigo-50">
+        ベリー拡大
+      </button>
+      <button type="button" data-preset="candle" class="cam-btn px-3 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-xs font-semibold text-slate-700 hover:bg-indigo-50">
+        ロウソク拡大
+      </button>
+      <button type="button" data-preset="bottom" class="cam-btn px-3 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-xs font-semibold text-slate-700 hover:bg-indigo-50">
+        底面生地
+      </button>
+
+      <span class="hidden sm:inline-block w-px h-5 bg-slate-200 mx-0.5"></span>
+
+      <button type="button" id="toggle-flame" class="cam-btn active px-3 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-xs font-semibold text-slate-700 hover:bg-indigo-50 flex items-center gap-1.5">
+        <span id="flame-dot" class="w-2 h-2 rounded-full bg-amber-300 transition-colors"></span>
+        <span>キャンドル点灯</span>
+      </button>
+
+      <button type="button" id="toggle-autorotate" class="cam-btn px-3 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-xs font-semibold text-slate-700 hover:bg-indigo-50 flex items-center gap-1.5">
+        <span id="autorotate-dot" class="w-2 h-2 rounded-full bg-slate-300 transition-colors"></span>
+        <span>自動回転</span>
+      </button>
+
+      <button type="button" data-preset="reset" class="cam-btn px-3 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-xs font-semibold text-slate-700 hover:bg-indigo-50">
+        リセット
+      </button>
+    </div>
+  </nav>
+
+  <!-- Main Three.js Application Script -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+    /**
+     * ============================================================================
+     * 1. DETERMINISTIC PRNG & VALUE NOISE HELPERS
+     * ============================================================================
+     */
+    function createSeededRandom(seed = 20260714) {
+      let s = seed % 2147483647;
+      if (s <= 0) s += 2147483646;
+      return () => {
+        s = (s * 16807) % 2147483647;
+        return (s - 1) / 2147483646;
+      };
+    }
+
+    function smoothstep(edge0, edge1, x) {
+      const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+      return t * t * (3 - 2 * t);
+    }
+
+    /**
+     * ============================================================================
+     * 2. PROCEDURAL CULINARY TEXTURES (Biscuit Crust, Cream Cheese, Glaze, Berries)
+     * ============================================================================
+     */
+
+    /**
+     * Generates colorMap and bumpMap for the toasted golden-brown graham biscuit crust base.
+     */
+    function createGrahamCrustTextures() {
+      const size = 1024;
+      const cCanvas = document.createElement('canvas');
+      cCanvas.width = size;
+      cCanvas.height = size;
+      const ctx = cCanvas.getContext('2d');
+
+      const bCanvas = document.createElement('canvas');
+      bCanvas.width = size;
+      bCanvas.height = size;
+      const bCtx = bCanvas.getContext('2d');
+
+      // Warm golden-amber toasted biscuit base (#BC6F2B)
+      ctx.fillStyle = '#BC6F2B';
+      ctx.fillRect(0, 0, size, size);
+
+      bCtx.fillStyle = '#808080';
+      bCtx.fillRect(0, 0, size, size);
+
+      const rand = createSeededRandom(55109);
+
+      // Rich granular biscuit crumbs (thousands of multi-toned toasted particles)
+      const crumbColors = [
+        '#D99148', // Light buttery crumb
+        '#C97A32', // Warm golden graham
+        '#B26220', // Baked amber
+        '#944B14', // Deep toasted edge
+        '#75370C', // Roasted sugar fleck
+        '#E4A562'  // Highlight granule
+      ];
+
+      for (let i = 0; i < 16000; i++) {
+        const x = rand() * size;
+        const y = rand() * size;
+        const r = 1.2 + rand() * 4.4;
+        const col = crumbColors[Math.floor(rand() * crumbColors.length)];
+
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        // Slightly irregular polygon/ellipse crumb grain
+        ctx.ellipse(x, y, r, r * (0.65 + rand() * 0.6), rand() * Math.PI, 0, Math.PI * 2);
+        ctx.fill();
+
+        const bVal = Math.floor(60 + rand() * 185);
+        bCtx.fillStyle = `rgb(${bVal},${bVal},${bVal})`;
+        bCtx.beginPath();
+        bCtx.ellipse(x, y, r * 1.1, r * 0.85, rand() * Math.PI, 0, Math.PI * 2);
+        bCtx.fill();
+      }
+
+      // Subtle berry compote staining along top edge of the crust (v near 1 -> canvas y near 0)
+      const stainGrad = ctx.createLinearGradient(0, 0, 0, size * 0.24);
+      stainGrad.addColorStop(0.0, 'rgba(72, 8, 52, 0.55)');
+      stainGrad.addColorStop(0.45, 'rgba(98, 16, 68, 0.22)');
+      stainGrad.addColorStop(1.0, 'rgba(98, 16, 68, 0.0)');
+      ctx.fillStyle = stainGrad;
+      ctx.fillRect(0, 0, size, size * 0.24);
+
+      const colorMap = new THREE.CanvasTexture(cCanvas);
+      colorMap.colorSpace = THREE.SRGBColorSpace;
+      colorMap.wrapS = THREE.RepeatWrapping;
+      colorMap.wrapT = THREE.ClampToEdgeWrapping;
+      colorMap.repeat.set(3, 1);
+      colorMap.anisotropy = 16;
+
+      const bumpMap = new THREE.CanvasTexture(bCanvas);
+      bumpMap.wrapS = THREE.RepeatWrapping;
+      bumpMap.wrapT = THREE.RepeatWrapping;
+      bumpMap.repeat.set(3, 1);
+      bumpMap.anisotropy = 8;
+
+      return { colorMap, bumpMap };
+    }
+
+    /**
+     * Generates colorMap, bumpMap, and roughnessMap for the creamy ivory cheesecake body,
+     * including hand-spatula horizontal sweeps, velvety cream texture, and purple berry
+     * compote marbling along the bottom border.
+     */
+    function createCheesecakeBodyTextures() {
+      const w = 2048;
+      const h = 1024;
+
+      const cCanvas = document.createElement('canvas');
+      cCanvas.width = w;
+      cCanvas.height = h;
+      const ctx = cCanvas.getContext('2d');
+
+      const bCanvas = document.createElement('canvas');
+      bCanvas.width = w;
+      bCanvas.height = h;
+      const bCtx = bCanvas.getContext('2d');
+
+      const rCanvas = document.createElement('canvas');
+      rCanvas.width = w;
+      rCanvas.height = h;
+      const rCtx = rCanvas.getContext('2d');
+
+      // Warm ivory cream cheese base gradient
+      const baseGrad = ctx.createLinearGradient(0, 0, 0, h);
+      baseGrad.addColorStop(0.00, '#FAF4E4'); // Creamy highlight near top glaze rim
+      baseGrad.addColorStop(0.28, '#F5EDD8'); // Rich vanilla-mascarpone ivory
+      baseGrad.addColorStop(0.75, '#EFE4CA'); // Warm cream mid-lower body
+      baseGrad.addColorStop(1.00, '#E7D8B9'); // Slightly deeper cream near crust
+      ctx.fillStyle = baseGrad;
+      ctx.fillRect(0, 0, w, h);
+
+      bCtx.fillStyle = '#808080';
+      bCtx.fillRect(0, 0, w, h);
+
+      rCtx.fillStyle = '#747474'; // ~0.45 satin dairy roughness
+      rCtx.fillRect(0, 0, w, h);
+
+      const rand = createSeededRandom(83192);
+
+      // Horizontal artisan spatula sweeps & soft whipped cream cheese ridges
+      for (let i = 0; i < 180; i++) {
+        const y = rand() * h;
+        const thickness = 4 + rand() * 18;
+        const waveAmp = 3 + rand() * 9;
+        const freq = 1 + Math.floor(rand() * 4);
+        const phase = rand() * Math.PI * 2;
+
+        ctx.beginPath();
+        bCtx.beginPath();
+        for (let x = 0; x <= w; x += 32) {
+          const u = x / w;
+          const wy = y + Math.sin(u * Math.PI * 2 * freq + phase) * waveAmp;
+          if (x === 0) {
+            ctx.moveTo(x, wy);
+            bCtx.moveTo(x, wy);
+          } else {
+            ctx.lineTo(x, wy);
+            bCtx.lineTo(x, wy);
+          }
+        }
+        ctx.strokeStyle = rand() > 0.5 ? 'rgba(255, 252, 244, 0.24)' : 'rgba(225, 210, 180, 0.22)';
+        ctx.lineWidth = thickness;
+        ctx.stroke();
+
+        bCtx.strokeStyle = rand() > 0.5 ? 'rgba(175, 175, 175, 0.30)' : 'rgba(85, 85, 85, 0.30)';
+        bCtx.lineWidth = thickness * 0.85;
+        bCtx.stroke();
+      }
+
+      // Micro-aerated cream cheese texture & tiny natural dairy pores
+      for (let i = 0; i < 3200; i++) {
+        const x = rand() * w;
+        const y = rand() * h;
+        const rx = 1.0 + rand() * 3.8;
+        const ry = 0.7 + rand() * 2.2;
+        ctx.fillStyle = rand() > 0.35 ? 'rgba(226, 212, 184, 0.26)' : 'rgba(255, 253, 248, 0.28)';
+        ctx.beginPath();
+        ctx.ellipse(x, y, rx, ry, (rand() - 0.5) * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+
+        bCtx.fillStyle = 'rgba(42, 42, 42, 0.32)';
+        bCtx.beginPath();
+        bCtx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+        bCtx.fill();
+      }
+
+      // Signature undulating purple blueberry compote seam along bottom edge (matching blueberry.jpg)
+      const seamSamples = 160;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(0, h);
+      for (let i = 0; i <= seamSamples; i++) {
+        const u = i / seamSamples;
+        const x = u * w;
+        const wave =
+          0.075 +
+          0.032 * Math.sin(u * Math.PI * 2 * 5 + 0.4) +
+          0.022 * Math.sin(u * Math.PI * 2 * 11 + 1.8) +
+          0.012 * Math.cos(u * Math.PI * 2 * 19);
+        const y = h * (1.0 - Math.max(0.02, wave));
+        ctx.lineTo(x, y);
+      }
+      ctx.lineTo(w, h);
+      ctx.closePath();
+
+      const berrySeamGrad = ctx.createLinearGradient(0, h * 0.84, 0, h);
+      berrySeamGrad.addColorStop(0.0, 'rgba(112, 18, 76, 0.78)');
+      berrySeamGrad.addColorStop(0.35, 'rgba(72, 6, 52, 0.94)');
+      berrySeamGrad.addColorStop(1.0, 'rgba(44, 4, 34, 0.98)');
+      ctx.fillStyle = berrySeamGrad;
+      ctx.fill();
+      ctx.restore();
+
+      // Embedded dark crushed berry pockets & tiny magenta juice flecks near bottom & top edges
+      for (let i = 0; i < 85; i++) {
+        const u = rand();
+        const x = u * w;
+        const y = h * (0.87 + rand() * 0.12);
+        const r = 4 + rand() * 14;
+        ctx.fillStyle = rand() > 0.35 ? 'rgba(40, 5, 34, 0.85)' : 'rgba(128, 22, 86, 0.65)';
+        ctx.beginPath();
+        ctx.ellipse(x, y, r * 1.4, r * 0.75, (rand() - 0.5) * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Occasional delicate purple berry juice kiss along the very top rim (v near 1 -> canvas y near 0)
+      for (let i = 0; i < 28; i++) {
+        const x = rand() * w;
+        const y = rand() * (h * 0.045);
+        const r = 5 + rand() * 16;
+        const dripGrad = ctx.createRadialGradient(x, y, 1, x, y, r);
+        dripGrad.addColorStop(0, 'rgba(78, 8, 54, 0.82)');
+        dripGrad.addColorStop(1, 'rgba(78, 8, 54, 0)');
+        ctx.fillStyle = dripGrad;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      const colorMap = new THREE.CanvasTexture(cCanvas);
+      colorMap.colorSpace = THREE.SRGBColorSpace;
+      colorMap.wrapS = THREE.RepeatWrapping;
+      colorMap.wrapT = THREE.ClampToEdgeWrapping;
+      colorMap.anisotropy = 16;
+
+      const bumpMap = new THREE.CanvasTexture(bCanvas);
+      bumpMap.wrapS = THREE.RepeatWrapping;
+      bumpMap.wrapT = THREE.ClampToEdgeWrapping;
+      bumpMap.anisotropy = 8;
+
+      const roughnessMap = new THREE.CanvasTexture(rCanvas);
+      roughnessMap.wrapS = THREE.RepeatWrapping;
+      roughnessMap.wrapT = THREE.ClampToEdgeWrapping;
+
+      return { colorMap, bumpMap, roughnessMap };
+    }
+
+    /**
+     * Generates colorMap and bumpMap for the glossy deep purple-ruby blueberry compote glaze
+     * pooling across the top of the cheesecake.
+     */
+    function createBlueberryGlazeTextures() {
+      const size = 1024;
+      const cCanvas = document.createElement('canvas');
+      cCanvas.width = size;
+      cCanvas.height = size;
+      const ctx = cCanvas.getContext('2d');
+
+      const bCanvas = document.createElement('canvas');
+      bCanvas.width = size;
+      bCanvas.height = size;
+      const bCtx = bCanvas.getContext('2d');
+
+      const cx = size * 0.5;
+      const cy = size * 0.5;
+
+      // Deep jewel-toned blackberry-magenta radial glaze gradient
+      const radGrad = ctx.createRadialGradient(cx, cy, size * 0.05, cx, cy, size * 0.5);
+      radGrad.addColorStop(0.0, '#2B021E');
+      radGrad.addColorStop(0.68, '#3D042B');
+      radGrad.addColorStop(0.88, '#5E0A42'); // Translucent ruby-magenta edge glow
+      radGrad.addColorStop(0.97, '#7A1256');
+      radGrad.addColorStop(1.0, '#4E0636');
+      ctx.fillStyle = radGrad;
+      ctx.fillRect(0, 0, size, size);
+
+      bCtx.fillStyle = '#808080';
+      bCtx.fillRect(0, 0, size, size);
+
+      const rand = createSeededRandom(40911);
+
+      // Rich stewed fruit pulp swirls & viscous glaze ripples
+      for (let i = 0; i < 65; i++) {
+        const angle = rand() * Math.PI * 2;
+        const dist = rand() * size * 0.42;
+        const px = cx + Math.cos(angle) * dist;
+        const py = cy + Math.sin(angle) * dist;
+        const r = 18 + rand() * 55;
+
+        const swirl = ctx.createRadialGradient(px, py, 2, px, py, r);
+        swirl.addColorStop(0, rand() > 0.4 ? 'rgba(96, 12, 66, 0.35)' : 'rgba(26, 2, 18, 0.45)');
+        swirl.addColorStop(1, 'rgba(58, 4, 40, 0)');
+        ctx.fillStyle = swirl;
+        ctx.beginPath();
+        ctx.arc(px, py, r, 0, Math.PI * 2);
+        ctx.fill();
+
+        const bSwirl = bCtx.createRadialGradient(px, py, 2, px, py, r * 0.8);
+        bSwirl.addColorStop(0, 'rgba(175, 175, 175, 0.28)');
+        bSwirl.addColorStop(1, 'rgba(128, 128, 128, 0)');
+        bCtx.fillStyle = bSwirl;
+        bCtx.beginPath();
+        bCtx.arc(px, py, r * 0.8, 0, Math.PI * 2);
+        bCtx.fill();
+      }
+
+      const colorMap = new THREE.CanvasTexture(cCanvas);
+      colorMap.colorSpace = THREE.SRGBColorSpace;
+      colorMap.anisotropy = 16;
+
+      const bumpMap = new THREE.CanvasTexture(bCanvas);
+      bumpMap.anisotropy = 8;
+
+      return { colorMap, bumpMap };
+    }
+
+    /**
+     * Generates authentic fresh blueberry skin textures (colorMap, roughnessMap, bumpMap)
+     * featuring deep indigo-navy skin coated with powdery periwinkle-blue epicuticular wax ("bloom"),
+     * darker glossy glaze-kissed undersides, and a dark reddish-aubergine calyx crown interior.
+     */
+    function createBlueberrySkinTextures(seedOffset = 0) {
+      const size = 512;
+      const cCanvas = document.createElement('canvas');
+      cCanvas.width = size;
+      cCanvas.height = size;
+      const ctx = cCanvas.getContext('2d');
+
+      const rCanvas = document.createElement('canvas');
+      rCanvas.width = size;
+      rCanvas.height = size;
+      const rCtx = rCanvas.getContext('2d');
+
+      const bCanvas = document.createElement('canvas');
+      bCanvas.width = size;
+      bCanvas.height = size;
+      const bCtx = bCanvas.getContext('2d');
+
+      const rand = createSeededRandom(71200 + seedOffset * 977);
+
+      // Vertical UV gradient (Canvas y=0 is top calyx crown v=1, y=size is bottom stem scar v=0)
+      const skinGrad = ctx.createLinearGradient(0, 0, 0, size);
+      skinGrad.addColorStop(0.00, '#231424'); // Dark aubergine-brown inside calyx crown pit
+      skinGrad.addColorStop(0.11, '#6886BA'); // Powdery pale periwinkle bloom on crown rim
+      skinGrad.addColorStop(0.28, '#5370A6'); // Dusty slate-blue upper shoulder
+      skinGrad.addColorStop(0.55, '#334878'); // Deep indigo-blue mid-berry with bloom
+      skinGrad.addColorStop(0.80, '#1D2546'); // Dark midnight navy lower cheek
+      skinGrad.addColorStop(1.00, '#16112C'); // Glossy deep plum-indigo base touching glaze
+      ctx.fillStyle = skinGrad;
+      ctx.fillRect(0, 0, size, size);
+
+      // Roughness gradient: velvety matte wax bloom on upper shoulders -> glossy wet skin near base
+      const roughGrad = rCtx.createLinearGradient(0, 0, 0, size);
+      roughGrad.addColorStop(0.00, '#888888');
+      roughGrad.addColorStop(0.15, '#B8B8B8'); // Matte powdery bloom (~0.72 roughness)
+      roughGrad.addColorStop(0.55, '#969696'); // Satin-matte (~0.58 roughness)
+      roughGrad.addColorStop(0.85, '#4A4A4A'); // Semi-gloss rubbed cheek (~0.29 roughness)
+      roughGrad.addColorStop(1.00, '#2A2A2A'); // Glossy glaze contact (~0.16 roughness)
+      rCtx.fillStyle = roughGrad;
+      rCtx.fillRect(0, 0, size, size);
+
+      bCtx.fillStyle = '#808080';
+      bCtx.fillRect(0, 0, size, size);
+
+      // Organic mottled powdery wax bloom patches & natural finger-rubbed dark spots
+      for (let i = 0; i < 240; i++) {
+        const x = rand() * size;
+        const y = size * (0.08 + rand() * 0.84);
+        const rad = 10 + rand() * 34;
+
+        const isBloomCloud = rand() > 0.36;
+        const grad = ctx.createRadialGradient(x, y, 1, x, y, rad);
+        if (isBloomCloud) {
+          grad.addColorStop(0, 'rgba(138, 166, 214, 0.26)');
+          grad.addColorStop(1, 'rgba(138, 166, 214, 0)');
+        } else {
+          // Rubbed spot exposing deep glossy navy-indigo skin underneath
+          grad.addColorStop(0, 'rgba(20, 26, 54, 0.32)');
+          grad.addColorStop(1, 'rgba(20, 26, 54, 0)');
+        }
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(x, y, rad, 0, Math.PI * 2);
+        ctx.fill();
+
+        const rSpot = rCtx.createRadialGradient(x, y, 1, x, y, rad);
+        rSpot.addColorStop(0, isBloomCloud ? 'rgba(210,210,210,0.3)' : 'rgba(45,45,45,0.35)');
+        rSpot.addColorStop(1, 'rgba(128,128,128,0)');
+        rCtx.fillStyle = rSpot;
+        rCtx.beginPath();
+        rCtx.arc(x, y, rad, 0, Math.PI * 2);
+        rCtx.fill();
+      }
+
+      // Fine epicuticular micro-grain & subtle longitudinal berry striations
+      for (let i = 0; i < 1600; i++) {
+        const x = rand() * size;
+        const y = rand() * size;
+        const r = 0.8 + rand() * 2.2;
+        ctx.fillStyle = rand() > 0.5 ? 'rgba(168, 192, 232, 0.16)' : 'rgba(16, 20, 42, 0.16)';
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+
+        const bv = Math.floor(110 + rand() * 36);
+        bCtx.fillStyle = `rgb(${bv},${bv},${bv})`;
+        bCtx.fillRect(x, y, 1.5, 2.5);
+      }
+
+      const colorMap = new THREE.CanvasTexture(cCanvas);
+      colorMap.colorSpace = THREE.SRGBColorSpace;
+      colorMap.wrapS = THREE.RepeatWrapping;
+      colorMap.wrapT = THREE.ClampToEdgeWrapping;
+      colorMap.anisotropy = 8;
+
+      const roughnessMap = new THREE.CanvasTexture(rCanvas);
+      roughnessMap.wrapS = THREE.RepeatWrapping;
+      roughnessMap.wrapT = THREE.ClampToEdgeWrapping;
+
+      const bumpMap = new THREE.CanvasTexture(bCanvas);
+      bumpMap.wrapS = THREE.RepeatWrapping;
+      bumpMap.wrapT = THREE.ClampToEdgeWrapping;
+
+      return { colorMap, roughnessMap, bumpMap };
+    }
+
+    /**
+     * Generates a soft circular tabletop contact shadow texture placed directly under the cake.
+     */
+    function createCakeContactShadowTexture() {
+      const size = 512;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      const cx = size * 0.5;
+      const cy = size * 0.5;
+      const grad = ctx.createRadialGradient(cx, cy, size * 0.24, cx, cy, size * 0.49);
+      grad.addColorStop(0.0, 'rgba(28, 22, 36, 0.34)');
+      grad.addColorStop(0.55, 'rgba(28, 22, 36, 0.16)');
+      grad.addColorStop(0.82, 'rgba(28, 22, 36, 0.05)');
+      grad.addColorStop(1.0, 'rgba(28, 22, 36, 0.0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, size, size);
+
+      return new THREE.CanvasTexture(canvas);
+    }
+
+    /**
+     * ============================================================================
+     * 3. SCULPTED 3D GEOMETRY BUILDERS (Blueberry w/ 5-Point Calyx, Crust, Cake, Glaze)
+     * ============================================================================
+     */
+
+    /**
+     * Builds an anatomically accurate, closed 3D Blueberry BufferGeometry featuring:
+     * - Plump oblate spheroid profile with subtle 5-lobed botanical ribbing
+     * - Recessed top calyx basin
+     * - Five sculpted 5-pointed star calyx crown sepals flaring slightly at the top pole
+     * - Subtle basal stem dimple at the bottom pole
+     */
+    function buildBlueberryGeometry(radius = 0.225, oblateRatio = 0.89, crownFlare = 1.0) {
+      const uSegs = 40; // circumferential (divisible by 5 for crisp 5-point star calyx)
+      const vSegs = 32; // bottom pole -> equator -> calyx crown -> inner pit
+
+      const positions = [];
+      const uvs = [];
+      const indices = [];
+
+      for (let iv = 0; iv <= vSegs; iv++) {
+        const v = iv / vSegs; // 0 = bottom stem scar, ~0.82 = crown rim, 1.0 = center of calyx pit
+
+        for (let iu = 0; iu <= uSegs; iu++) {
+          const u = iu / uSegs;
+          const theta = u * Math.PI * 2;
+          const star5 = Math.cos(5.0 * theta); // 5-fold botanical symmetry
+
+          let r, y;
+
+          if (v <= 0.78) {
+            // Main plump oblate berry body (from bottom stem scar to top shoulder)
+            const t = v / 0.78; // 0 .. 1
+            const phi = -Math.PI * 0.5 + t * (Math.PI * 0.88); // -90° to +68.4°
+            const cosP = Math.cos(phi);
+            const sinP = Math.sin(phi);
+
+            // Subtle 5-ribbed organic berry fullness
+            const rib = 1.0 + 0.022 * star5 * Math.pow(cosP, 1.4);
+            // Tiny basal stem dimple near v = 0
+            const stemDimple = v < 0.08 ? -0.025 * (1.0 - v / 0.08) : 0.0;
+
+            r = radius * cosP * rib;
+            y = radius * oblateRatio * sinP + radius * stemDimple;
+          } else if (v <= 0.90) {
+            // 5-Pointed Calyx Crown Rim & Sculpted Triangular Crown Lobes!
+            const t = (v - 0.78) / 0.12; // 0 (shoulder) -> 1 (crown tip)
+            const baseShoulderR = radius * Math.cos(Math.PI * 0.38);
+            const baseShoulderY = radius * oblateRatio * Math.sin(Math.PI * 0.38);
+
+            // Crown teeth rise up & flare slightly outward at the 5 star points
+            const toothPeak = Math.max(0, star5);
+            const crownHeight = radius * (0.075 + 0.075 * toothPeak * crownFlare);
+            const crownRadius =
+              baseShoulderR * (1.0 - 0.16 * t) +
+              radius * 0.055 * toothPeak * Math.sin(t * Math.PI * 0.7) * crownFlare;
+
+            r = crownRadius;
+            y = baseShoulderY + crownHeight * Math.sin(t * Math.PI * 0.5);
+          } else {
+            // Recessed inner calyx basin converging cleanly to the top center pole
+            const t = (v - 0.90) / 0.10; // 0 (crown rim) -> 1 (pit center)
+            const rimR = radius * Math.cos(Math.PI * 0.38) * 0.84;
+            const pitDepth = radius * 0.095;
+            const rimY = radius * oblateRatio * Math.sin(Math.PI * 0.38) + radius * 0.075;
+
+            r = rimR * (1.0 - t);
+            y = rimY - pitDepth * Math.sin(t * Math.PI * 0.5);
+          }
+
+          const x = r * Math.cos(theta);
+          const z = r * Math.sin(theta);
+
+          positions.push(x, y, z);
+          // Flip V so v=1 (top calyx crown) maps to top of canvas (y=0)
+          uvs.push(u, 1.0 - v);
+        }
+      }
+
+      const stride = uSegs + 1;
+      for (let iv = 0; iv < vSegs; iv++) {
+        for (let iu = 0; iu < uSegs; iu++) {
+          const a = iv * stride + iu;
+          const b = a + 1;
+          const c = (iv + 1) * stride + iu;
+          const d = c + 1;
+
+          // Outward-facing counter-clockwise winding
+          indices.push(a, c, b);
+          indices.push(b, c, d);
+        }
+      }
+
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      geo.setIndex(indices);
+      geo.computeVertexNormals();
+      return geo;
+    }
+
+    /**
+     * Builds a closed, solid organic cylindrical layer (used for the crumbly biscuit crust
+     * and the hand-spatula-smoothed cream cheese body) with top & bottom caps so it is
+     * 100% solid from every angle.
+     */
+    function buildArtisanalCakeLayerGeometry({
+      radius = 1.60,
+      yBottom = 0.0,
+      yTop = 1.0,
+      radialSegs = 128,
+      heightSegs = 32,
+      roughAmp = 0.015,
+      topLipBulge = 0.0,
+      bottomTaper = 0.0,
+      seed = 101
+    }) {
+      const rand = createSeededRandom(seed);
+      const phases = Array.from({ length: 8 }, () => rand() * Math.PI * 2);
+
+      const positions = [];
+      const uvs = [];
+      const indices = [];
+
+      // Side wall rings (iv = 0 at yBottom .. iv = heightSegs at yTop)
+      for (let iv = 0; iv <= heightSegs; iv++) {
+        const v = iv / heightSegs;
+        const y = yBottom + (yTop - yBottom) * v;
+
+        for (let ir = 0; ir <= radialSegs; ir++) {
+          const u = ir / radialSegs;
+          const theta = u * Math.PI * 2;
+
+          // Multi-frequency organic hand-crafted cylindrical irregularity
+          const organicNoise =
+            0.45 * Math.sin(theta * 3 + phases[0] + v * 1.4) +
+            0.30 * Math.sin(theta * 7 + phases[1] - v * 2.2) +
+            0.15 * Math.sin(theta * 15 + phases[2] + v * 5.0) +
+            0.10 * Math.cos(theta * 29 + phases[3]);
+
+          // Soft rounded bevel at bottom edge & upper rim
+          const bottomBevel = bottomTaper * Math.pow(Math.max(0, 1.0 - v / 0.14), 2);
+          const topLip = topLipBulge * Math.sin(Math.pow(v, 1.8) * Math.PI);
+
+          const r = radius + roughAmp * organicNoise - bottomBevel + topLip;
+          const x = r * Math.cos(theta);
+          const z = r * Math.sin(theta);
+
+          positions.push(x, y, z);
+          uvs.push(u, v);
+        }
+      }
+
+      const stride = radialSegs + 1;
+      for (let iv = 0; iv < heightSegs; iv++) {
+        for (let ir = 0; ir < radialSegs; ir++) {
+          const a = iv * stride + ir;
+          const b = a + 1;
+          const c = (iv + 1) * stride + ir;
+          const d = c + 1;
+
+          // Outward-facing winding
+          indices.push(a, c, b);
+          indices.push(b, c, d);
+        }
+      }
+
+      // Close Top Cap (facing +Y)
+      const topCenterIdx = positions.length / 3;
+      positions.push(0, yTop, 0);
+      uvs.push(0.5, 0.5);
+      const topRingStart = heightSegs * stride;
+      for (let ir = 0; ir < radialSegs; ir++) {
+        indices.push(topRingStart + ir, topCenterIdx, topRingStart + ir + 1);
+      }
+
+      // Close Bottom Cap (facing -Y)
+      const bottomCenterIdx = positions.length / 3;
+      positions.push(0, yBottom, 0);
+      uvs.push(0.5, 0.5);
+      for (let ir = 0; ir < radialSegs; ir++) {
+        indices.push(ir + 1, bottomCenterIdx, ir);
+      }
+
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      geo.setIndex(indices);
+      geo.computeVertexNormals();
+      return geo;
+    }
+
+    /**
+     * Builds the thick, glossy pooling blueberry compote glaze disc on top of the cheesecake
+     * with a soft rounded meniscus perimeter and subtle organic ripples.
+     */
+    function buildGlossyGlazeDiscGeometry(radius = 1.56, yBase = 1.37, thickness = 0.065) {
+      const radialSegs = 128;
+      const ringSegs = 28;
+      const positions = [];
+      const uvs = [];
+      const indices = [];
+
+      // Center vertex
+      positions.push(0, yBase + thickness, 0);
+      uvs.push(0.5, 0.5);
+
+      for (let iring = 1; iring <= ringSegs; iring++) {
+        const t = iring / ringSegs; // 0 (center) -> 1 (outer meniscus rim)
+        // Smooth rounded jelly meniscus drop-off near outer rim (t > 0.86)
+        const rimDrop = t > 0.85 ? Math.pow((t - 0.85) / 0.15, 2) * thickness * 0.88 : 0;
+
+        for (let irad = 0; irad <= radialSegs; irad++) {
+          const u = irad / radialSegs;
+          const theta = u * Math.PI * 2;
+
+          // Subtle organic scalloped edge so glaze hugs the cream cheese rim naturally
+          const edgeWave =
+            1.0 +
+            0.012 * Math.sin(theta * 5 + 0.5) +
+            0.007 * Math.sin(theta * 11 + 1.9);
+          const r = radius * t * edgeWave;
+
+          // Subtle viscous surface undulation
+          const ripple =
+            0.004 * Math.sin(r * 7.5 + theta * 2.0) * (1.0 - t * 0.5);
+
+          const y = yBase + thickness - rimDrop + ripple;
+          const x = r * Math.cos(theta);
+          const z = r * Math.sin(theta);
+
+          positions.push(x, y, z);
+          uvs.push(0.5 + 0.5 * t * Math.cos(theta), 0.5 + 0.5 * t * Math.sin(theta));
+        }
+      }
+
+      const stride = radialSegs + 1;
+      // Inner fan triangles around center vertex (index 0)
+      for (let irad = 0; irad < radialSegs; irad++) {
+        indices.push(0, 1 + irad + 1, 1 + irad);
+      }
+
+      // Outer concentric rings
+      for (let iring = 0; iring < ringSegs - 1; iring++) {
+        const row0 = 1 + iring * stride;
+        const row1 = 1 + (iring + 1) * stride;
+        for (let irad = 0; irad < radialSegs; irad++) {
+          const a = row0 + irad;
+          const b = a + 1;
+          const c = row1 + irad;
+          const d = c + 1;
+
+          indices.push(a, b, c);
+          indices.push(b, d, c);
+        }
+      }
+
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      geo.setIndex(indices);
+      geo.computeVertexNormals();
+      return geo;
+    }
+
+    /**
+     * ============================================================================
+     * 3B. WAVY SILVER METALLIC BIRTHDAY CANDLE & LIT ANIMATED FLAME BUILDER
+     * ============================================================================
+     */
+    function buildWavySilverCandle() {
+      const candleGroup = new THREE.Group();
+
+      // 1. S-Curved Slender Metallic Silver Candle Shaft (matching image_99c086.png)
+      // Base inserted cleanly into the cake center (y = 1.40) and rising to y = 3.56
+      const curvePoints = [
+        new THREE.Vector3(0.000, 1.40, 0.000),  // Embedded in center glaze
+        new THREE.Vector3(0.002, 1.72, 0.003),  // Vertical entry through center berries
+        new THREE.Vector3(0.015, 2.02, 0.008),  // Beginning of lower rightward S-bend
+        new THREE.Vector3(0.068, 2.30, 0.014),  // Lower-right curve apex
+        new THREE.Vector3(0.032, 2.60, 0.006),  // Inflection crossing centerline
+        new THREE.Vector3(-0.064, 2.92, -0.012),// Upper-left S-curve apex
+        new THREE.Vector3(-0.042, 3.24, -0.008),// Gentle return toward top axis
+        new THREE.Vector3(-0.008, 3.56, 0.000)  // Top wax rim
+      ];
+      const candleCurve = new THREE.CatmullRomCurve3(curvePoints, false, 'catmullrom', 0.45);
+      const candleRadius = 0.036;
+
+      // Custom tubular loft with slightly cupped melted-wax top rim and closed caps
+      const lenSegs = 96;
+      const radSegs = 32;
+      const positions = [];
+      const uvs = [];
+      const indices = [];
+      const frames = candleCurve.computeFrenetFrames(lenSegs, false);
+
+      for (let il = 0; il <= lenSegs; il++) {
+        const t = il / lenSegs;
+        const pt = candleCurve.getPointAt(t);
+        const normal = frames.normals[il];
+        const binormal = frames.binormals[il];
+
+        // Subtle melted lip flare near top tip (t > 0.96)
+        const tipFlare = t > 0.96 ? 0.0035 * Math.sin(((t - 0.96) / 0.04) * Math.PI) : 0;
+        const r = candleRadius + tipFlare;
+
+        for (let ir = 0; ir <= radSegs; ir++) {
+          const u = ir / radSegs;
+          const a = u * Math.PI * 2;
+          const cosA = Math.cos(a);
+          const sinA = Math.sin(a);
+
+          positions.push(
+            pt.x + r * (cosA * normal.x + sinA * binormal.x),
+            pt.y + r * (cosA * normal.y + sinA * binormal.y),
+            pt.z + r * (cosA * normal.z + sinA * binormal.z)
+          );
+          uvs.push(u, t);
+        }
+      }
+
+      const stride = radSegs + 1;
+      for (let il = 0; il < lenSegs; il++) {
+        for (let ir = 0; ir < radSegs; ir++) {
+          const a = il * stride + ir;
+          const b = a + 1;
+          const c = (il + 1) * stride + ir;
+          const d = c + 1;
+          indices.push(a, c, b);
+          indices.push(b, c, d);
+        }
+      }
+
+      // Top wax cap with slight inward wick dimple
+      const topCenterIdx = positions.length / 3;
+      const topTip = candleCurve.getPointAt(1.0);
+      positions.push(topTip.x, topTip.y - 0.006, topTip.z);
+      uvs.push(0.5, 1.0);
+      const topRingStart = lenSegs * stride;
+      for (let ir = 0; ir < radSegs; ir++) {
+        indices.push(topRingStart + ir, topCenterIdx, topRingStart + ir + 1);
+      }
+
+      // Bottom cap
+      const botCenterIdx = positions.length / 3;
+      const botTip = candleCurve.getPointAt(0.0);
+      positions.push(botTip.x, botTip.y, botTip.z);
+      uvs.push(0.5, 0.0);
+      for (let ir = 0; ir < radSegs; ir++) {
+        indices.push(ir + 1, botCenterIdx, ir);
+      }
+
+      const shaftGeo = new THREE.BufferGeometry();
+      shaftGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      shaftGeo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      shaftGeo.setIndex(indices);
+      shaftGeo.computeVertexNormals();
+
+      // Brushed Metallic Silver Finish matching image_99c086.png
+      const silverCandleMat = new THREE.MeshPhysicalMaterial({
+        color: new THREE.Color(0xd2d8df),
+        metalness: 0.86,
+        roughness: 0.24,
+        clearcoat: 0.22,
+        clearcoatRoughness: 0.25,
+        reflectivity: 0.95,
+        transparent: false,
+        opacity: 1.0,
+        depthWrite: true,
+        side: THREE.DoubleSide
+      });
+
+      const shaftMesh = new THREE.Mesh(shaftGeo, silverCandleMat);
+      shaftMesh.castShadow = true;
+      shaftMesh.receiveShadow = true;
+      candleGroup.add(shaftMesh);
+
+      // Subtle translucent-look white wax collar ring where the candle enters the center berries
+      const collarGeo = new THREE.TorusGeometry(0.044, 0.011, 12, 28);
+      collarGeo.rotateX(Math.PI / 2);
+      const collarMat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(0xf3efe6),
+        roughness: 0.55,
+        metalness: 0.05,
+        transparent: false,
+        opacity: 1.0,
+        depthWrite: true
+      });
+      const collarMesh = new THREE.Mesh(collarGeo, collarMat);
+      collarMesh.position.set(0.008, 1.88, 0.005);
+      candleGroup.add(collarMesh);
+
+      // 2. Braided Charred Cotton Wick with Bent Glowing Ember Tip (matching image_99c086.png)
+      const wickBase = topTip.clone().add(new THREE.Vector3(0, -0.004, 0));
+      const wickCurve = new THREE.CatmullRomCurve3([
+        wickBase.clone(),
+        wickBase.clone().add(new THREE.Vector3(-0.003, 0.075, 0.002)),
+        wickBase.clone().add(new THREE.Vector3(-0.008, 0.138, 0.003)),
+        wickBase.clone().add(new THREE.Vector3(-0.036, 0.158, 0.005)),
+        wickBase.clone().add(new THREE.Vector3(-0.058, 0.168, 0.006))
+      ]);
+      const wickGeo = new THREE.TubeGeometry(wickCurve, 24, 0.0058, 10, false);
+      const wickMat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(0x2c2623),
+        roughness: 0.92,
+        metalness: 0.0,
+        transparent: false,
+        opacity: 1.0,
+        depthWrite: true
+      });
+      const wickMesh = new THREE.Mesh(wickGeo, wickMat);
+      candleGroup.add(wickMesh);
+
+      // Glowing red-orange ember at the bent wick tip
+      const emberTipPos = wickCurve.getPointAt(1.0);
+      const emberGeo = new THREE.SphereGeometry(0.0085, 14, 12);
+      emberGeo.scale(1.3, 0.9, 0.9);
+      const emberMat = new THREE.MeshBasicMaterial({
+        color: new THREE.Color(0xff5a14),
+        toneMapped: false
+      });
+      const emberMesh = new THREE.Mesh(emberGeo, emberMat);
+      emberMesh.position.copy(emberTipPos);
+      candleGroup.add(emberMesh);
+
+      // 3. Volumetric Luminous Teardrop Candle Flame (Inner White-Gold Core + Warm Amber Envelope)
+      const flamePivot = new THREE.Group();
+      flamePivot.position.copy(wickBase).add(new THREE.Vector3(-0.006, 0.125, 0.002));
+      candleGroup.add(flamePivot);
+
+      // Build sculpted teardrop geometry (v = 0 at rounded base -> v = 1 at tapered flame tip)
+      function createTeardropFlameGeo(height = 0.46, maxRadius = 0.068) {
+        const uSegs = 32;
+        const vSegs = 28;
+        const fPos = [];
+        const fUvs = [];
+        const fIdx = [];
+
+        for (let iv = 0; iv <= vSegs; iv++) {
+          const v = iv / vSegs;
+          // Plump rounded lower belly (v ≈ 0.24) tapering smoothly to a slender almond tip
+          const rProfile = Math.sin(Math.pow(v, 0.62) * Math.PI) * Math.pow(1.0 - v, 0.42);
+          const r = maxRadius * Math.max(0.0, rProfile);
+          const y = v * height;
+
+          for (let iu = 0; iu <= uSegs; iu++) {
+            const u = iu / uSegs;
+            const theta = u * Math.PI * 2;
+            fPos.push(r * Math.cos(theta), y, r * Math.sin(theta));
+            fUvs.push(u, v);
+          }
+        }
+
+        const fStride = uSegs + 1;
+        for (let iv = 0; iv < vSegs; iv++) {
+          for (let iu = 0; iu < uSegs; iu++) {
+            const a = iv * fStride + iu;
+            const b = a + 1;
+            const c = (iv + 1) * fStride + iu;
+            const d = c + 1;
+            fIdx.push(a, c, b);
+            fIdx.push(b, c, d);
+          }
+        }
+
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(fPos, 3));
+        geo.setAttribute('uv', new THREE.Float32BufferAttribute(fUvs, 2));
+        geo.setIndex(fIdx);
+        geo.computeVertexNormals();
+        return geo;
+      }
+
+      // Inner bright creamy-white / warm-gold luminous core
+      const innerFlameGeo = createTeardropFlameGeo(0.36, 0.044);
+      const innerFlameMat = new THREE.ShaderMaterial({
+        uniforms: {
+          uTime: { value: 0 }
+        },
+        vertexShader: `
+          varying vec2 vUv;
+          varying vec3 vNormalView;
+          varying vec3 vViewDir;
+          uniform float uTime;
+          void main() {
+            vUv = uv;
+            vec3 pos = position;
+            float sway = sin(uTime * 7.5 + uv.y * 4.0) * 0.0055 * pow(uv.y, 1.5);
+            pos.x += sway;
+            vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+            vNormalView = normalize(normalMatrix * normal);
+            vViewDir = normalize(-mvPosition.xyz);
+            gl_Position = projectionMatrix * mvPosition;
+          }
+        `,
+        fragmentShader: `
+          varying vec2 vUv;
+          varying vec3 vNormalView;
+          varying vec3 vViewDir;
+          void main() {
+            float fresnel = abs(dot(normalize(vNormalView), normalize(vViewDir)));
+            float edgeSoft = smoothstep(0.08, 0.58, fresnel);
+            // Bright creamy-white core transitioning to warm golden-peach margin
+            vec3 whiteCore = vec3(1.0, 0.992, 0.94);
+            vec3 warmGold = vec3(1.0, 0.78, 0.28);
+            vec3 warmOrange = vec3(0.98, 0.48, 0.10);
+            vec3 col = mix(warmOrange, warmGold, smoothstep(0.0, 0.45, fresnel));
+            col = mix(col, whiteCore, smoothstep(0.32, 0.85, fresnel) * (1.0 - 0.35 * vUv.y));
+            float alpha = edgeSoft * smoothstep(0.0, 0.12, vUv.y) * smoothstep(1.0, 0.78, vUv.y);
+            gl_FragColor = vec4(col, alpha * 0.96);
+          }
+        `,
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      });
+      const innerFlameMesh = new THREE.Mesh(innerFlameGeo, innerFlameMat);
+      innerFlameMesh.position.y = 0.015;
+      flamePivot.add(innerFlameMesh);
+
+      // Outer soft golden-apricot flame envelope (ensures clear contrast against white background!)
+      const outerFlameGeo = createTeardropFlameGeo(0.47, 0.072);
+      const outerFlameMat = new THREE.ShaderMaterial({
+        uniforms: {
+          uTime: { value: 0 }
+        },
+        vertexShader: `
+          varying vec2 vUv;
+          varying vec3 vNormalView;
+          varying vec3 vViewDir;
+          uniform float uTime;
+          void main() {
+            vUv = uv;
+            vec3 pos = position;
+            float sway = sin(uTime * 6.8 + uv.y * 3.6 + 0.4) * 0.0085 * pow(uv.y, 1.6);
+            float flutter = cos(uTime * 11.2 + uv.y * 5.0) * 0.003 * uv.y;
+            pos.x += sway + flutter;
+            pos.z += flutter * 0.6;
+            vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+            vNormalView = normalize(normalMatrix * normal);
+            vViewDir = normalize(-mvPosition.xyz);
+            gl_Position = projectionMatrix * mvPosition;
+          }
+        `,
+        fragmentShader: `
+          varying vec2 vUv;
+          varying vec3 vNormalView;
+          varying vec3 vViewDir;
+          void main() {
+            float fresnel = abs(dot(normalize(vNormalView), normalize(vViewDir)));
+            float rimFeather = smoothstep(0.05, 0.68, fresnel);
+            vec3 blueBase = vec3(0.42, 0.56, 0.92);
+            vec3 goldenMid = vec3(1.0, 0.74, 0.24);
+            vec3 amberTip = vec3(0.96, 0.46, 0.10);
+
+            vec3 col = mix(goldenMid, amberTip, smoothstep(0.35, 0.95, vUv.y));
+            col = mix(blueBase, col, smoothstep(0.02, 0.16, vUv.y));
+            // Warm peach-orange rim so flame reads crisply against bright studio backdrop
+            col = mix(amberTip, col, smoothstep(0.15, 0.65, fresnel));
+
+            float alpha = rimFeather * 0.68 * smoothstep(0.0, 0.10, vUv.y) * smoothstep(1.0, 0.72, vUv.y);
+            gl_FragColor = vec4(col, alpha);
+          }
+        `,
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      });
+      const outerFlameMesh = new THREE.Mesh(outerFlameGeo, outerFlameMat);
+      flamePivot.add(outerFlameMesh);
+
+      // Warm flickering candlelight PointLight illuminating the berries, glaze & silver candle
+      const candleLight = new THREE.PointLight(0xffaa44, 1.45, 5.5, 1.6);
+      candleLight.position.copy(flamePivot.position).add(new THREE.Vector3(0, 0.24, 0));
+      candleGroup.add(candleLight);
+
+      return {
+        candleGroup,
+        flamePivot,
+        emberMesh,
+        candleLight,
+        innerFlameMat,
+        outerFlameMat
+      };
+    }
+
+    /**
+     * ============================================================================
+     * 4. COMPLETE BLUEBERRY CHEESECAKE ASSEMBLY
+     * ============================================================================
+     */
+    function buildBlueberryCheesecake() {
+      const cakeGroup = new THREE.Group();
+      const rand = createSeededRandom(20261122);
+
+      // Generate culinary textures
+      const crustTex = createGrahamCrustTextures();
+      const creamTex = createCheesecakeBodyTextures();
+      const glazeTex = createBlueberryGlazeTextures();
+
+      // ------------------------------------------------------------------------
+      // OPAQUE CULINARY MATERIALS (transparent: false, opacity: 1.0, depthWrite: true)
+      // ------------------------------------------------------------------------
+      const crustMaterial = new THREE.MeshStandardMaterial({
+        map: crustTex.colorMap,
+        bumpMap: crustTex.bumpMap,
+        bumpScale: 0.024,
+        roughness: 0.92,
+        metalness: 0.0,
+        transparent: false,
+        opacity: 1.0,
+        depthWrite: true,
+        depthTest: true,
+        side: THREE.DoubleSide
+      });
+
+      const creamCheeseMaterial = new THREE.MeshPhysicalMaterial({
+        map: creamTex.colorMap,
+        bumpMap: creamTex.bumpMap,
+        bumpScale: 0.0085,
+        roughnessMap: creamTex.roughnessMap,
+        roughness: 0.48,
+        metalness: 0.0,
+        sheen: 0.22,
+        sheenColor: new THREE.Color(0xfff6e0),
+        sheenRoughness: 0.72,
+        clearcoat: 0.06,
+        clearcoatRoughness: 0.55,
+        transparent: false,
+        opacity: 1.0,
+        depthWrite: true,
+        depthTest: true,
+        side: THREE.DoubleSide
+      });
+
+      // Mirror-glossy deep purple-ruby blueberry compote glaze
+      const glazeMaterial = new THREE.MeshPhysicalMaterial({
+        map: glazeTex.colorMap,
+        bumpMap: glazeTex.bumpMap,
+        bumpScale: 0.0045,
+        roughness: 0.11,
+        metalness: 0.0,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.05,
+        reflectivity: 0.9,
+        transparent: false,
+        opacity: 1.0,
+        depthWrite: true,
+        depthTest: true,
+        side: THREE.DoubleSide
+      });
+
+      // ------------------------------------------------------------------------
+      // 1. GOLDEN GRAHAM BISCUIT CRUST BASE (y = 0.00 to 0.31)
+      // ------------------------------------------------------------------------
+      const crustGeo = buildArtisanalCakeLayerGeometry({
+        radius: 1.59,
+        yBottom: 0.0,
+        yTop: 0.31,
+        radialSegs: 128,
+        heightSegs: 14,
+        roughAmp: 0.018,
+        topLipBulge: 0.004,
+        bottomTaper: 0.025,
+        seed: 1001
+      });
+      const crustMesh = new THREE.Mesh(crustGeo, crustMaterial);
+      crustMesh.castShadow = true;
+      crustMesh.receiveShadow = true;
+      cakeGroup.add(crustMesh);
+
+      // ------------------------------------------------------------------------
+      // 2. CREAMY IVORY CHEESECAKE BODY (y = 0.29 to 1.39)
+      // ------------------------------------------------------------------------
+      const creamGeo = buildArtisanalCakeLayerGeometry({
+        radius: 1.60,
+        yBottom: 0.29,
+        yTop: 1.39,
+        radialSegs: 144,
+        heightSegs: 40,
+        roughAmp: 0.014,
+        topLipBulge: 0.012,
+        bottomTaper: 0.006,
+        seed: 2002
+      });
+      const creamMesh = new THREE.Mesh(creamGeo, creamCheeseMaterial);
+      creamMesh.castShadow = true;
+      creamMesh.receiveShadow = true;
+      cakeGroup.add(creamMesh);
+
+      // ------------------------------------------------------------------------
+      // 3. GLOSSY DEEP PURPLE BLUEBERRY GLAZE TOP LAYER (y = 1.375 to 1.445)
+      // ------------------------------------------------------------------------
+      const glazeGeo = buildGlossyGlazeDiscGeometry(1.555, 1.375, 0.068);
+      const glazeMesh = new THREE.Mesh(glazeGeo, glazeMaterial);
+      glazeMesh.receiveShadow = true;
+      cakeGroup.add(glazeMesh);
+
+      // ------------------------------------------------------------------------
+      // 4. MOUNDED PILE OF ~40 FRESH 3D BLUEBERRIES WITH 5-POINT CALYX CROWNS
+      // ------------------------------------------------------------------------
+      // Create 4 distinct blueberry skin material variations & 3 sculpted geometry variants
+      const berryMaterials = [0, 1, 2, 3].map((idx) => {
+        const skinTex = createBlueberrySkinTextures(idx);
+        return new THREE.MeshPhysicalMaterial({
+          map: skinTex.colorMap,
+          roughnessMap: skinTex.roughnessMap,
+          bumpMap: skinTex.bumpMap,
+          bumpScale: 0.0032,
+          roughness: 0.56,
+          metalness: 0.0,
+          // Soft periwinkle epicuticular wax bloom sheen
+          sheen: 0.55,
+          sheenColor: new THREE.Color(0x8faee6),
+          sheenRoughness: 0.68,
+          clearcoat: 0.14,
+          clearcoatRoughness: 0.45,
+          transparent: false,
+          opacity: 1.0,
+          depthWrite: true,
+          depthTest: true,
+          side: THREE.DoubleSide
+        });
+      });
+
+      const berryGeos = [
+        buildBlueberryGeometry(0.222, 0.89, 1.05),
+        buildBlueberryGeometry(0.236, 0.87, 0.95),
+        buildBlueberryGeometry(0.208, 0.92, 1.12)
+      ];
+
+      // Curated physically-packed berry mound coordinates (x, z, y, scale, tiltX, tiltZ, yaw)
+      // Leaves a ~1.5cm glossy purple glaze border around the outer rim just like blueberry.jpg!
+      const berryPlacements = [
+        // --- Outer Ring (15 plump berries resting in the purple glaze border) ---
+        { r: 1.14, a: 0.06, y: 1.54, s: 1.02, tx: 0.35, tz: -0.22 },
+        { r: 1.16, a: 0.48, y: 1.53, s: 0.96, tx: -0.28, tz: 0.42 },
+        { r: 1.12, a: 0.91, y: 1.55, s: 1.04, tx: 0.52, tz: 0.18 },
+        { r: 1.15, a: 1.34, y: 1.53, s: 0.98, tx: -0.45, tz: -0.35 },
+        { r: 1.17, a: 1.76, y: 1.54, s: 1.01, tx: 0.22, tz: 0.58 },
+        { r: 1.13, a: 2.18, y: 1.55, s: 0.95, tx: -0.62, tz: 0.15 },
+        { r: 1.16, a: 2.60, y: 1.53, s: 1.05, tx: 0.40, tz: -0.48 },
+        { r: 1.14, a: 3.02, y: 1.54, s: 0.97, tx: -0.18, tz: 0.54 },
+        { r: 1.15, a: 3.44, y: 1.55, s: 1.03, tx: 0.65, tz: 0.20 },
+        { r: 1.12, a: 3.86, y: 1.53, s: 0.96, tx: -0.38, tz: -0.52 },
+        { r: 1.17, a: 4.28, y: 1.54, s: 1.04, tx: 0.24, tz: 0.44 },
+        { r: 1.13, a: 4.70, y: 1.55, s: 0.99, tx: -0.55, tz: -0.18 },
+        { r: 1.16, a: 5.12, y: 1.53, s: 1.02, tx: 0.48, tz: 0.36 },
+        { r: 1.14, a: 5.54, y: 1.54, s: 0.95, tx: -0.25, tz: -0.46 },
+        { r: 1.15, a: 5.94, y: 1.54, s: 1.00, tx: 0.32, tz: 0.28 },
+
+        // --- Middle Ring (13 berries nested slightly higher between outer & inner berries) ---
+        { r: 0.78, a: 0.25, y: 1.66, s: 1.03, tx: -0.42, tz: 0.26 },
+        { r: 0.80, a: 0.74, y: 1.68, s: 0.97, tx: 0.28, tz: -0.50 },
+        { r: 0.76, a: 1.22, y: 1.65, s: 1.05, tx: -0.18, tz: 0.44 },
+        { r: 0.79, a: 1.70, y: 1.69, s: 0.96, tx: 0.56, tz: 0.22 },
+        { r: 0.75, a: 2.18, y: 1.66, s: 1.01, tx: -0.48, tz: -0.30 },
+        { r: 0.81, a: 2.66, y: 1.67, s: 1.04, tx: 0.20, tz: 0.60 },
+        { r: 0.77, a: 3.14, y: 1.65, s: 0.95, tx: -0.64, tz: 0.12 },
+        { r: 0.79, a: 3.62, y: 1.68, s: 1.02, tx: 0.36, tz: -0.38 },
+        { r: 0.76, a: 4.10, y: 1.66, s: 0.98, tx: -0.24, tz: 0.52 },
+        { r: 0.80, a: 4.58, y: 1.69, s: 1.05, tx: 0.50, tz: -0.16 },
+        { r: 0.75, a: 5.06, y: 1.65, s: 0.97, tx: -0.36, tz: -0.44 },
+        { r: 0.78, a: 5.54, y: 1.67, s: 1.01, tx: 0.26, tz: 0.40 },
+        { r: 0.77, a: 6.00, y: 1.66, s: 0.99, tx: -0.52, tz: 0.24 },
+
+        // --- Upper Mound Ring (8 berries building the generous domed crown) ---
+        { r: 0.44, a: 0.12, y: 1.79, s: 1.04, tx: 0.30, tz: 0.38 },
+        { r: 0.46, a: 0.90, y: 1.81, s: 0.98, tx: -0.45, tz: -0.22 },
+        { r: 0.42, a: 1.68, y: 1.78, s: 1.02, tx: 0.22, tz: -0.48 },
+        { r: 0.45, a: 2.46, y: 1.82, s: 1.05, tx: -0.32, tz: 0.42 },
+        { r: 0.43, a: 3.24, y: 1.79, s: 0.96, tx: 0.54, tz: 0.18 },
+        { r: 0.46, a: 4.02, y: 1.81, s: 1.01, tx: -0.20, tz: -0.52 },
+        { r: 0.42, a: 4.80, y: 1.78, s: 1.03, tx: 0.42, tz: 0.32 },
+        { r: 0.45, a: 5.58, y: 1.80, s: 0.97, tx: -0.48, tz: 0.20 },
+
+        // --- Peak Center Trio (3 crown berries nestled around the central wavy candle) ---
+        { r: 0.22, a: 0.55, y: 1.89, s: 1.02, tx: 0.28, tz: -0.24 },
+        { r: 0.23, a: 2.65, y: 1.88, s: 0.98, tx: -0.36, tz: 0.30 },
+        { r: 0.21, a: 4.75, y: 1.90, s: 1.00, tx: 0.18, tz: 0.42 }
+      ];
+
+      berryPlacements.forEach((b, idx) => {
+        const geo = berryGeos[idx % berryGeos.length];
+        const mat = berryMaterials[(idx + Math.floor(rand() * 2)) % berryMaterials.length];
+        const berryMesh = new THREE.Mesh(geo, mat);
+
+        const bx = Math.cos(b.a) * b.r;
+        const bz = Math.sin(b.a) * b.r;
+        berryMesh.position.set(bx, b.y, bz);
+
+        berryMesh.rotation.order = 'YXZ';
+        berryMesh.rotation.y = rand() * Math.PI * 2;
+        berryMesh.rotation.x = b.tx;
+        berryMesh.rotation.z = b.tz;
+
+        berryMesh.scale.setScalar(b.s);
+        berryMesh.castShadow = true;
+        berryMesh.receiveShadow = true;
+        cakeGroup.add(berryMesh);
+      });
+
+      // Add a few glossy purple compote glaze droplets glistening between the lower berries
+      const dropGeo = new THREE.SphereGeometry(0.065, 16, 12);
+      dropGeo.scale(1.35, 0.55, 1.35);
+      for (let i = 0; i < 16; i++) {
+        const a = (i / 16) * Math.PI * 2 + 0.2;
+        const r = 0.96 + (i % 3) * 0.14;
+        const drop = new THREE.Mesh(dropGeo, glazeMaterial);
+        drop.position.set(Math.cos(a) * r, 1.435, Math.sin(a) * r);
+        drop.rotation.y = rand() * Math.PI;
+        cakeGroup.add(drop);
+      }
+
+      // ------------------------------------------------------------------------
+      // 5. CENTRAL WAVY SILVER BIRTHDAY CANDLE WITH LIT FLAME
+      // ------------------------------------------------------------------------
+      const candleAssembly = buildWavySilverCandle();
+      cakeGroup.add(candleAssembly.candleGroup);
+
+      return { cakeGroup, candleAssembly };
+    }
+
+    /**
+     * ============================================================================
+     * 5. STUDIO SCENE, LIGHTING, 360° CONTROLS & CAMERA PRESETS
+     * ============================================================================
+     */
+    function initApp() {
+      const container = document.getElementById('canvas-container');
+
+      // Renderer setup with physically-based ACES Filmic tone mapping & soft shadows
+      const renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        powerPreference: 'high-performance'
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.04;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+
+      // Clean pure white (#FFFFFF) studio backdrop matching blueberry.jpg
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xffffff);
+
+      // Soft studio IBL reflections via RoomEnvironment (gives crisp highlights on the purple glaze)
+      const pmremGenerator = new THREE.PMREMGenerator(renderer);
+      const roomEnv = new RoomEnvironment();
+      const envRT = pmremGenerator.fromScene(roomEnv, 0.04);
+      scene.environment = envRT.texture;
+      scene.environmentIntensity = 0.56;
+      roomEnv.dispose();
+
+      // Perspective camera
+      const camera = new THREE.PerspectiveCamera(
+        34,
+        window.innerWidth / window.innerHeight,
+        0.05,
+        100
+      );
+
+      // OrbitControls for smooth 360-degree spherical rotation, zoom, and pan
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.065;
+      controls.rotateSpeed = 0.85;
+      controls.zoomSpeed = 0.95;
+      controls.panSpeed = 0.8;
+      controls.minDistance = 1.65;
+      controls.maxDistance = 14.0;
+      controls.minPolarAngle = 0.03;
+      controls.maxPolarAngle = Math.PI - 0.03;
+
+      // Studio Three-Point + Upward Bounce Lighting
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0xf2ece4, 0.62);
+      hemiLight.position.set(0, 8, 0);
+      scene.add(hemiLight);
+
+      // Key Light (top-front-left studio softbox to sculpt berries & glaze highlights)
+      const keyLight = new THREE.DirectionalLight(0xfffdf8, 1.55);
+      keyLight.position.set(-2.6, 5.4, 4.4);
+      keyLight.castShadow = true;
+      keyLight.shadow.mapSize.width = 2048;
+      keyLight.shadow.mapSize.height = 2048;
+      keyLight.shadow.camera.near = 1.0;
+      keyLight.shadow.camera.far = 16.0;
+      const d = 2.6;
+      keyLight.shadow.camera.left = -d;
+      keyLight.shadow.camera.right = d;
+      keyLight.shadow.camera.top = d;
+      keyLight.shadow.camera.bottom = -d;
+      keyLight.shadow.bias = -0.0003;
+      keyLight.shadow.normalBias = 0.012;
+      scene.add(keyLight);
+
+      // Soft Cool-Neutral Fill Light (front-right, reveals dusty-blue blueberry bloom)
+      const fillLight = new THREE.DirectionalLight(0xf3f7ff, 0.78);
+      fillLight.position.set(4.5, 3.0, 3.8);
+      scene.add(fillLight);
+
+      // Rim / Back Light (separates cream cheese & berries in 360° views)
+      const rimLight = new THREE.DirectionalLight(0xffffff, 0.95);
+      rimLight.position.set(1.2, 4.4, -4.8);
+      scene.add(rimLight);
+
+      // Gentle Bottom Bounce Light so underneath biscuit crust is clearly lit when orbited 360°
+      const bottomLight = new THREE.DirectionalLight(0xfff9f0, 0.52);
+      bottomLight.position.set(0, -4.5, 1.2);
+      scene.add(bottomLight);
+
+      // Build and add the 3D Blueberry Cheesecake with Central Lit Wavy Candle
+      const { cakeGroup: cheesecake, candleAssembly } = buildBlueberryCheesecake();
+      scene.add(cheesecake);
+
+      // Soft circular tabletop contact shadow directly beneath the biscuit crust (top-side only)
+      const shadowGeo = new THREE.PlaneGeometry(3.85, 3.85);
+      shadowGeo.rotateX(-Math.PI / 2);
+      const shadowMat = new THREE.MeshBasicMaterial({
+        map: createCakeContactShadowTexture(),
+        transparent: true,
+        depthWrite: false,
+        side: THREE.FrontSide
+      });
+      const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
+      shadowMesh.position.set(0, -0.002, 0);
+      scene.add(shadowMesh);
+
+      /**
+       * ==========================================================================
+       * 6. CAMERA PRESETS & SMOOTH TRANSITION CONTROLLER
+       * ==========================================================================
+       */
+      const CAMERA_PRESETS = {
+        // Elevated 3/4 front studio view framing both the cheesecake & full lit wavy candle
+        hero: {
+          pos: new THREE.Vector3(0.0, 3.85, 7.65),
+          target: new THREE.Vector3(0.0, 1.92, 0.0)
+        },
+        // Overhead top-down view showcasing the blueberry mound, glossy glaze & candle
+        top: {
+          pos: new THREE.Vector3(0.0, 7.65, 0.85),
+          target: new THREE.Vector3(0.0, 1.65, 0.0)
+        },
+        // Side profile showing biscuit crust, berries, wavy silver candle & flame
+        side: {
+          pos: new THREE.Vector3(7.45, 2.25, 0.35),
+          target: new THREE.Vector3(0.0, 1.92, 0.0)
+        },
+        // Close-up macro view on the 5-pointed blueberry crowns, dusty bloom & glaze
+        macro: {
+          pos: new THREE.Vector3(1.25, 2.55, 2.45),
+          target: new THREE.Vector3(0.18, 1.68, 0.22)
+        },
+        // Close-up on the S-curved metallic silver candle, bent charred wick & glowing flame
+        candle: {
+          pos: new THREE.Vector3(0.25, 3.25, 2.55),
+          target: new THREE.Vector3(0.0, 3.05, 0.0)
+        },
+        // Underneath view inspecting the golden-brown baked biscuit crust base
+        bottom: {
+          pos: new THREE.Vector3(0.65, -4.55, 2.45),
+          target: new THREE.Vector3(0.0, 0.15, 0.0)
+        }
+      };
+
+      // Initialize at default Hero view matching attached image
+      camera.position.copy(CAMERA_PRESETS.hero.pos);
+      controls.target.copy(CAMERA_PRESETS.hero.target);
+      controls.update();
+
+      let camAnim = null;
+
+      function animateCameraTo(presetKey) {
+        const key = presetKey === 'reset' ? 'hero' : presetKey;
+        const preset = CAMERA_PRESETS[key];
+        if (!preset) return;
+
+        camAnim = {
+          startPos: camera.position.clone(),
+          endPos: preset.pos.clone(),
+          startTarget: controls.target.clone(),
+          endTarget: preset.target.clone(),
+          elapsed: 0,
+          duration: 0.85
+        };
+
+        document.querySelectorAll('.cam-btn[data-preset]').forEach((btn) => {
+          const btnKey = btn.getAttribute('data-preset');
+          btn.classList.toggle('active', btnKey === key);
+        });
+      }
+
+      // Cancel camera preset animation if user manually interacts
+      controls.addEventListener('start', () => {
+        camAnim = null;
+      });
+
+      // Bind preset buttons
+      document.querySelectorAll('.cam-btn[data-preset]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const preset = btn.getAttribute('data-preset');
+          if (preset === 'reset' && controls.autoRotate) {
+            setAutoRotate(false);
+          }
+          animateCameraTo(preset);
+        });
+      });
+
+      // Auto-Rotate toggle
+      const autoRotateBtn = document.getElementById('toggle-autorotate');
+      const autoRotateDot = document.getElementById('autorotate-dot');
+
+      function setAutoRotate(enabled) {
+        controls.autoRotate = enabled;
+        controls.autoRotateSpeed = 1.65;
+        if (enabled) {
+          autoRotateBtn.classList.add('active');
+          autoRotateDot.classList.remove('bg-slate-300');
+          autoRotateDot.classList.add('bg-white');
+        } else {
+          autoRotateBtn.classList.remove('active');
+          autoRotateDot.classList.remove('bg-white');
+          autoRotateDot.classList.add('bg-slate-300');
+        }
+      }
+
+      autoRotateBtn.addEventListener('click', () => {
+        setAutoRotate(!controls.autoRotate);
+      });
+
+      // Candle Flame Lit / Extinguished toggle
+      let isFlameLit = true;
+      const flameBtn = document.getElementById('toggle-flame');
+      const flameDot = document.getElementById('flame-dot');
+
+      function setFlameLit(lit) {
+        isFlameLit = lit;
+        candleAssembly.flamePivot.visible = lit;
+        candleAssembly.emberMesh.visible = lit;
+        candleAssembly.candleLight.visible = lit;
+        if (lit) {
+          flameBtn.classList.add('active');
+          flameDot.classList.remove('bg-slate-300');
+          flameDot.classList.add('bg-amber-300');
+        } else {
+          flameBtn.classList.remove('active');
+          flameDot.classList.remove('bg-amber-300');
+          flameDot.classList.add('bg-slate-300');
+        }
+      }
+
+      flameBtn.addEventListener('click', () => {
+        setFlameLit(!isFlameLit);
+      });
+
+      // Responsive window resize
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      // Fade out loading screen once first frame renders
+      const loadingOverlay = document.getElementById('loading-overlay');
+      requestAnimationFrame(() => {
+        renderer.render(scene, camera);
+        loadingOverlay.style.opacity = '0';
+        setTimeout(() => {
+          loadingOverlay.style.display = 'none';
+        }, 500);
+      });
+
+      // Main animation loop
+      const clock = new THREE.Clock();
+      function animate() {
+        requestAnimationFrame(animate);
+        const dt = Math.min(clock.getDelta(), 0.05);
+        const elapsed = clock.elapsedTime;
+
+        // Natural organic candle flame flicker & warm candlelight shimmer
+        if (isFlameLit) {
+          candleAssembly.innerFlameMat.uniforms.uTime.value = elapsed;
+          candleAssembly.outerFlameMat.uniforms.uTime.value = elapsed;
+
+          const flicker =
+            1.0 +
+            0.035 * Math.sin(elapsed * 9.2) +
+            0.022 * Math.cos(elapsed * 15.7) +
+            0.012 * Math.sin(elapsed * 23.4);
+          candleAssembly.flamePivot.scale.set(
+            1.0 - (flicker - 1.0) * 0.35,
+            flicker,
+            1.0 - (flicker - 1.0) * 0.35
+          );
+          candleAssembly.candleLight.intensity = 1.42 * flicker;
+        }
+
+        if (camAnim) {
+          camAnim.elapsed += dt;
+          const t = Math.min(1, camAnim.elapsed / camAnim.duration);
+          const ease = 1 - Math.pow(1 - t, 3);
+
+          camera.position.lerpVectors(camAnim.startPos, camAnim.endPos, ease);
+          controls.target.lerpVectors(camAnim.startTarget, camAnim.endTarget, ease);
+
+          if (t >= 1) {
+            camAnim = null;
+          }
+        }
+
+        controls.update();
+        renderer.render(scene, camera);
+      }
+
+      animate();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      try {
+        initApp();
+      } catch (err) {
+        console.error('Blueberry Cheesecake 3D Viewer initialization error:', err);
+        const errorBox = document.getElementById('error-box');
+        const errorMsg = document.getElementById('error-message');
+        if (errorBox && errorMsg) {
+          errorMsg.textContent = 'お使いのブラウザ環境でWebGLを初期化できませんでした。ページを再読み込みしてお試しください。';
+          errorBox.classList.remove('hidden');
+        }
+      }
+    });
+  </script>
+</body>
+</html>
