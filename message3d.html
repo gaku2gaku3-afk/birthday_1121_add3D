@@ -4,9 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>メッセージカード 3D ビューア</title>
-  <!-- Tailwind CSS for clean studio gallery UI -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Google Fonts: Inter & Noto Sans JP -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet" />
@@ -38,7 +36,6 @@
       height: 100%;
       outline: none;
     }
-    /* Refined warm gallery floating glassmorphism */
     .gallery-glass {
       background: rgba(255, 253, 249, 0.86);
       backdrop-filter: blur(14px);
@@ -62,7 +59,6 @@
     }
   </style>
 
-  <!-- ES Module Import Map for Three.js v0.170.0 & Official Addons -->
   <script type="importmap">
     {
       "imports": {
@@ -73,25 +69,22 @@
   </script>
 </head>
 <body>
-  <!-- Fullscreen Transparent 3D Canvas Container -->
   <div id="canvas-container"></div>
 
-  <!-- Loading Overlay (Transparent background) -->
-  <div id="loading-overlay" class="fixed inset-0 z-30 flex items-center justify-center transition-opacity duration-500 pointer-events-none">
-    <div class="flex flex-col items-center gap-3">
-      <div class="w-9 h-9 border-2 border-indigo-200/60 border-t-[#233396] rounded-full animate-spin"></div>
+  <!-- Loading Spinner (Auto-dismissed immediately upon first render) -->
+  <div id="loading-overlay" class="fixed inset-0 z-30 flex items-center justify-center transition-opacity duration-300 pointer-events-none">
+    <div class="w-8 h-8 border-2 border-indigo-200/60 border-t-[#233396] rounded-full animate-spin"></div>
+  </div>
+
+  <!-- Error Message Box -->
+  <div id="error-box" class="hidden fixed inset-0 z-40 flex items-center justify-center p-4 pointer-events-none">
+    <div class="bg-white/95 backdrop-blur rounded-2xl p-5 max-w-sm shadow-lg border border-slate-200 text-center pointer-events-auto">
+      <h2 class="text-sm font-bold text-slate-900 mb-1.5">3Dモデルを表示できませんでした</h2>
+      <p id="error-message" class="text-xs text-slate-600 leading-relaxed"></p>
     </div>
   </div>
 
-  <!-- Error Message Box (Hidden unless WebGL error occurs) -->
-  <div id="error-box" class="hidden fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 p-4">
-    <div class="bg-white rounded-2xl p-6 max-w-md shadow-xl text-center">
-      <h2 class="text-base font-bold text-slate-900 mb-2">3Dビューアの初期化エラー</h2>
-      <p id="error-message" class="text-sm text-slate-600"></p>
-    </div>
-  </div>
-
-  <!-- Bottom Floating Japanese Camera & Interaction Toolbar -->
+  <!-- Bottom Floating Camera & Interaction Toolbar -->
   <nav aria-label="カメラ・カード操作パネル" class="fixed bottom-3 sm:bottom-5 left-1/2 -translate-x-1/2 z-10 w-[calc(100vw-1rem)] max-w-4xl flex justify-center pointer-events-none">
     <div class="gallery-glass rounded-2xl sm:rounded-full p-1.5 sm:px-2.5 sm:py-2 flex flex-wrap items-center justify-center gap-1 sm:gap-1.5 pointer-events-auto">
       <button type="button" data-preset="front" class="cam-btn active px-2.5 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl sm:rounded-full text-xs font-semibold text-slate-700 hover:bg-indigo-50/80">
@@ -131,11 +124,55 @@
     </div>
   </nav>
 
+  <!-- Watchdog for module/network/file:// errors -->
+  <script>
+    window.__viewerLoaded = false;
+    setTimeout(function () {
+      if (!window.__viewerLoaded) {
+        var loader = document.getElementById('loading-overlay');
+        var box = document.getElementById('error-box');
+        var msg = document.getElementById('error-message');
+        if (loader) loader.style.display = 'none';
+        if (box && msg) {
+          if (location.protocol === 'file:') {
+            msg.textContent = 'ローカルファイル(file://)の直接起動では3Dモジュールが制限されます。Live ServerまたはGitHub Pages経由で開いてください。';
+          } else {
+            msg.textContent = '3Dライブラリの読み込みに時間がかかっています。通信環境をご確認のうえ再読み込みしてください。';
+          }
+          box.classList.remove('hidden');
+        }
+      }
+    }, 5000);
+  </script>
+
   <!-- Main Three.js Application Script -->
   <script type="module">
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
     import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+    function hideLoader() {
+      window.__viewerLoaded = true;
+      const loadingOverlay = document.getElementById('loading-overlay');
+      if (loadingOverlay) {
+        loadingOverlay.style.opacity = '0';
+        setTimeout(() => {
+          loadingOverlay.style.display = 'none';
+        }, 250);
+      }
+    }
+
+    function showError(text) {
+      window.__viewerLoaded = true;
+      const loadingOverlay = document.getElementById('loading-overlay');
+      if (loadingOverlay) loadingOverlay.style.display = 'none';
+      const errorBox = document.getElementById('error-box');
+      const errorMsg = document.getElementById('error-message');
+      if (errorBox && errorMsg) {
+        errorMsg.textContent = text;
+        errorBox.classList.remove('hidden');
+      }
+    }
 
     function createSeededRandom(seed = 20261122) {
       let s = seed % 2147483647;
@@ -159,7 +196,7 @@
       ctx.fillStyle = baseColor;
       ctx.fillRect(0, 0, width, height);
 
-      for (let i = 0; i < 95; i++) {
+      for (let i = 0; i < 45; i++) {
         const cx = rand() * width;
         const cy = rand() * height;
         const radius = (0.08 + rand() * 0.22) * Math.max(width, height);
@@ -207,15 +244,15 @@
       }
 
       ctx.lineCap = 'round';
-      for (let i = 0; i < 4200; i++) {
+      for (let i = 0; i < 1400; i++) {
         const x1 = rand() * width;
         const y1 = rand() * height;
         const angle = rand() * Math.PI * 2;
-        const len = 6 + rand() * 24;
+        const len = 4 + rand() * 14;
         const x2 = x1 + Math.cos(angle) * len;
         const y2 = y1 + Math.sin(angle) * len;
-        const cx = (x1 + x2) * 0.5 + (rand() - 0.5) * 6;
-        const cy = (y1 + y2) * 0.5 + (rand() - 0.5) * 6;
+        const cx = (x1 + x2) * 0.5 + (rand() - 0.5) * 4;
+        const cy = (y1 + y2) * 0.5 + (rand() - 0.5) * 4;
 
         ctx.beginPath();
         ctx.moveTo(x1, y1);
@@ -228,13 +265,13 @@
         } else {
           ctx.strokeStyle = 'rgba(182, 166, 138, 0.28)';
         }
-        ctx.lineWidth = 0.7 + rand() * 1.1;
+        ctx.lineWidth = 0.6 + rand() * 0.8;
         ctx.stroke();
       }
     }
 
     function createCottonPaperSurfaceMaps() {
-      const size = 1024;
+      const size = 512;
       const bumpCanvas = document.createElement('canvas');
       bumpCanvas.width = size;
       bumpCanvas.height = size;
@@ -253,10 +290,10 @@
 
       const rand = createSeededRandom(55991);
 
-      for (let i = 0; i < 1600; i++) {
+      for (let i = 0; i < 600; i++) {
         const x = rand() * size;
         const y = rand() * size;
-        const r = 3 + rand() * 11;
+        const r = 2 + rand() * 7;
         const g = bCtx.createRadialGradient(x, y, 0.5, x, y, r);
         const bright = rand() > 0.5;
         g.addColorStop(0, bright ? 'rgba(210,210,210,0.22)' : 'rgba(55,55,55,0.22)');
@@ -267,42 +304,42 @@
         bCtx.fill();
       }
 
-      for (let i = 0; i < 4500; i++) {
+      for (let i = 0; i < 1500; i++) {
         const x1 = rand() * size;
         const y1 = rand() * size;
         const angle = rand() * Math.PI * 2;
-        const len = 5 + rand() * 18;
+        const len = 4 + rand() * 12;
         const x2 = x1 + Math.cos(angle) * len;
         const y2 = y1 + Math.sin(angle) * len;
-        const cx = (x1 + x2) * 0.5 + (rand() - 0.5) * 4;
-        const cy = (y1 + y2) * 0.5 + (rand() - 0.5) * 4;
+        const cx = (x1 + x2) * 0.5 + (rand() - 0.5) * 3;
+        const cy = (y1 + y2) * 0.5 + (rand() - 0.5) * 3;
 
         bCtx.beginPath();
         bCtx.moveTo(x1, y1);
         bCtx.quadraticCurveTo(cx, cy, x2, y2);
         bCtx.strokeStyle = rand() > 0.4 ? 'rgba(235,235,235,0.34)' : 'rgba(45,45,45,0.28)';
-        bCtx.lineWidth = 0.8 + rand() * 1.0;
+        bCtx.lineWidth = 0.7 + rand() * 0.8;
         bCtx.stroke();
 
         rCtx.beginPath();
         rCtx.moveTo(x1, y1);
         rCtx.quadraticCurveTo(cx, cy, x2, y2);
         rCtx.strokeStyle = rand() > 0.5 ? 'rgba(245,245,245,0.25)' : 'rgba(195,195,195,0.25)';
-        rCtx.lineWidth = 1.0;
+        rCtx.lineWidth = 0.9;
         rCtx.stroke();
       }
 
       const bumpMap = new THREE.CanvasTexture(bumpCanvas);
       bumpMap.wrapS = THREE.RepeatWrapping;
       bumpMap.wrapT = THREE.RepeatWrapping;
-      bumpMap.repeat.set(2, 2);
-      bumpMap.anisotropy = 16;
+      bumpMap.repeat.set(3, 3);
+      bumpMap.anisotropy = 8;
 
       const roughnessMap = new THREE.CanvasTexture(roughCanvas);
       roughnessMap.wrapS = THREE.RepeatWrapping;
       roughnessMap.wrapT = THREE.RepeatWrapping;
-      roughnessMap.repeat.set(2, 2);
-      roughnessMap.anisotropy = 16;
+      roughnessMap.repeat.set(3, 3);
+      roughnessMap.anisotropy = 8;
 
       return { bumpMap, roughnessMap };
     }
@@ -311,8 +348,8 @@
       if (points.length < 2) return;
 
       const jittered = points.map(([x, y]) => [
-        x + (rand() - 0.5) * 1.4,
-        y + (rand() - 0.5) * 1.4
+        x + (rand() - 0.5) * 0.9,
+        y + (rand() - 0.5) * 0.9
       ]);
 
       ctx.save();
@@ -345,19 +382,18 @@
       ctx.translate(cx, cy);
       ctx.rotate(rotation);
 
-      const inkColor = '#233396';
-      ctx.fillStyle = inkColor;
+      ctx.fillStyle = '#233396';
 
       ctx.beginPath();
-      ctx.ellipse(-18 * scale, -13 * scale, 5.2 * scale, 5.8 * scale, 0.1, 0, Math.PI * 2);
+      ctx.ellipse(-9 * scale, -6.5 * scale, 2.6 * scale, 2.9 * scale, 0.1, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.beginPath();
-      ctx.ellipse(18 * scale, -13 * scale, 5.2 * scale, 5.6 * scale, -0.1, 0, Math.PI * 2);
+      ctx.ellipse(9 * scale, -6.5 * scale, 2.6 * scale, 2.8 * scale, -0.1, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.beginPath();
-      ctx.arc(0, -1 * scale, 3.6 * scale, 0, Math.PI * 2);
+      ctx.arc(0, -0.5 * scale, 1.8 * scale, 0, Math.PI * 2);
       ctx.fill();
 
       const arcPts = [];
@@ -365,11 +401,11 @@
       for (let i = 0; i <= steps; i++) {
         const t = i / steps;
         const angle = 0.18 * Math.PI + t * 0.64 * Math.PI;
-        const rx = 25 * scale;
-        const ry = 21 * scale;
-        arcPts.push([Math.cos(angle) * rx, -1 * scale + Math.sin(angle) * ry]);
+        const rx = 12.5 * scale;
+        const ry = 10.5 * scale;
+        arcPts.push([Math.cos(angle) * rx, -0.5 * scale + Math.sin(angle) * ry]);
       }
-      strokeCobaltPenPath(ctx, arcPts, 6.2 * scale, rand, false);
+      strokeCobaltPenPath(ctx, arcPts, 3.1 * scale, rand, false);
 
       ctx.restore();
     }
@@ -381,20 +417,20 @@
 
       const buildHeartPoints = (s) => {
         const pts = [];
-        const steps = 34;
+        const steps = 32;
         for (let i = 0; i <= steps; i++) {
           const t = (i / steps) * Math.PI * 2;
           const px = 16 * Math.pow(Math.sin(t), 3);
           const py = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
-          pts.push([px * 2.55 * s, py * 2.45 * s]);
+          pts.push([px * 1.28 * s, py * 1.23 * s]);
         }
         return pts;
       };
 
-      strokeCobaltPenPath(ctx, buildHeartPoints(scale), 7.4 * Math.max(0.75, scale), rand, true);
+      strokeCobaltPenPath(ctx, buildHeartPoints(scale), 3.7 * Math.max(0.75, scale), rand, true);
 
       if (doubleHeart) {
-        strokeCobaltPenPath(ctx, buildHeartPoints(scale * 0.56), 5.6 * Math.max(0.75, scale), rand, true);
+        strokeCobaltPenPath(ctx, buildHeartPoints(scale * 0.56), 2.8 * Math.max(0.75, scale), rand, true);
       }
 
       ctx.restore();
@@ -405,4 +441,248 @@
       ctx.translate(cx, cy);
       ctx.rotate(rotation);
 
-      const outerR = 44 * scale;
+      const outerR = 22 * scale;
+      const starOrder = [0, 2, 4, 1, 3, 0];
+      const starPts = starOrder.map((idx) => {
+        const a = -Math.PI / 2 + (idx / 5) * Math.PI * 2;
+        const rJitter = outerR * (0.93 + rand() * 0.14);
+        return [Math.cos(a) * rJitter, Math.sin(a) * rJitter];
+      });
+      strokeCobaltPenPath(ctx, starPts, 3.2 * Math.max(0.75, scale), rand, false);
+
+      ctx.restore();
+    }
+
+    function drawSparkleDoodle(ctx, cx, cy, scale, rotation, rand) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(rotation);
+
+      const rLong = 18 * scale;
+      const rMid = 4.25 * scale;
+      const pts = [];
+      const segsPerArm = 5;
+      const corners = [
+        [0, -rLong],
+        [rMid, -rMid],
+        [rLong, 0],
+        [rMid, rMid],
+        [0, rLong],
+        [-rMid, rMid],
+        [-rLong, 0],
+        [-rMid, -rMid]
+      ];
+
+      for (let c = 0; c < corners.length; c++) {
+        const [x0, y0] = corners[c];
+        const [x1, y1] = corners[(c + 1) % corners.length];
+        for (let s = 0; s < segsPerArm; s++) {
+          const t = s / segsPerArm;
+          pts.push([x0 + (x1 - x0) * t, y0 + (y1 - y0) * t]);
+        }
+      }
+      strokeCobaltPenPath(ctx, pts, 2.9 * Math.max(0.75, scale), rand, true);
+
+      ctx.fillStyle = '#233396';
+      ctx.beginPath();
+      ctx.arc(rLong * 0.72, -rLong * 0.68, 1.9 * scale, 0, Math.PI * 2);
+      ctx.arc(-rLong * 0.74, rLong * 0.66, 1.6 * scale, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    function drawFlowerDoodle(ctx, cx, cy, scale, rotation, rand) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(rotation);
+
+      const petalCount = 5;
+      for (let p = 0; p < petalCount; p++) {
+        const baseA = (p / petalCount) * Math.PI * 2;
+        const petalPts = [];
+        const steps = 14;
+        for (let i = 0; i <= steps; i++) {
+          const t = i / steps;
+          const localA = (t - 0.5) * 1.12;
+          const radial = (6.5 + 16.5 * Math.sin(t * Math.PI)) * scale;
+          const a = baseA + localA * 0.55;
+          petalPts.push([Math.cos(a) * radial, Math.sin(a) * radial]);
+        }
+        strokeCobaltPenPath(ctx, petalPts, 3.1 * Math.max(0.75, scale), rand, false);
+      }
+
+      const centerPts = [];
+      for (let i = 0; i <= 16; i++) {
+        const a = (i / 16) * Math.PI * 2;
+        centerPts.push([Math.cos(a) * 5.5 * scale, Math.sin(a) * 5.5 * scale]);
+      }
+      strokeCobaltPenPath(ctx, centerPts, 2.9 * Math.max(0.75, scale), rand, true);
+
+      ctx.restore();
+    }
+
+    function drawCrownDoodle(ctx, cx, cy, scale, rotation, rand) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(rotation);
+
+      const crownPts = [
+        [-23 * scale, 13 * scale],
+        [-27 * scale, -9 * scale],
+        [-11 * scale, 3 * scale],
+        [0, -15 * scale],
+        [11 * scale, 3 * scale],
+        [27 * scale, -9 * scale],
+        [23 * scale, 13 * scale],
+        [-23 * scale, 13 * scale]
+      ];
+      strokeCobaltPenPath(ctx, crownPts, 3.4 * Math.max(0.75, scale), rand, true);
+
+      strokeCobaltPenPath(
+        ctx,
+        [
+          [-21.5 * scale, 7.5 * scale],
+          [21.5 * scale, 7.5 * scale]
+        ],
+        2.6 * Math.max(0.75, scale),
+        rand,
+        false
+      );
+
+      ctx.fillStyle = '#233396';
+      const tips = [
+        [-28 * scale, -13.5 * scale],
+        [0, -20 * scale],
+        [28 * scale, -13.5 * scale]
+      ];
+      for (const [tx, ty] of tips) {
+        ctx.beginPath();
+        ctx.arc(tx, ty, 2.2 * scale, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+
+    function drawShootingStarDoodle(ctx, cx, cy, scale, rotation, rand) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(rotation);
+
+      drawStarDoodle(ctx, 14 * scale, -3 * scale, scale * 0.78, 0.2, rand);
+
+      const tail1 = [];
+      const tail2 = [];
+      for (let i = 0; i <= 12; i++) {
+        const t = i / 12;
+        const x = (3 - t * 38) * scale;
+        const y1 = (-2 + Math.pow(t, 1.4) * 13) * scale;
+        const y2 = (5 + Math.pow(t, 1.4) * 14) * scale;
+        tail1.push([x, y1]);
+        tail2.push([x + 4 * scale, y2]);
+      }
+      strokeCobaltPenPath(ctx, tail1, 2.8 * Math.max(0.75, scale), rand, false);
+      strokeCobaltPenPath(ctx, tail2, 2.5 * Math.max(0.75, scale), rand, false);
+
+      ctx.restore();
+    }
+
+    function createEnvelopeBodyAndTopFlapTexture(W, H, flapPeakH) {
+      const size = 1024;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      paintHandmadeCottonBase(ctx, size, size, {
+        baseColor: '#F4EFE1',
+        warmEdgeTint: true,
+        topFlapAgingTint: true,
+        seed: 18473
+      });
+
+      const foldV = H / (H + flapPeakH);
+      const foldCanvasY = (1 - foldV) * size;
+
+      ctx.save();
+      ctx.strokeStyle = 'rgba(196, 183, 156, 0.42)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, foldCanvasY);
+      ctx.lineTo(size, foldCanvasY);
+      ctx.stroke();
+
+      const leftDiagonalGrad = ctx.createLinearGradient(0, foldCanvasY, size * 0.25, foldCanvasY - size * 0.25);
+      leftDiagonalGrad.addColorStop(0, 'rgba(205, 192, 165, 0.22)');
+      leftDiagonalGrad.addColorStop(1, 'rgba(205, 192, 165, 0)');
+      ctx.fillStyle = leftDiagonalGrad;
+      ctx.fillRect(0, 0, size, foldCanvasY);
+      ctx.restore();
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 8;
+      return tex;
+    }
+
+    function createEnvelopeFrontFlapTexture() {
+      const size = 1024;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      paintHandmadeCottonBase(ctx, size, size, {
+        baseColor: '#F4EFE1',
+        warmEdgeTint: true,
+        seed: 31907
+      });
+
+      const rand = createSeededRandom(88421);
+
+      ctx.save();
+      ctx.strokeStyle = 'rgba(192, 179, 152, 0.35)';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(0, size);
+      ctx.lineTo(size * 0.26, size * 0.46);
+      ctx.lineTo(size * 0.74, size * 0.46);
+      ctx.lineTo(size, size);
+      ctx.stroke();
+      ctx.restore();
+
+      drawSmileyDoodle(ctx, 0.175 * size, (1 - 0.365) * size, 1.04, 0.05, rand);
+      drawFlowerDoodle(ctx, 0.215 * size, (1 - 0.175) * size, 1.0, -0.12, rand);
+      drawStarDoodle(ctx, 0.445 * size, (1 - 0.405) * size, 0.96, -0.14, rand);
+
+      {
+        const sunX = 0.625 * size;
+        const sunY = (1 - 0.225) * size;
+        ctx.save();
+        ctx.translate(sunX, sunY);
+
+        const sunCircle = [];
+        for (let i = 0; i <= 18; i++) {
+          const a = (i / 18) * Math.PI * 2;
+          sunCircle.push([Math.cos(a) * 8.25, Math.sin(a) * 8.25]);
+        }
+        strokeCobaltPenPath(ctx, sunCircle, 2.9, rand, true);
+
+        const rayCount = 8;
+        for (let r = 0; r < rayCount; r++) {
+          const a = (r / rayCount) * Math.PI * 2 + 0.12;
+          if (r % 2 === 0) {
+            strokeCobaltPenPath(
+              ctx,
+              [
+                [Math.cos(a) * 13, Math.sin(a) * 13],
+                [Math.cos(a) * 18.5, Math.sin(a) * 18.5]
+              ],
+              2.8,
+              rand,
+              false
+            );
+          } else {
+            ctx.fillStyle = '#233396';
+            ctx.beginPath();
