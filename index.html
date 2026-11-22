@@ -458,6 +458,13 @@ ul{list-style:none;margin:0;padding:0}
   z-index:6;
 }
 
+/* Three.js 描画レイヤー（画面全体に重ねる。操作はくじ券のDOMが受ける） */
+.ik-gl{position:fixed;left:0;top:0;display:block;pointer-events:none;z-index:30}
+.ik-ticket.gl .ik-cover-clip,
+.ik-ticket.gl .ik-crease-shadow,
+.ik-ticket.gl .ik-flap,
+.ik-ticket.gl .ik-roll{display:none}
+
 /* 操作ガイドピル */
 .ik-hint{
   display:inline-flex;
@@ -500,6 +507,7 @@ footer{padding:48px clamp(16px,4vw,48px) 36px;border-top:1px solid var(--line);m
 <canvas id="cf"></canvas>
 <footer>© Birthday Kuji</footer>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 /* ===== 景品設定：ここを書き換えてください ===== */
 var PRIZES=[
@@ -623,11 +631,241 @@ function qrSVG(id){
  return '<svg viewBox="-1 -1 23 23" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg"><rect x="-1" y="-1" width="23" height="23" fill="#fff"/><path d="'+d+'" fill="#111"/></svg>';
 }
 
+/* ==========================================================================
+   Three.js：実物の紙のようにめくれるくじ表面
+   ・青い表面を細かく分割した1枚の紙として、めくり口で円筒状に巻き上げる
+   ・めくった先は裏面（黒地にランク文字）が見え、台紙へ影が落ちる
+   ・WebGLやthree.jsが使えない場合は、従来のCSSめくりに自動で切り替わる
+   ========================================================================== */
+var GL=null;
+var KF='"Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif';
+function kcv(w,h){var c=document.createElement("canvas");c.width=w;c.height=h;return c}
+function kRound(x,a,b,w,h,r){x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);x.arcTo(a+w,b+h,a,b+h,r);x.arcTo(a,b+h,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath()}
+
+/* 表面（青いくじ券）のテクスチャ。DOM版の配置をそのまま440x278座標で描く */
+function drawKujiFace(id){
+ var S=2,W=440,H=278,cv=kcv(W*S,H*S),x=cv.getContext("2d"),i;
+ x.scale(S,S);
+ kRound(x,0,0,W,H,8);x.clip();
+ var g=x.createLinearGradient(0,0,W*.3,H);
+ g.addColorStop(0,"#45a8ea");g.addColorStop(.48,"#359be0");g.addColorStop(1,"#2b89ca");
+ x.fillStyle=g;x.fillRect(0,0,W,H);
+ for(i=0;i<700;i++){x.fillStyle=i%2?"rgba(255,255,255,.12)":"rgba(0,30,60,.07)";x.fillRect(Math.random()*W,Math.random()*H,1,1)}
+
+ /* ミシン目 */
+ var pd="M 118 22 L 138 30 L 386 30 L 404 44 L 404 234 L 386 248 L 138 248 L 118 256";
+ x.setLineDash([11,5]);x.lineCap="round";
+ x.lineWidth=1.6;x.strokeStyle="rgba(12,56,96,.48)";x.stroke(new Path2D(pd));
+ x.save();x.translate(0,1);x.lineWidth=1;x.strokeStyle="rgba(255,255,255,.45)";x.stroke(new Path2D(pd));x.restore();
+ x.setLineDash([]);
+
+ /* 左端の黒いつまみ */
+ kRound(x,18.5,20.9,40.5,236.3,20.25);x.fillStyle="#14171c";x.fill();
+ x.fillStyle="#fff";x.font="900 12px "+KF;x.textAlign="center";x.textBaseline="middle";
+ var tx="ここからゆっくりめくる",step=13,y0=20.9+236.3/2-(tx.length-1)*step/2;
+ for(i=0;i<tx.length;i++)x.fillText(tx.charAt(i),38.75,y0+i*step);
+
+ /* 型抜きウィンドウと青い矢印 */
+ x.save();x.translate(60.7,55.6);x.scale(77/80,144.6/140);
+ var n1=new Path2D("M 16 14 Q 68 70 16 126 Q 4 70 16 14 Z");
+ x.fillStyle="#fff";x.lineWidth=1.5;x.strokeStyle="rgba(15,65,105,.28)";x.fill(n1);x.stroke(n1);
+ x.setLineDash([4,3]);x.strokeStyle="#d5dde6";x.stroke(new Path2D("M 14 28 Q 34 70 14 112"));x.setLineDash([]);
+ var ar=new Path2D("M 27 62 L 44 62 L 44 53 L 61 70 L 44 87 L 44 78 L 31 78 Q 25 78 25 70 Q 25 62 27 62 Z");
+ x.fillStyle="#359be0";x.lineWidth=2;x.lineJoin="round";x.strokeStyle="#111";x.fill(ar);x.stroke(ar);
+ x.restore();
+
+ /* ギザギザ吹き出し（くじ番号） */
+ x.save();x.translate(140.8,30.6);x.scale(136.4/140,122.3/120);
+ var pts=[70,4,86,20,116,12,114,38,136,56,114,76,122,104,92,98,72,116,52,98,22,106,30,78,6,60,28,40,24,14,54,22];
+ x.beginPath();x.moveTo(pts[0],pts[1]);for(i=2;i<pts.length;i+=2)x.lineTo(pts[i],pts[i+1]);x.closePath();
+ x.fillStyle="#fff";x.fill();x.restore();
+ x.textBaseline="alphabetic";x.textAlign="center";x.fillStyle="#111";
+ x.font="800 9px "+KF;x.fillText("このくじの番号は",209,77);
+ kRound(x,209-24,83,48,17,2);x.fillStyle="#111";x.fill();
+ x.fillStyle="#fff";x.font="900 12px ui-monospace,Menlo,monospace";x.fillText("No."+pad(id),209,95.5);
+ x.fillStyle="#111";x.font="800 9px "+KF;x.fillText("です。",209,113);
+
+ /* タイトル・価格 */
+ x.save();
+ x.shadowColor="rgba(10,55,95,.32)";x.shadowOffsetY=1;x.shadowBlur=0;
+ x.fillStyle="#fff";x.textAlign="center";
+ x.font="800 10px "+KF;x.fillText("Birthday Kuji",344.3,44);
+ x.font="900 16px "+KF;x.fillText("〈Kanna Birthday〉",344.3,64);
+ x.font="700 9px "+KF;x.fillText("Happy Birthday Special",344.3,78);
+ var p1="1回 0円",p2="（愛情100%込）";
+ x.font="900 14px "+KF;var w1=x.measureText(p1).width;
+ x.font="700 10px "+KF;var w2=x.measureText(p2).width;
+ var sx=344.3-(w1+w2)/2;x.textAlign="left";
+ x.font="900 14px "+KF;x.fillText(p1,sx,97);
+ x.font="700 10px "+KF;x.fillText(p2,sx+w1,97);
+ /* 注意書き */
+ var note="※くじ券はその場でめくって開封し、プレゼントと交換してください。",ln="",ly=161;
+ x.font="700 9px "+KF;
+ for(i=0;i<note.length;i++){var tt=ln+note.charAt(i);if(x.measureText(tt).width>268&&ln){x.fillText(ln,147.4,ly);ln=note.charAt(i);ly+=12}else ln=tt}
+ x.fillText(ln,147.4,ly);
+ x.restore();
+
+ /* バーコード */
+ kRound(x,147.4,177.9,255.2,70.9,2);x.fillStyle="#fff";x.fill();
+ var pat=[2,1,3,1,1,2,3,1,2,1,1,3,2,1,2,2,1,3,1,1,2,1,3,2,1,1,2,3,1,2,1,2],sum=0,bx=157.4;
+ for(i=0;i<pat.length;i++)sum+=pat[i];
+ var unit=235.2/sum;
+ x.fillStyle="#111";
+ for(i=0;i<pat.length;i++){var bw=pat[i]*unit;if(i%2===0)x.fillRect(bx,180.9,bw,44.8);bx+=bw}
+ x.font="800 12px ui-monospace,Menlo,monospace";x.textBaseline="alphabetic";
+ x.textAlign="left";x.fillText("4",157.4,243);
+ x.textAlign="center";x.fillText("573102",275,243);
+ x.textAlign="right";x.fillText("2026"+pad(id),392.6,243);
+ return cv;
+}
+
+/* 裏面（黒地に当選ランクの白抜き文字）。裏から見て読めるよう左右反転で描く */
+function drawKujiBack(big,kan){
+ var S=2,W=440,H=278,cv=kcv(W*S,H*S),x=cv.getContext("2d");
+ x.scale(S,S);kRound(x,0,0,W,H,8);x.clip();
+ var g=x.createLinearGradient(0,0,W,0);
+ g.addColorStop(0,"#05070a");g.addColorStop(.5,"#171b22");g.addColorStop(1,"#0d1015");
+ x.fillStyle=g;x.fillRect(0,0,W,H);
+ x.translate(W,0);x.scale(-1,1);
+ x.textAlign="center";x.textBaseline="alphabetic";
+ var cx=W-96,bp=big.length<=1?140:Math.max(48,Math.min(140,260/big.length));
+ x.fillStyle="#74c4ff";x.font="900 "+bp+"px "+KF;x.fillText(big,cx,kan?150:176);
+ if(kan){x.fillStyle="#fff";x.font="900 58px "+KF;x.fillText(kan,cx,214)}
+ x.fillStyle="#8ec9f5";x.font="800 11px "+KF;x.fillText("HAPPY BIRTHDAY",cx,250);
+ return cv;
+}
+
+function glDestroy(){
+ var g=GL;if(!g)return;GL=null;
+ window.removeEventListener("resize",g.onResize);
+ window.removeEventListener("scroll",g.onScroll);
+ try{g.dispose()}catch(e){}
+}
+
+function glInit(ticket,id,big,kan){
+ if(!window.THREE)return null;
+ var T=THREE,renderer;
+ try{renderer=new T.WebGLRenderer({alpha:true,antialias:true})}catch(e){return null}
+ if(!renderer.getContext())return null;
+ renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+ renderer.setClearColor(0x000000,0);
+ renderer.outputEncoding=T.sRGBEncoding;
+ renderer.shadowMap.enabled=true;
+ renderer.shadowMap.type=T.PCFSoftShadowMap;
+ var cv=renderer.domElement;cv.className="ik-gl";document.body.appendChild(cv);
+
+ var scene=new T.Scene(),cam=new T.PerspectiveCamera(30,1,100,4000),DIST=1200;
+ scene.add(new T.AmbientLight(0xffffff,.55));
+ var light=new T.DirectionalLight(0xffffff,.55);
+ light.castShadow=true;
+ light.shadow.mapSize.set(1024,1024);
+ light.shadow.bias=-.0006;
+ light.shadow.camera.near=200;light.shadow.camera.far=2200;
+ scene.add(light);scene.add(light.target);
+
+ /* 紙：横140×縦10分割の1枚のメッシュ（頂点を毎フレーム巻き上げ計算で動かす） */
+ var NX=140,NY=10,pos=[],uv=[],idx=[],i,j;
+ for(j=0;j<=NY;j++)for(i=0;i<=NX;i++){pos.push(0,0,0);uv.push(i/NX,1-j/NY)}
+ for(j=0;j<NY;j++)for(i=0;i<NX;i++){var k=j*(NX+1)+i;idx.push(k,k+NX+1,k+1,k+1,k+NX+1,k+NX+2)}
+ var geo=new T.BufferGeometry();
+ geo.setAttribute("position",new T.Float32BufferAttribute(pos,3));
+ geo.setAttribute("uv",new T.Float32BufferAttribute(uv,2));
+ geo.setIndex(idx);
+
+ function tex(c){var t=new T.CanvasTexture(c);t.encoding=T.sRGBEncoding;t.generateMipmaps=false;t.minFilter=T.LinearFilter;t.magFilter=T.LinearFilter;t.anisotropy=renderer.capabilities.getMaxAnisotropy();return t}
+ var ftex=tex(drawKujiFace(id)),btex=tex(drawKujiBack(big,kan));
+ var front=new T.MeshPhongMaterial({map:ftex,side:T.FrontSide,shininess:40,specular:0x1a1a1a,alphaTest:.5});
+ var back=new T.MeshPhongMaterial({map:btex,side:T.BackSide,shininess:40,specular:0x1a1a1a,alphaTest:.5});
+ front.shadowSide=T.DoubleSide;
+ var fm=new T.Mesh(geo,front),bm=new T.Mesh(geo,back);
+ fm.castShadow=true;fm.frustumCulled=false;bm.frustumCulled=false;
+ scene.add(fm);scene.add(bm);
+
+ /* 影だけを受ける板（めくった後に現れる台紙と、紙の下面に落ちる影） */
+ var sp=new T.Mesh(new T.PlaneGeometry(1,1),new T.ShadowMaterial({opacity:.34,transparent:true}));
+ sp.receiveShadow=true;sp.renderOrder=3;scene.add(sp);
+
+ function resize(){
+  var W=window.innerWidth,H=window.innerHeight;
+  renderer.setSize(W,H);
+  cam.aspect=W/H;
+  cam.fov=2*Math.atan(H/2/DIST)*180/Math.PI;
+  cam.position.set(W/2,-H/2,DIST);
+  cam.lookAt(W/2,-H/2,0);
+  cam.updateProjectionMatrix();
+ }
+ resize();
+
+ var last={p:0,tilt:0};
+ function render(p,tilt){
+  last.p=p;last.tilt=tilt;
+  var r=ticket.getBoundingClientRect(),TW=r.width,TH=r.height;
+  if(!TW||!TH)return;
+  var cl=Math.max(0,Math.min(1.06,p));
+  var gm=tilt*Math.PI/180*2,cg=Math.cos(gm),sg=Math.sin(gm);
+  var c=cl*TW;                                   /* 折り目（めくり口）の位置 */
+  var R=TW*(.035+.03*Math.min(1,cl*2));          /* 巻きの半径：めくるほど少し太く */
+  var pe=.35+.4*Math.min(1,cl*2);                /* 巻いた先の持ち上がり角度 */
+  var phi0=Math.PI-pe,s0=R*phi0;
+  var xr=-R*Math.sin(phi0),z0=R*(1-Math.cos(phi0));
+  var cpe=Math.cos(pe),spe=Math.sin(pe);
+
+  var arr=geo.attributes.position.array,n=0;
+  for(j=0;j<=NY;j++){
+   var vc=j/NY*TH-TH/2;
+   for(i=0;i<=NX;i++){
+    var u=i/NX*TW;
+    var t=u*cg+vc*sg,l=-u*sg+vc*cg,tp=t,z=0;
+    if(t<c){
+     var s=c-t;
+     if(s<=s0){var ph=s/R;tp=c-R*Math.sin(ph);z=R*(1-Math.cos(ph))}
+     else{var e=s-s0;tp=c+xr+e*cpe;z=z0+e*spe}
+    }
+    var up=tp*cg-l*sg,vp=tp*sg+l*cg;
+    arr[n++]=up;arr[n++]=-(vp+TH/2);arr[n++]=z;
+   }
+  }
+  geo.attributes.position.needsUpdate=true;
+  geo.computeVertexNormals();
+
+  var ox=r.left,oy=-r.top,mx=r.left+TW/2,my=-(r.top+TH/2);
+  fm.position.set(ox,oy,0);bm.position.set(ox,oy,0);
+  sp.scale.set(TW,TH,1);sp.position.set(mx,my,.4);
+  light.position.set(mx-350,my+450,820);
+  light.target.position.set(mx,my,0);
+  var kk=Math.max(TW,TH)*1.7,sc=light.shadow.camera;
+  sc.left=-kk;sc.right=kk;sc.top=kk;sc.bottom=-kk;sc.updateProjectionMatrix();
+
+  /* 終盤は紙をフェードアウト（右へ引き抜かれていく） */
+  var fade=cl>.9?Math.max(0,(1.06-cl)/.16):1;
+  front.opacity=back.opacity=fade;
+  front.transparent=back.transparent=fade<1;
+  sp.material.opacity=.34*fade;
+  fm.visible=bm.visible=sp.visible=fade>.01;
+  renderer.render(scene,cam);
+ }
+
+ function onResize(){resize();render(last.p,last.tilt)}
+ function onScroll(){render(last.p,last.tilt)}
+ window.addEventListener("resize",onResize);
+ window.addEventListener("scroll",onScroll,{passive:true});
+
+ function dispose(){
+  geo.dispose();ftex.dispose();btex.dispose();front.dispose();back.dispose();
+  sp.geometry.dispose();sp.material.dispose();
+  renderer.dispose();
+  try{renderer.forceContextLoss()}catch(e){}
+  if(cv.parentNode)cv.parentNode.removeChild(cv);
+ }
+ return {render:render,onResize:onResize,onScroll:onScroll,dispose:dispose};
+}
+
 /* ---- くじ画面（QRから開く：本物の一番くじ風めくり開封） ---- */
 function kuji(id){
  var p=PRIZES[id-1],k=P.get("k")||"1",key="kuji:open:"+k+":"+id,prev=P.get("p")==="1";
  if(!p){app.innerHTML='<div class="center"><h1>くじが見つかりません</h1></div>';return}
  function show(anim){
+  glDestroy();
   var box=p.view3d
     ?'<div class="pimg is-3d"><iframe src="'+p.view3d+'" allowtransparency="true" title="'+p.n+'"></iframe></div>'
     :'<div class="pimg">'+media(p)+'</div>';
@@ -687,6 +925,7 @@ function kuji(id){
  var progress=0,dragging=false,opened=false,startX=0,startY=0,startProg=0,lastTickStep=0,animId=null;
 
  function renderPeel(pVal,tiltDeg){
+  if(GL){GL.render(pVal,tiltDeg||0);return}
   var w=ticket.clientWidth||360;
 
   var clamped=Math.max(0,Math.min(1.06,pVal));
@@ -760,6 +999,9 @@ function kuji(id){
   });
  }
 
+ glDestroy();
+ try{GL=glInit(ticket,id,rkBig,rkKan)}catch(err){GL=null;var oc=document.querySelector(".ik-gl");if(oc&&oc.parentNode)oc.parentNode.removeChild(oc)}
+ if(GL)ticket.classList.add("gl");
  renderPeel(0,0);
 
  ticket.addEventListener("pointerdown",function(e){
