@@ -9,7 +9,7 @@
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0b0b0b;--fg:#f2efe8;--muted:#8d8a82;--line:#262626;--accent:#a8e05f;--chip:#f2efe8;--chipfg:#0b0b0b;--card:#161616}}
 :root[data-theme="dark"]{--bg:#0b0b0b;--fg:#f2efe8;--muted:#8d8a82;--line:#262626;--accent:#a8e05f;--chip:#f2efe8;--chipfg:#0b0b0b;--card:#161616}
 *{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
-body{margin:0;background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Helvetica,Arial,"Hiragino Sans","Noto Sans JP",sans-serif;-webkit-font-smoothing:antialiased}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Helvetica,Arial,"Hiragino Sans","Noto Sans JP",sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 a{color:inherit;text-decoration:none}
 header{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;display:flex;align-items:center;justify-content:space-between;padding:14px clamp(16px,4vw,48px);background:var(--bg);border-bottom:1px solid var(--line)}
 .brand{font-weight:700;font-size:18px;letter-spacing:-.02em;display:flex;align-items:center;gap:10px}
@@ -40,125 +40,158 @@ ul{list-style:none;margin:0;padding:0}
 .center{min-height:calc(100vh - 140px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:36px 0 56px;text-align:center}
 
 /* ==========================================================================
-   本物の一番くじ風「めくる」くじ券ステージ
+   実物一番くじ再現：横スライド引き出し＆半券分離構造
    ========================================================================== */
-.ik-wrap{width:min(100%,440px);display:flex;flex-direction:column;align-items:center;gap:18px;perspective:1200px}
-.ik-ticket{
-  position:relative;
+.ik-stage{
   width:100%;
+  max-width:760px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:22px;
+  padding:10px 0;
+}
+/* 開封進行に応じて左右バランスを自動センタリングするトラック */
+.ik-track{
+  position:relative;
+  width:min(86vw,380px);
   aspect-ratio:1.58/1;
-  border-radius:6px;
   user-select:none;
   -webkit-user-select:none;
   touch-action:none;
   cursor:grab;
-  transform-style:preserve-3d;
-  filter:drop-shadow(0 18px 34px rgba(0,0,0,.22));
-  transition:transform .25s cubic-bezier(.2,.8,.2,1);
+  will-change:transform;
 }
-.ik-ticket.dragging{cursor:grabbing}
-.ik-ticket.opened{cursor:pointer}
+.ik-track.dragging{cursor:grabbing}
+.ik-track.opened{cursor:pointer}
 
-/* 1. ベース層（めくった後に現れる当選面 + 外周の青い紙枠） */
-.ik-base{
+/* --------------------------------------------------------------------------
+   1. 左側本体（お客様お持ち帰り用ポケット + めくれる表面カバー）
+   -------------------------------------------------------------------------- */
+.ik-pocket{
   position:absolute;
   inset:0;
-  border-radius:6px;
-  overflow:hidden;
-  background:
-    radial-gradient(circle at 50% 45%,#ffffff 0%,#f7f4eb 68%,#ece6d6 100%);
-  border:1px solid rgba(0,0,0,.12);
-}
-/* 紙の繊維テクスチャ（ベース） */
-.ik-base::before{
-  content:"";
-  position:absolute;
-  inset:0;
-  opacity:.24;
-  pointer-events:none;
-  background-image:radial-gradient(rgba(0,0,0,.16) .6px,transparent .6px),radial-gradient(rgba(0,0,0,.1) .6px,transparent .6px);
-  background-size:14px 14px;
-  background-position:0 0,7px 7px;
-}
-/* 外周フレーム（ミシン目の外側に残る本物の一番くじ特有の青い縁） */
-.ik-outer-frame{
-  position:absolute;
-  inset:0;
-  pointer-events:none;
-  border-style:solid;
-  border-color:#359be0;
-  border-top-width:clamp(10px,3.2vw,14px);
-  border-bottom-width:clamp(10px,3.2vw,14px);
-  border-right-width:clamp(12px,3.6vw,16px);
-  border-left-width:clamp(12px,3.6vw,16px);
-  box-shadow:inset 0 0 0 1px rgba(15,65,105,.25);
+  border-radius:5px;
+  z-index:2;
+  filter:drop-shadow(0 14px 26px rgba(0,0,0,.22));
 }
 
-/* 内側の当選デザイン（「A賞」など） */
-.ik-inside{
+/* 左側内面：「お客様お持ち帰り用」（めくれた後に現れる実物デザイン） */
+.ik-customer-stub{
   position:absolute;
-  inset:clamp(12px,3.6vw,16px);
+  inset:0;
+  border-radius:5px;
+  background:#359be0;
+  padding:clamp(9px,2.5vw,13px);
+  display:flex;
+  box-shadow:inset 0 0 0 1px rgba(10,55,95,.3);
+}
+.ik-stub-card{
+  position:relative;
+  width:100%;
+  height:100%;
+  background:#fff;
+  clip-path:polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px);
+  display:grid;
+  grid-template-columns:34% 66%;
+  padding:6px 8px 6px 6px;
+  color:#111;
+  text-align:left;
+}
+.ik-stub-left{
   display:flex;
   flex-direction:column;
   align-items:center;
   justify-content:center;
-  padding:8px 14px;
+  border-right:1px dashed #ccc;
+  padding-right:5px;
   text-align:center;
-  color:#141414;
 }
-.ik-inside-top{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  font-size:clamp(10px,2.5vw,12px);
+.ik-stub-qr-label{
+  font-size:clamp(7px,1.7vw,8.5px);
   font-weight:800;
-  letter-spacing:.08em;
-  color:#b91c1c;
-  border:1.5px solid #b91c1c;
-  padding:2px 10px;
-  border-radius:999px;
-  background:#fff8f8;
+  line-height:1.15;
+  color:#222;
+  margin-bottom:3px;
 }
-.ik-inside-rank{
-  margin:4px 0 2px;
-  font-size:clamp(46px,13vw,68px);
-  font-weight:900;
-  line-height:1;
-  letter-spacing:-.04em;
-  background:linear-gradient(180deg,#e11d48 0%,#9f1239 100%);
-  -webkit-background-clip:text;
-  background-clip:text;
-  color:transparent;
-  filter:drop-shadow(0 2px 0 rgba(255,255,255,.9));
+.ik-stub-qr{
+  width:clamp(44px,11vw,58px);
+  height:clamp(44px,11vw,58px);
+  background:#fff;
+  padding:2px;
+  border:1px solid #ddd;
 }
-.ik-inside-sub{
-  font-size:clamp(11px,2.7vw,13px);
-  font-weight:700;
-  color:#333;
-  letter-spacing:.02em;
+.ik-stub-qr img,.ik-stub-qr canvas{width:100%!important;height:100%!important;display:block}
+.ik-stub-url{
+  margin-top:3px;
+  font-size:6px;
+  color:#555;
+  font-family:monospace;
+  letter-spacing:-.02em;
 }
-.ik-inside-tap{
-  margin-top:6px;
-  font-size:11px;
-  font-weight:700;
+.ik-stub-right{
+  padding-left:7px;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+}
+.ik-stub-banner{
+  background:#d81b60;
   color:#fff;
-  background:#111;
-  padding:4px 12px;
-  border-radius:999px;
-  opacity:0;
-  transform:translateY(4px);
-  transition:opacity .3s,transform .3s;
+  font-size:clamp(8.5px,2.2vw,11px);
+  font-weight:900;
+  text-align:center;
+  padding:2px 4px;
+  border-radius:2px;
+  letter-spacing:.03em;
 }
-.ik-ticket.opened .ik-inside-tap{opacity:1;transform:none}
+.ik-stub-desc{
+  font-size:clamp(6.2px,1.5vw,7.5px);
+  line-height:1.28;
+  color:#222;
+  margin:2px 0;
+}
+.ik-stub-desc b{color:#d81b60}
+.ik-stub-idbox{
+  border:1.5px solid #d81b60;
+  border-radius:3px;
+  overflow:hidden;
+}
+.ik-stub-idhead{
+  background:#d81b60;
+  color:#fff;
+  font-size:clamp(6.5px,1.6vw,8px);
+  font-weight:800;
+  text-align:center;
+  padding:1px 0;
+}
+.ik-stub-idval{
+  background:#fff;
+  color:#111;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:clamp(8.5px,2.2vw,11px);
+  font-weight:900;
+  text-align:center;
+  padding:2px 4px;
+  letter-spacing:.08em;
+}
+.ik-stub-foot{
+  font-size:5.5px;
+  color:#666;
+  display:flex;
+  justify-content:space-between;
+  line-height:1.1;
+}
 
-/* 2. めくられる青い表面フラップ（未剥離部分：左端から右へクリップされて縮む） */
+/* 表面カバー（未開封時の青い表面。めくるにつれて左から右へ剥がれて消える） */
 .ik-cover-clip{
   position:absolute;
   inset:0;
-  border-radius:6px;
+  border-radius:5px;
   overflow:hidden;
   pointer-events:none;
   will-change:clip-path;
+  z-index:3;
 }
 .ik-face{
   position:absolute;
@@ -167,7 +200,6 @@ ul{list-style:none;margin:0;padding:0}
   color:#fff;
   overflow:hidden;
 }
-/* 紙の質感オーバーレイ */
 .ik-face::before{
   content:"";
   position:absolute;
@@ -178,245 +210,190 @@ ul{list-style:none;margin:0;padding:0}
   background-size:12px 12px;
   background-position:0 0,6px 6px;
 }
-
-/* ミシン目（ダイカットスリット）SVG */
-.ik-perforation{
-  position:absolute;
-  inset:0;
-  width:100%;
-  height:100%;
-  pointer-events:none;
-}
-
-/* 左端の白い縦帯「ここからゆっくりめくる」 */
+.ik-perforation{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .ik-strip{
-  position:absolute;
-  left:4.2%;
-  top:7.5%;
-  bottom:7.5%;
-  width:9.2%;
-  background:#ffffff;
-  border-radius:999px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  box-shadow:0 1px 2px rgba(0,40,80,.18);
-  z-index:2;
+  position:absolute;left:4.2%;top:7.5%;bottom:7.5%;width:9.2%;
+  background:#fff;border-radius:999px;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 1px 2px rgba(0,40,80,.18);z-index:2;
 }
 .ik-strip span{
-  writing-mode:vertical-rl;
-  text-orientation:upright;
-  color:#111315;
-  font-weight:900;
-  font-size:clamp(9px,2.35vw,12.5px);
-  letter-spacing:.03em;
-  line-height:1;
-  white-space:nowrap;
+  writing-mode:vertical-rl;text-orientation:upright;color:#111315;
+  font-weight:900;font-size:clamp(8.5px,2.2vw,11.5px);letter-spacing:.03em;line-height:1;white-space:nowrap;
 }
-
-/* つまみ用の型抜きウィンドウ＋青い曲がり矢印（添付画像再現） */
 .ik-notch{
-  position:absolute;
-  left:13.8%;
-  top:20%;
-  width:17.5%;
-  height:52%;
-  z-index:2;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  animation:nudgeTab 2.2s ease-in-out infinite;
+  position:absolute;left:13.8%;top:20%;width:17.5%;height:52%;z-index:2;
+  display:flex;align-items:center;justify-content:center;
+  animation:nudgeTab 2.1s ease-in-out infinite;
 }
-.ik-ticket.dragging .ik-notch,
-.ik-ticket.opened .ik-notch{
-  animation:none;
-}
-@keyframes nudgeTab{
-  0%,100%{transform:translateX(0)}
-  50%{transform:translateX(3px)}
-}
+.ik-track.dragging .ik-notch,.ik-track.opened .ik-notch{animation:none}
+@keyframes nudgeTab{0%,100%{transform:translateX(0)}50%{transform:translateX(4px)}}
 
-/* 左中央の白いギザギザ吹き出し（店舗固有ID枠オマージュ） */
 .ik-burst{
-  position:absolute;
-  left:32%;
-  top:11%;
-  width:31%;
-  height:44%;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  text-align:center;
-  color:#111;
-  z-index:2;
+  position:absolute;left:32%;top:11%;width:31%;height:44%;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;color:#111;z-index:2;
 }
-.ik-burst svg{
-  position:absolute;
-  inset:0;
-  width:100%;
-  height:100%;
-  filter:drop-shadow(0 2px 6px rgba(255,255,255,.55));
-}
-.ik-burst-text{
-  position:relative;
-  z-index:1;
-  font-size:clamp(8px,2vw,10.5px);
-  font-weight:800;
-  line-height:1.25;
-  color:#111;
-}
+.ik-burst svg{position:absolute;inset:0;width:100%;height:100%;filter:drop-shadow(0 2px 6px rgba(255,255,255,.55))}
+.ik-burst-text{position:relative;z-index:1;font-size:clamp(7.5px,1.9vw,10px);font-weight:800;line-height:1.25;color:#111}
 .ik-burst-id{
-  display:inline-block;
-  margin:2px 0;
-  padding:1px 7px;
-  background:#111;
-  color:#fff;
-  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
-  font-size:clamp(11px,2.8vw,14px);
-  font-weight:900;
-  letter-spacing:.06em;
-  border-radius:2px;
+  display:inline-block;margin:2px 0;padding:1px 6px;background:#111;color:#fff;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:clamp(10px,2.6vw,13px);font-weight:900;letter-spacing:.06em;border-radius:2px;
 }
-
-/* 右側のタイトル・価格・注意書き（添付画像レイアウト再現） */
 .ik-meta{
-  position:absolute;
-  left:62%;
-  right:5.5%;
-  top:12%;
-  text-align:center;
-  color:#fff;
-  z-index:2;
+  position:absolute;left:62%;right:5.5%;top:12%;text-align:center;color:#fff;z-index:2;
   text-shadow:0 1px 2px rgba(10,55,95,.32);
 }
-.ik-meta-series{
-  font-size:clamp(9px,2.2vw,11.5px);
-  font-weight:800;
-  letter-spacing:.04em;
-}
-.ik-meta-title{
-  font-size:clamp(12px,3.1vw,16.5px);
-  font-weight:900;
-  letter-spacing:-.02em;
-  line-height:1.15;
-  margin:2px 0 3px;
-  white-space:nowrap;
-}
-.ik-meta-sub{
-  font-size:clamp(7.5px,1.85vw,9.5px);
-  font-weight:700;
-  opacity:.95;
-}
-.ik-meta-price{
-  font-size:clamp(10.5px,2.7vw,14px);
-  font-weight:900;
-  margin-top:2px;
-  letter-spacing:-.01em;
-}
+.ik-meta-series{font-size:clamp(8.5px,2vw,11px);font-weight:800;letter-spacing:.04em}
+.ik-meta-title{font-size:clamp(11px,2.8vw,15px);font-weight:900;letter-spacing:-.02em;line-height:1.15;margin:2px 0 3px;white-space:nowrap}
+.ik-meta-sub{font-size:clamp(7px,1.7vw,9px);font-weight:700;opacity:.95}
+.ik-meta-price{font-size:clamp(10px,2.5vw,13px);font-weight:900;margin-top:2px}
 .ik-meta-price small{font-size:.72em;font-weight:700}
-
-/* 注意書き行 */
 .ik-note{
+  position:absolute;left:33.5%;right:5.5%;top:54.5%;
+  font-size:clamp(6.8px,1.65vw,8.5px);font-weight:700;line-height:1.32;color:#fff;text-align:left;z-index:2;
+}
+.ik-barcode{
+  position:absolute;left:33.5%;right:8.5%;bottom:10.5%;height:25.5%;
+  background:#fff;border-radius:2px;padding:3px 8px 2px;display:flex;flex-direction:column;justify-content:space-between;z-index:2;
+}
+.ik-bars{width:100%;height:68%;display:flex;align-items:stretch;justify-content:space-between}
+.ik-bars i{display:block;background:#111;height:100%}
+.ik-bar-nums{display:flex;justify-content:space-between;font-family:monospace;font-size:clamp(8.5px,2.1vw,11px);font-weight:800;color:#111;letter-spacing:.1em;line-height:1}
+
+/* 左ポケット右端の折り目・スリット影（ここから右側のタブが引き出される境界線） */
+.ik-slot-shadow{
   position:absolute;
-  left:33.5%;
-  right:5.5%;
-  top:54.5%;
-  font-size:clamp(7.2px,1.75vw,9px);
-  font-weight:700;
-  line-height:1.32;
-  color:#fff;
-  text-align:left;
-  z-index:2;
-  text-shadow:0 1px 1px rgba(10,55,95,.25);
+  top:6%;
+  bottom:6%;
+  right:-2px;
+  width:10px;
+  background:linear-gradient(90deg,rgba(0,0,0,0),rgba(0,0,0,.34));
+  pointer-events:none;
+  z-index:4;
+  opacity:0;
+  transition:opacity .15s;
 }
 
-/* 下部のJAN風バーコードボックス（添付画像再現） */
-.ik-barcode{
+/* --------------------------------------------------------------------------
+   2. 右側へ引き出される「店舗ひきとり用」当選タブ（添付写真右側の半券再現）
+   -------------------------------------------------------------------------- */
+.ik-pull-tab{
   position:absolute;
-  left:33.5%;
-  right:8.5%;
-  bottom:10.5%;
-  height:25.5%;
-  background:#ffffff;
-  border-radius:2px;
-  padding:3px 10px 2px;
-  display:flex;
-  flex-direction:column;
-  justify-content:space-between;
-  z-index:2;
-  box-shadow:0 1px 2px rgba(0,40,80,.15);
+  top:5.5%;
+  bottom:5.5%;
+  left:4%;
+  width:92%;
+  z-index:1; /* 未開封時は左本体ポケットの背面に収納、引き出すと右へ露出 */
+  pointer-events:none;
+  will-change:transform;
+  filter:drop-shadow(4px 10px 18px rgba(0,0,0,.22));
 }
-.ik-bars{
+/* 添付画像通りの六角形＋右端つまみタブ形状 */
+.ik-tab-shape{
+  position:relative;
   width:100%;
-  height:68%;
+  height:100%;
   display:flex;
   align-items:stretch;
-  justify-content:space-between;
 }
-.ik-bars i{
-  display:block;
-  background:#111;
+.ik-tab-body{
+  flex:1;
   height:100%;
-}
-.ik-bar-nums{
   display:flex;
-  justify-content:space-between;
-  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
-  font-size:clamp(9px,2.3vw,12px);
-  font-weight:800;
-  color:#111;
-  letter-spacing:.12em;
-  line-height:1;
-}
-
-/* 3. 折り目ラインのハイライト＆シャドウ */
-.ik-crease-shadow{
-  position:absolute;
-  top:0;
-  bottom:0;
-  width:26px;
-  pointer-events:none;
-  opacity:0;
-  background:linear-gradient(90deg,rgba(0,0,0,0) 0%,rgba(0,0,0,.22) 72%,rgba(0,0,0,.38) 100%);
-  transform:translateX(-100%);
-  will-change:left,opacity;
-}
-
-/* 4. めくれて裏返った紙フラップ（裏面は白紙＋表面のうっすら透け＋立体影） */
-.ik-peeled-flap{
-  position:absolute;
-  top:0;
-  bottom:0;
-  left:0;
-  width:0;
+  flex-direction:column;
+  background:#fff;
+  clip-path:polygon(14px 0, calc(100% - 14px) 0, 100% 14px, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0 calc(100% - 14px), 0 14px);
   overflow:hidden;
-  border-radius:0 6px 6px 0;
-  pointer-events:none;
-  transform-origin:left center;
-  background:
-    linear-gradient(90deg,
-      #d8d4c8 0%,
-      #f6f4ed 8%,
-      #ffffff 24%,
-      #f8f6ef 76%,
-      #e6e2d6 100%);
-  box-shadow:
-    8px 4px 18px rgba(0,0,0,.26),
-    inset 1px 0 0 rgba(255,255,255,.9);
-  will-change:left,width,transform;
-  z-index:5;
+  border-top:1px solid rgba(0,0,0,.15);
+  border-bottom:1px solid rgba(0,0,0,.15);
 }
-/* 紙の裏面から表面の青い印刷がうっすら透ける表現 */
-.ik-peeled-ghost{
+/* 上段：青い「店舗ひきとり用」帯 */
+.ik-tab-top{
+  background:linear-gradient(180deg,#1565c0 0%,#0d47a1 100%);
+  color:#fff;
+  padding:4px 12px 3px;
+  text-align:center;
+}
+.ik-tab-top-title{
+  font-size:clamp(10px,2.6vw,13.5px);
+  font-weight:900;
+  letter-spacing:.08em;
+  line-height:1.15;
+}
+.ik-tab-top-sub{
+  margin-top:2px;
+  background:#fff;
+  color:#111;
+  font-size:clamp(6px,1.5vw,7.5px);
+  font-weight:800;
+  padding:1px 4px;
+  border-radius:1px;
+  white-space:nowrap;
+}
+/* 中段：黒背景＋白文字の当選賞・景品名（添付写真の「E賞 クリアファイルセット」再現） */
+.ik-tab-mid{
+  flex:1;
+  background:radial-gradient(circle at 50% 50%,#232528 0%,#111214 100%);
+  color:#fff;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:clamp(8px,2.2vw,14px);
+  padding:4px 16px;
+  border-top:1.5px solid #fff;
+  border-bottom:1.5px solid #fff;
+}
+.ik-tab-rank{
+  font-size:clamp(26px,7vw,40px);
+  font-weight:900;
+  line-height:1;
+  letter-spacing:-.03em;
+  white-space:nowrap;
+  color:#fff;
+  text-shadow:0 2px 6px rgba(0,0,0,.6);
+}
+.ik-tab-prize{
+  font-size:clamp(11px,2.8vw,15px);
+  font-weight:800;
+  line-height:1.25;
+  text-align:left;
+  color:#f5f5f5;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+/* 下段：グレー帯「※購入店舗のみ有効」 */
+.ik-tab-bot{
+  background:#9aa3ad;
+  color:#111;
+  font-size:clamp(8px,2vw,10.5px);
+  font-weight:900;
+  text-align:center;
+  padding:3px 8px 4px;
+  letter-spacing:.04em;
+}
+/* 右端の黒いつまみ耳（添付写真右端の突起） */
+.ik-tab-ear{
+  width:clamp(10px,2.6vw,14px);
+  align-self:center;
+  height:36%;
+  background:#141517;
+  border-radius:0 4px 4px 0;
+  margin-left:-1px;
+}
+
+/* 折り目ラインのめくれハイライト（めくり途中のみ表示） */
+.ik-peel-crease{
   position:absolute;
   top:0;
   bottom:0;
-  right:0;
-  opacity:.11;
-  transform:scaleX(-1);
+  width:18px;
+  background:linear-gradient(90deg,rgba(0,0,0,.28) 0%,rgba(255,255,255,.75) 55%,rgba(0,0,0,.15) 100%);
   pointer-events:none;
-  filter:blur(.4px);
+  z-index:5;
+  opacity:0;
+  transform:translateX(-50%);
 }
 
 /* 操作ガイドピル */
@@ -424,7 +401,7 @@ ul{list-style:none;margin:0;padding:0}
   display:inline-flex;
   align-items:center;
   gap:8px;
-  padding:8px 16px;
+  padding:9px 18px;
   border-radius:999px;
   background:var(--card);
   border:1px solid var(--line);
@@ -443,7 +420,7 @@ ul{list-style:none;margin:0;padding:0}
 .prize p{color:var(--muted);line-height:1.8;margin:0;white-space:pre-line}
 #cf{position:fixed;inset:0;pointer-events:none;z-index:50}
 
-/* 管理画面用カスタムダイアログ（alert/confirm/prompt不使用） */
+/* 管理画面用カスタムダイアログ */
 .modal-backdrop{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.48);display:flex;align-items:center;justify-content:center;padding:16px}
 .modal-card{width:min(100%,400px);background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
 .modal-card h3{margin:0 0 8px;font-size:18px}
@@ -496,22 +473,22 @@ function playPaperTick(isSnap){
   if(!AC)return;
   if(!audioCtx)audioCtx=new AC();
   if(audioCtx.state==="suspended")audioCtx.resume();
-  var dur=isSnap?0.16:0.042;
+  var dur=isSnap?0.18:0.04;
   var len=Math.floor(audioCtx.sampleRate*dur);
   var buf=audioCtx.createBuffer(1,len,audioCtx.sampleRate);
   var data=buf.getChannelData(0);
   for(var i=0;i<len;i++){
-   var env=Math.exp(-i/(len*(isSnap?0.35:0.45)));
+   var env=Math.exp(-i/(len*(isSnap?0.34:0.45)));
    data[i]=(Math.random()*2-1)*env;
   }
   var src=audioCtx.createBufferSource();
   src.buffer=buf;
   var filter=audioCtx.createBiquadFilter();
   filter.type="bandpass";
-  filter.frequency.value=isSnap?1900:2900+Math.random()*900;
-  filter.Q.value=isSnap?0.9:2.2;
+  filter.frequency.value=isSnap?1850:2950+Math.random()*900;
+  filter.Q.value=isSnap?0.85:2.2;
   var gain=audioCtx.createGain();
-  gain.gain.value=isSnap?0.18:0.08;
+  gain.gain.value=isSnap?0.2:0.085;
   src.connect(filter);filter.connect(gain);gain.connect(audioCtx.destination);
   src.start();
  }catch(e){}
@@ -521,23 +498,19 @@ function playPaperTick(isSnap){
 function buildBarcodeHTML(id){
  var pattern=[2,1,3,1,1,2,3,1,2,1,1,3,2,1,2,2,1,3,1,1,2,1,3,2,1,1,2,3,1,2,1,2];
  var bars=pattern.map(function(w,idx){
-  var opacity=(idx%2===0)?1:0;
-  return '<i style="flex:'+w+';opacity:'+opacity+'"></i>';
+  return '<i style="flex:'+w+';opacity:'+((idx%2===0)?1:0)+'"></i>';
  }).join("");
  return '<div class="ik-barcode"><div class="ik-bars">'+bars+'</div><div class="ik-bar-nums"><span>4</span><span>573102</span><span>2026'+pad(id)+'</span></div></div>';
 }
 
-/* ---- 本物の一番くじ風「表面デザイン」HTML生成 ---- */
+/* ---- 表面デザインHTML ---- */
 function buildKujiFaceHTML(id){
  return '<div class="ik-face">'+
-  /* ミシン目ダイカット線（添付画像の斜めスリット入りミシン目を再現） */
   '<svg class="ik-perforation" viewBox="0 0 440 278" preserveAspectRatio="none" aria-hidden="true">'+
    '<path d="M 118 22 L 138 30 L 386 30 L 404 44 L 404 234 L 386 248 L 138 248 L 118 256" fill="none" stroke="rgba(12,56,96,0.48)" stroke-width="1.6" stroke-dasharray="11 5" stroke-linecap="round"/>'+
    '<path d="M 118 23 L 138 31 L 386 31 L 404 45 L 404 235 L 386 249 L 138 249 L 118 257" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="1" stroke-dasharray="11 5" stroke-linecap="round"/>'+
   '</svg>'+
-  /* 左端の白い縦帯「ここからゆっくりめくる」 */
   '<div class="ik-strip"><span>ここからゆっくりめくる</span></div>'+
-  /* 指でめくる型抜きウィンドウ＋青い曲がり矢印 */
   '<div class="ik-notch" aria-hidden="true">'+
    '<svg viewBox="0 0 80 140" width="100%" height="100%">'+
     '<path d="M 16 14 Q 68 70 16 126 Q 4 70 16 14 Z" fill="#ffffff" stroke="rgba(15,65,105,0.28)" stroke-width="1.5"/>'+
@@ -545,28 +518,24 @@ function buildKujiFaceHTML(id){
     '<path d="M 27 62 L 44 62 L 44 53 L 61 70 L 44 87 L 44 78 L 31 78 Q 25 78 25 70 Q 25 62 27 62 Z" fill="#359be0" stroke="#111" stroke-width="2" stroke-linejoin="round"/>'+
    '</svg>'+
   '</div>'+
-  /* 左中央の白いギザギザ吹き出し（くじ番号表示） */
   '<div class="ik-burst">'+
    '<svg viewBox="0 0 140 120" preserveAspectRatio="none" aria-hidden="true">'+
     '<polygon points="70,4 86,20 116,12 114,38 136,56 114,76 122,104 92,98 72,116 52,98 22,106 30,78 6,60 28,40 24,14 54,22" fill="#ffffff"/>'+
    '</svg>'+
    '<div class="ik-burst-text">このくじの番号は<br><span class="ik-burst-id">No.'+pad(id)+'</span><br>です。</div>'+
   '</div>'+
-  /* 右側のタイトル・価格情報 */
   '<div class="ik-meta">'+
    '<div class="ik-meta-series">Birthday Kuji</div>'+
    '<div class="ik-meta-title">〈Kanna Birthday〉</div>'+
    '<div class="ik-meta-sub">Happy Birthday Special</div>'+
    '<div class="ik-meta-price">1回 0円<small>（愛情100%込）</small></div>'+
   '</div>'+
-  /* 注意書き */
   '<div class="ik-note">※くじ券はその場でめくって開封し、プレゼントと交換してください。</div>'+
-  /* 下部バーコード */
   buildBarcodeHTML(id)+
  '</div>';
 }
 
-/* ---- くじ画面（QRから開く：本物の一番くじ風めくり開封） ---- */
+/* ---- くじ画面（添付写真のような横引き出し・半券分離開封） ---- */
 function kuji(id){
  var p=PRIZES[id-1],k=P.get("k")||"1",key="kuji:open:"+k+":"+id,prev=P.get("p")==="1";
  if(!p){app.innerHTML='<div class="center"><h1>くじが見つかりません</h1></div>';return}
@@ -580,81 +549,115 @@ function kuji(id){
  if(st(key)==="1"&&!prev){show(false);return}
 
  var faceHTML=buildKujiFaceHTML(id);
+ var ticketCode="BK2026-"+pad(id)+"089";
+
  app.innerHTML=
   '<div class="center">'+
-   '<div class="ik-wrap">'+
-    '<div class="ik-ticket" id="ikTicket" role="button" tabindex="0" aria-label="くじ券を左から右へめくって開封する">'+
-     /* 1. 内側の当選面＋青い外枠 */
-     '<div class="ik-base">'+
-      '<div class="ik-inside">'+
-       '<div class="ik-inside-top">No.'+pad(id)+' · HAPPY BIRTHDAY</div>'+
-       '<div class="ik-inside-rank">'+p.r+'</div>'+
-       '<div class="ik-inside-sub">おめでとう！最後までめくってね</div>'+
-       '<div class="ik-inside-tap">タップして景品を見る →</div>'+
+   '<div class="ik-stage">'+
+    '<div class="ik-track" id="ikTrack" role="button" tabindex="0" aria-label="くじ券を右へ引き出して開封する">'+
+     /* 1. 右側へ引き出される「店舗ひきとり用」タブ（当選等級・景品名） */
+     '<div class="ik-pull-tab" id="ikPullTab">'+
+      '<div class="ik-tab-shape">'+
+       '<div class="ik-tab-body">'+
+        '<div class="ik-tab-top">'+
+         '<div class="ik-tab-top-title">店舗ひきとり用</div>'+
+         '<div class="ik-tab-top-sub">表面の店舗固有IDを確認の上、商品をお渡し下さい。</div>'+
+        '</div>'+
+        '<div class="ik-tab-mid">'+
+         '<div class="ik-tab-rank">'+p.r+'</div>'+
+         '<div class="ik-tab-prize">'+p.n+'</div>'+
+        '</div>'+
+        '<div class="ik-tab-bot">※購入店舗のみ有効</div>'+
+       '</div>'+
+       '<div class="ik-tab-ear"></div>'+
       '</div>'+
-      '<div class="ik-outer-frame"></div>'+
      '</div>'+
-     /* 2. 未剥離の表面フラップ */
-     '<div class="ik-cover-clip" id="ikCover">'+faceHTML+'</div>'+
-     /* 3. 折り目の影 */
-     '<div class="ik-crease-shadow" id="ikCrease"></div>'+
-     /* 4. めくれて右へ折り返された紙フラップ（裏面） */
-     '<div class="ik-peeled-flap" id="ikFlap">'+
-      '<div class="ik-peeled-ghost" id="ikGhost">'+faceHTML+'</div>'+
+
+     /* 2. 左側に残る本体ポケット（お客様お持ち帰り用 + 剥がれる表面カバー） */
+     '<div class="ik-pocket">'+
+      '<div class="ik-customer-stub">'+
+       '<div class="ik-stub-card">'+
+        '<div class="ik-stub-left">'+
+         '<div class="ik-stub-qr-label">こちらから<br>アクセス！</div>'+
+         '<div class="ik-stub-qr" id="ikStubQr"></div>'+
+         '<div class="ik-stub-url">birthday.kuji/</div>'+
+        '</div>'+
+        '<div class="ik-stub-right">'+
+         '<div class="ik-stub-banner">お客様お持ち帰り用</div>'+
+         '<div class="ik-stub-desc">【ダブルチャンス応募方法】<br>下記のくじ券IDナンバーを入力<br><b>※スマートフォン・PCから応募できます。</b></div>'+
+         '<div class="ik-stub-idbox">'+
+          '<div class="ik-stub-idhead">くじ券IDナンバー</div>'+
+          '<div class="ik-stub-idval">'+ticketCode+'</div>'+
+         '</div>'+
+         '<div class="ik-stub-foot"><span>※交換後は大切に保管してください</span><span>BK2026</span></div>'+
+        '</div>'+
+       '</div>'+
+      '</div>'+
+
+      /* 表面カバー（左から右へ剥がれて、下から「お客様お持ち帰り用」が現れる） */
+      '<div class="ik-cover-clip" id="ikCover">'+faceHTML+'</div>'+
+      '<div class="ik-slot-shadow" id="ikSlotShadow"></div>'+
      '</div>'+
+
+     /* めくれ折り目のハイライト */
+     '<div class="ik-peel-crease" id="ikCrease"></div>'+
     '</div>'+
-    '<div class="ik-hint" id="ikHint">👈 <b>「ここからゆっくりめくる」</b>を右へドラッグ</div>'+
+
+    '<div class="ik-hint" id="ikHint">👉 <b>「ここからゆっくりめくる」</b>を右へ引き出す</div>'+
    '</div>'+
   '</div>';
 
- var ticket=document.getElementById("ikTicket"),
+ /* 左側半券内のミニQRコード描画 */
+ var stubQrEl=document.getElementById("ikStubQr");
+ if(window.QRCode&&stubQrEl){
+  new QRCode(stubQrEl,{text:location.href,width:96,height:96,correctLevel:QRCode.CorrectLevel.L});
+ }
+
+ var track=document.getElementById("ikTrack"),
+     pullTab=document.getElementById("ikPullTab"),
      cover=document.getElementById("ikCover"),
      crease=document.getElementById("ikCrease"),
-     flap=document.getElementById("ikFlap"),
-     ghost=document.getElementById("ikGhost"),
+     slotShadow=document.getElementById("ikSlotShadow"),
      hint=document.getElementById("ikHint");
 
- var progress=0,dragging=false,opened=false,startX=0,startY=0,startProg=0,lastTickStep=0,animId=null;
+ var progress=0,dragging=false,opened=false,startX=0,startProg=0,lastTickStep=0,animId=null;
 
- function renderPeel(pVal,tiltDeg){
-  var w=ticket.clientWidth||360;
-  ghost.style.width=w+"px";
+ function renderSlide(pVal){
+  var w=track.clientWidth||340;
+  var vw=window.innerWidth||400;
+  /* 画面幅に合わせて「左の持ち帰り用＋右の店舗ひきとり用」が並んで収まる最大スライド距離を算出 */
+  var maxPull=Math.min(w*0.96, Math.max(w*0.58, vw*0.92 - w));
+  var clamped=Math.max(0,Math.min(1.04,pVal));
+  var slidePx=clamped*maxPull;
 
-  var clamped=Math.max(0,Math.min(1.06,pVal));
-  var peelPx=clamped*w;
-  var pct=Math.min(100,clamped*100);
+  /* 1. 全体が画面中央に収まるよう、引き出した分の半分だけ左へ自動センタリング */
+  track.style.transform="translateX("+(-slidePx*0.5).toFixed(1)+"px)";
 
-  /* 表面フラップを左から右へクリップ（ミシン目の内側が剥がれていく様子） */
-  cover.style.clipPath="inset(0 0 0 "+pct.toFixed(2)+"%)";
-  cover.style.webkitClipPath="inset(0 0 0 "+pct.toFixed(2)+"%)";
+  /* 2. 右側タブ（「店舗ひきとり用」）を本体ポケットから右へ引き出す */
+  var popOutZ=clamped>0.85?2:1;
+  pullTab.style.zIndex=popOutZ;
+  pullTab.style.transform="translateX("+slidePx.toFixed(1)+"px)";
 
-  /* 折り目ラインの影 */
-  crease.style.left=peelPx.toFixed(1)+"px";
-  crease.style.opacity=(clamped>0.01&&clamped<1.02)?Math.min(1,clamped*3.2).toFixed(2):"0";
+  /* 3. 左側本体の表面カバーを左から右へ剥がし、「お客様お持ち帰り用」を露出させる */
+  var coverPct=Math.min(100,clamped*100);
+  cover.style.clipPath="inset(0 0 0 "+coverPct.toFixed(2)+"%)";
+  cover.style.webkitClipPath="inset(0 0 0 "+coverPct.toFixed(2)+"%)";
 
-  /* 折り返された白い紙フラップ */
-  if(clamped<=0.005){
-   flap.style.width="0px";
-   flap.style.opacity="0";
-  }else{
-   flap.style.opacity="1";
-   flap.style.left=peelPx.toFixed(1)+"px";
-   var flapW=Math.min(peelPx,w*0.92);
-   flap.style.width=flapW.toFixed(1)+"px";
-   var curlAngle=Math.max(-28,-(1-Math.min(1,clamped))*24);
-   var skew=tiltDeg||0;
-   flap.style.transform="perspective(800px) rotateY("+curlAngle.toFixed(1)+"deg) skewY("+skew.toFixed(2)+"deg)";
-  }
+  /* 4. 折り目ラインとスリットの立体影 */
+  var creaseX=clamped*w;
+  crease.style.left=creaseX.toFixed(1)+"px";
+  crease.style.opacity=(clamped>0.01&&clamped<0.99)?"0.85":"0";
+  slotShadow.style.opacity=(clamped>0.02)?"1":"0";
  }
 
  function animateTo(target,onDone){
   if(animId)cancelAnimationFrame(animId);
-  var from=progress,t0=performance.now(),dur=target>0.5?340:380;
+  var from=progress,t0=performance.now(),dur=target>0.5?320:360;
   function step(now){
    var t=Math.min(1,(now-t0)/dur);
    var ease=1-Math.pow(1-t,3);
    progress=from+(target-from)*ease;
-   renderPeel(progress,0);
+   renderSlide(progress);
    if(t<1){animId=requestAnimationFrame(step)}
    else{animId=null;if(onDone)onDone()}
   }
@@ -664,43 +667,40 @@ function kuji(id){
  function completeOpen(){
   if(opened)return;
   opened=true;
-  ticket.classList.remove("dragging");
-  ticket.classList.add("opened");
+  track.classList.remove("dragging");
+  track.classList.add("opened");
   if(!prev)st(key,"1");
   playPaperTick(true);
-  if(navigator.vibrate)try{navigator.vibrate([18,30,24])}catch(e){}
-  hint.innerHTML="🎉 <b>"+p.r+"</b> 当選！景品を表示します…";
-  animateTo(1.06,function(){
+  if(navigator.vibrate)try{navigator.vibrate([20,35,28])}catch(e){}
+  hint.innerHTML="🎉 <b>"+p.r+"（"+p.n+"）</b> 当選！タップで景品へ";
+  animateTo(1.03,function(){
    confetti();
-   setTimeout(function(){show(false)},1150);
+   setTimeout(function(){show(false)},1600);
   });
  }
 
- renderPeel(0,0);
+ renderSlide(0);
+ window.addEventListener("resize",function(){if(!opened)renderSlide(progress);else renderSlide(1.03)});
 
- ticket.addEventListener("pointerdown",function(e){
+ track.addEventListener("pointerdown",function(e){
   if(opened){show(false);return}
   if(animId){cancelAnimationFrame(animId);animId=null}
   dragging=true;
   startX=e.clientX;
-  startY=e.clientY;
   startProg=progress;
-  ticket.classList.add("dragging");
-  ticket.setPointerCapture(e.pointerId);
+  track.classList.add("dragging");
+  track.setPointerCapture(e.pointerId);
  });
 
- ticket.addEventListener("pointermove",function(e){
+ track.addEventListener("pointermove",function(e){
   if(!dragging||opened)return;
-  var w=ticket.clientWidth||360;
+  var w=track.clientWidth||340;
   var dx=e.clientX-startX;
-  var dy=e.clientY-startY;
-  /* 実物の紙をめくる手応えに合わせて1.08倍の感度で追従 */
-  var nextProg=Math.max(0,Math.min(1,startProg+(dx/(w*0.86))));
+  var nextProg=Math.max(0,Math.min(1,startProg+(dx/(w*0.82))));
   progress=nextProg;
-  var tilt=Math.max(-3.5,Math.min(3.5,dy*0.035));
-  renderPeel(progress,tilt);
+  renderSlide(progress);
 
-  /* ミシン目が「ビリビリッ」と切れる間隔で音と振動を発生 */
+  /* ミシン目が「ビリビリッ」と切れる間隔で音と振動 */
   var tickStep=Math.floor(progress*12);
   if(tickStep!==lastTickStep&&progress>0.04){
    lastTickStep=tickStep;
@@ -708,7 +708,7 @@ function kuji(id){
    if(navigator.vibrate)try{navigator.vibrate(7)}catch(err){}
   }
 
-  /* 82%以上めくったらそのまま最後まで気持ちよく開封 */
+  /* 82%以上引き出したら最後までスッと切り離して開封 */
   if(progress>=0.82){
    dragging=false;
    completeOpen();
@@ -718,34 +718,34 @@ function kuji(id){
  function handleRelease(e){
   if(!dragging)return;
   dragging=false;
-  ticket.classList.remove("dragging");
+  track.classList.remove("dragging");
   if(opened)return;
 
   var dx=e&&typeof e.clientX==="number"?(e.clientX-startX):0;
-  /* ほとんど動かさずタップした場合は「めくり方」をチラ見せバウンス */
+  /* タップしただけの場合は「横へ引き出せる」ことをチラ見せガイド */
   if(Math.abs(dx)<8&&progress<0.06){
    playPaperTick(false);
-   animateTo(0.22,function(){
-    setTimeout(function(){if(!dragging&&!opened)animateTo(0)},160);
+   animateTo(0.24,function(){
+    setTimeout(function(){if(!dragging&&!opened)animateTo(0)},180);
    });
    return;
   }
 
-  if(progress>=0.62){
+  if(progress>=0.60){
    completeOpen();
   }else{
    animateTo(0);
   }
  }
 
- ticket.addEventListener("pointerup",handleRelease);
- ticket.addEventListener("pointercancel",handleRelease);
- ticket.addEventListener("keydown",function(e){
+ track.addEventListener("pointerup",handleRelease);
+ track.addEventListener("pointercancel",handleRelease);
+ track.addEventListener("keydown",function(e){
   if(e.key==="Enter"||e.key===" "){e.preventDefault();completeOpen()}
  });
 }
 
-/* ---- カスタム確認・入力モーダル（alert/confirm/prompt不使用） ---- */
+/* ---- カスタム確認・入力モーダル ---- */
 function openModal(opts){
  var wrap=document.createElement("div");
  wrap.className="modal-backdrop";
