@@ -511,16 +511,16 @@ footer{padding:48px clamp(16px,4vw,48px) 36px;border-top:1px solid var(--line);m
 <script>
 /* ===== 景品設定：ここを書き換えてください ===== */
 var PRIZES=[
- {r:"A賞",n:"Hunter Rainboots",m:"hunterのrain boots。\n福岡に履いて行っちゃお！",e:"👢",img:"img/1.jpg",view3d:"hunter3d.html"},
+ {r:"K賞",n:"Hunter Rainboots",m:"hunterのrain boots。\n福岡に履いて行っちゃお！",e:"👢",img:"img/1.jpg",view3d:"hunter3d.html"},
  {r:"A賞",n:"message",m:"あとでゆっくり読んでね。",e:"🧞",img:"img/3.jpg",view3d:"message3d.html"},
- {r:"A賞",n:"blueberry cheese cake",m:"かんなの大好きなチーズケーキ。",e:"🎂",img:"img/4.jpg",view3d:"blueberry3d.html"},
- {r:"A賞",n:"TAMBURINS BOTTARI",m:"一緒の匂い。おソロ。",e:"♨️",img:"img/5.jpg",view3d:"bottari3d.html"},
+ {r:"N賞",n:"blueberry cheese cake",m:"かんなの大好きなチーズケーキ。",e:"🎂",img:"img/4.jpg",view3d:"blueberry3d.html"},
+ {r:"N賞",n:"TAMBURINS BOTTARI",m:"一緒の匂い。おソロ。",e:"♨️",img:"img/5.jpg",view3d:"bottari3d.html"},
  {r:"A賞",n:"gerbera",m:"花言葉『あなたが私の運命の人』",e:"💐",img:"img/2.jpg",view3d:"gerbera3d.html"},
- {r:"A賞",n:"映画デート券",m:"観たい映画を選んでね。ポップコーン付き。",e:"🎬",img:""},
- {r:"A賞",n:"マッサージ30分",m:"肩も腰も、全力でほぐします。",e:"💆",img:""},
- {r:"A賞",n:"お揃いのプレゼント",m:"二人でお揃いにしたくて選びました。",e:"🎁",img:""},
- {r:"A賞",n:"ハグ10秒券",m:"いつでも使えます。長さは応相談。",e:"🤗",img:""},
- {r:"A賞",n:"とっておきの手紙",m:"読んでほしい気持ちを書きました。",e:"💌",img:""}
+ {r:"H賞",n:"映画デート券",m:"観たい映画を選んでね。ポップコーン付き。",e:"🎬",img:""},
+ {r:"B賞",n:"マッサージ30分",m:"肩も腰も、全力でほぐします。",e:"💆",img:""},
+ {r:"D賞",n:"お揃いのプレゼント",m:"二人でお揃いにしたくて選びました。",e:"🎁",img:""},
+ {r:"S賞",n:"ハグ10秒券",m:"いつでも使えます。長さは応相談。",e:"🤗",img:""},
+ {r:"S賞",n:"とっておきの手紙",m:"読んでほしい気持ちを書きました。",e:"💌",img:""}
 ];
 var P=new URLSearchParams(location.search),app=document.getElementById("app");
 function st(k,v){try{if(v===undefined)return localStorage.getItem(k);v===null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){return null}}
