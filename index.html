@@ -535,9 +535,7 @@ var PRIZES=[
  {r:"A賞",n:"gerbera",m:"花言葉『あなたが私の運命の人』",e:"💐",img:"img/2.jpg",view3d:"gerbera3d.html"},
  {r:"H賞",n:"映画デート券",m:"観たい映画を選んでね。ポップコーン付き。",e:"🎬",img:""},
  {r:"B賞",n:"マッサージ30分",m:"肩も腰も、全力でほぐします。",e:"💆",img:""},
- {r:"D賞",n:"お揃いのプレゼント",m:"二人でお揃いにしたくて選びました。",e:"🎁",img:""},
- {r:"S賞",n:"ハグ10秒券",m:"いつでも使えます。長さは応相談。",e:"🤗",img:""},
- {r:"S賞",n:"とっておきの手紙",m:"読んでほしい気持ちを書きました。",e:"💌",img:""}
+ {r:"D賞",n:"お揃いのプレゼント",m:"二人でお揃いにしたくて選びました。",e:"🎁",img:""}
 ];
 var P=new URLSearchParams(location.search),app=document.getElementById("app");
 function st(k,v){try{if(v===undefined)return localStorage.getItem(k);v===null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){return null}}
@@ -1132,7 +1130,7 @@ function admin(){
  function url(i,pv){return base+"?id="+i+"&k="+tok+(pv?"&p=1":"")}
  var rows=PRIZES.map(function(p,i){var id=i+1,o=st("kuji:open:"+tok+":"+id)==="1";
   return '<li class="row"><div class="no"><b>'+pad(id)+'</b>No.</div><div class="thumb">'+media(p)+'</div><div><div class="title">'+p.n+'</div><div class="sub"><span class="chip '+(o?"on":"")+'">'+(o?"開封済み(この端末)":"未開封")+'</span><a href="'+url(id,true)+'" target="_blank" rel="noopener">プレビュー ↗</a></div></div><div class="qr" id="q'+id+'"></div></li>'}).join("");
- app.innerHTML='<section class="hero"><h1>10 surprises. <em>Kanna</em> birthday.</h1><p>QRコードを読み取ると、対応する景品のくじが開きます。この画面は管理者用で、すべての景品を確認できます。</p></section>'+
+ app.innerHTML='<section class="hero"><h1>8 surprises. <em>Kanna</em> birthday.</h1><p>QRコードを読み取ると、対応する景品のくじが開きます。この画面は管理者用で、すべての景品を確認できます。</p></section>'+
   '<div class="bar"><button class="btn" id="rs">くじをリセット（QR再発行）</button><button class="btn ghost" id="bs">URLを変更</button><button class="btn ghost" onclick="print()">QRを印刷</button><small>QRの飛び先: '+base+'<br>コード世代: '+tok+'</small></div>'+
   '<div class="list-head"><span>No. / Prize</span><span>QR</span></div><ul>'+rows+'</ul>';
  if(window.QRCode)PRIZES.forEach(function(_,i){new QRCode(document.getElementById("q"+(i+1)),{text:url(i+1),width:192,height:192,correctLevel:QRCode.CorrectLevel.M})});
