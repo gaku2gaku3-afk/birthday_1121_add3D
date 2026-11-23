@@ -465,6 +465,23 @@ ul{list-style:none;margin:0;padding:0}
 .ik-ticket.gl .ik-flap,
 .ik-ticket.gl .ik-roll{display:none}
 
+/* 点線（ミシン目）に沿って開く：点線の内側(panel)だけがめくれ、外側の青い枠(frame)は残る */
+.ik-frame{
+  position:absolute;
+  inset:0;
+  border-radius:6px;
+  overflow:hidden;
+  pointer-events:none;
+  clip-path:polygon(evenodd,0% 0%,100% 0%,100% 100%,0% 100%,0% 0%,0.000% 7.914%,26.818% 7.914%,31.364% 10.791%,87.727% 10.791%,91.818% 15.827%,91.818% 84.173%,87.727% 89.209%,31.364% 89.209%,26.818% 92.086%,0.000% 92.086%,0.000% 7.914%);
+}
+.ik-panel{
+  position:absolute;
+  inset:0;
+  clip-path:polygon(0.000% 7.914%,26.818% 7.914%,31.364% 10.791%,87.727% 10.791%,91.818% 15.827%,91.818% 84.173%,87.727% 89.209%,31.364% 89.209%,26.818% 92.086%,0.000% 92.086%);
+}
+.ik-ticket.gl .ik-frame{display:none}
+.ik-crease-shadow,.ik-flap,.ik-roll{top:7.9%;bottom:7.9%}
+
 /* 操作ガイドピル */
 .ik-hint{
   display:inline-flex;
@@ -633,7 +650,7 @@ function qrSVG(id){
 
 /* ==========================================================================
    Three.js：実物の紙のようにめくれるくじ表面
-   ・青い表面を細かく分割した1枚の紙として、めくり口で円筒状に巻き上げる
+   ・点線（ミシン目）の内側を1枚の紙として、めくり口で円筒状に巻き上げる（外側の青い枠は残る）
    ・めくった先は裏面（黒地にランク文字）が見え、台紙へ影が落ちる
    ・WebGLやthree.jsが使えない場合は、従来のCSSめくりに自動で切り替わる
    ========================================================================== */
@@ -641,6 +658,10 @@ var GL=null;
 var KF='"Hiragino Sans","Noto Sans JP","Yu Gothic",sans-serif';
 function kcv(w,h){var c=document.createElement("canvas");c.width=w;c.height=h;return c}
 function kRound(x,a,b,w,h,r){x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);x.arcTo(a+w,b+h,a,b+h,r);x.arcTo(a,b+h,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath()}
+
+/* 点線の内側（めくれる部分）の外形。440x278座標 */
+var KPANEL=[0,22,118,22,138,30,386,30,404,44,404,234,386,248,138,248,118,256,0,256];
+function kPanelPath(x){x.beginPath();x.moveTo(KPANEL[0],KPANEL[1]);for(var q=2;q<KPANEL.length;q+=2)x.lineTo(KPANEL[q],KPANEL[q+1]);x.closePath()}
 
 /* 表面（青いくじ券）のテクスチャ。DOM版の配置をそのまま440x278座標で描く */
 function drawKujiFace(id){
@@ -713,25 +734,34 @@ function drawKujiFace(id){
  x.fillStyle="#111";
  for(i=0;i<pat.length;i++){var bw=pat[i]*unit;if(i%2===0)x.fillRect(bx,180.9,bw,44.8);bx+=bw}
  x.font="800 12px ui-monospace,Menlo,monospace";x.textBaseline="alphabetic";
- x.textAlign="left";x.fillText("4",157.4,243);
- x.textAlign="center";x.fillText("573102",275,243);
- x.textAlign="right";x.fillText("2026"+pad(id),392.6,243);
- return cv;
+ x.textAlign="left";x.fillText("20",157.4,243);
+ x.textAlign="center";x.fillText("261126",275,243);
+ x.textAlign="right";x.fillText("1234"+pad(id),392.6,243);
+ /* 点線の外側(枠)と内側(パネル)に分ける。境目は互いに補い合うので継ぎ目は見えない */
+ var fr=kcv(W*S,H*S),fx=fr.getContext("2d");
+ fx.drawImage(cv,0,0);fx.globalCompositeOperation="destination-out";fx.scale(S,S);kPanelPath(fx);fx.fill();
+ var pn=kcv(W*S,H*S),px=pn.getContext("2d");
+ px.drawImage(cv,0,0);px.globalCompositeOperation="destination-in";px.scale(S,S);kPanelPath(px);px.fill();
+ return {frame:fr,panel:pn};
 }
 
 /* 裏面（黒地に当選ランクの白抜き文字）。裏から見て読めるよう左右反転で描く */
 function drawKujiBack(big,kan){
  var S=2,W=440,H=278,cv=kcv(W*S,H*S),x=cv.getContext("2d");
- x.scale(S,S);kRound(x,0,0,W,H,8);x.clip();
+ x.scale(S,S);
  var g=x.createLinearGradient(0,0,W,0);
  g.addColorStop(0,"#05070a");g.addColorStop(.5,"#171b22");g.addColorStop(1,"#0d1015");
  x.fillStyle=g;x.fillRect(0,0,W,H);
+ x.save();
  x.translate(W,0);x.scale(-1,1);
  x.textAlign="center";x.textBaseline="alphabetic";
  var cx=W-96,bp=big.length<=1?140:Math.max(48,Math.min(140,260/big.length));
  x.fillStyle="#74c4ff";x.font="900 "+bp+"px "+KF;x.fillText(big,cx,kan?150:176);
  if(kan){x.fillStyle="#fff";x.font="900 58px "+KF;x.fillText(kan,cx,214)}
  x.fillStyle="#8ec9f5";x.font="800 11px "+KF;x.fillText("HAPPY BIRTHDAY",cx,250);
+ x.restore();
+ /* 点線の内側の形に切り抜く */
+ x.globalCompositeOperation="destination-in";x.fillStyle="#000";kPanelPath(x);x.fill();
  return cv;
 }
 
@@ -773,13 +803,18 @@ function glInit(ticket,id,big,kan){
  geo.setIndex(idx);
 
  function tex(c){var t=new T.CanvasTexture(c);t.encoding=T.sRGBEncoding;t.generateMipmaps=false;t.minFilter=T.LinearFilter;t.magFilter=T.LinearFilter;t.anisotropy=renderer.capabilities.getMaxAnisotropy();return t}
- var ftex=tex(drawKujiFace(id)),btex=tex(drawKujiBack(big,kan));
+ var faces=drawKujiFace(id),ftex=tex(faces.panel),rtex=tex(faces.frame),btex=tex(drawKujiBack(big,kan));
  var front=new T.MeshPhongMaterial({map:ftex,side:T.FrontSide,shininess:40,specular:0x1a1a1a,alphaTest:.5});
  var back=new T.MeshPhongMaterial({map:btex,side:T.BackSide,shininess:40,specular:0x1a1a1a,alphaTest:.5});
  front.shadowSide=T.DoubleSide;
  var fm=new T.Mesh(geo,front),bm=new T.Mesh(geo,back);
  fm.castShadow=true;fm.frustumCulled=false;bm.frustumCulled=false;
  scene.add(fm);scene.add(bm);
+
+ /* 点線の外側の青い枠：めくれずに残る（点線の内側は穴になり、下の白いカードが見える） */
+ var frameMat=new T.MeshPhongMaterial({map:rtex,side:T.FrontSide,shininess:40,specular:0x1a1a1a,alphaTest:.5});
+ var frm=new T.Mesh(new T.PlaneGeometry(1,1),frameMat);
+ frm.frustumCulled=false;scene.add(frm);
 
  /* 影だけを受ける板（めくった後に現れる台紙と、紙の下面に落ちる影） */
  var sp=new T.Mesh(new T.PlaneGeometry(1,1),new T.ShadowMaterial({opacity:.34,transparent:true}));
@@ -831,6 +866,7 @@ function glInit(ticket,id,big,kan){
   var ox=r.left,oy=-r.top,mx=r.left+TW/2,my=-(r.top+TH/2);
   fm.position.set(ox,oy,0);bm.position.set(ox,oy,0);
   sp.scale.set(TW,TH,1);sp.position.set(mx,my,.4);
+  frm.scale.set(TW,TH,1);frm.position.set(mx,my,0);
   light.position.set(mx-350,my+450,820);
   light.target.position.set(mx,my,0);
   var kk=Math.max(TW,TH)*1.7,sc=light.shadow.camera;
@@ -851,7 +887,8 @@ function glInit(ticket,id,big,kan){
  window.addEventListener("scroll",onScroll,{passive:true});
 
  function dispose(){
-  geo.dispose();ftex.dispose();btex.dispose();front.dispose();back.dispose();
+  geo.dispose();ftex.dispose();rtex.dispose();btex.dispose();front.dispose();back.dispose();
+  frm.geometry.dispose();frameMat.dispose();
   sp.geometry.dispose();sp.material.dispose();
   renderer.dispose();
   try{renderer.forceContextLoss()}catch(e){}
@@ -896,8 +933,10 @@ function kuji(id){
        '</div>'+
       '</div>'+
      '</div>'+
-     /* 2. 未剥離の表面フラップ */
-     '<div class="ik-cover-clip" id="ikCover">'+faceHTML+'</div>'+
+     /* 2a. 点線の外側：めくれずに残る青い枠 */
+     '<div class="ik-frame">'+faceHTML+'</div>'+
+     /* 2b. 点線の内側：未剥離のパネル（左端から右へめくれる） */
+     '<div class="ik-cover-clip" id="ikCover"><div class="ik-panel">'+faceHTML+'</div></div>'+
      /* 3. 折り目の影 */
      '<div class="ik-crease-shadow" id="ikCrease"></div>'+
      /* 4. めくり上げられたつまみ＋巻き */
@@ -910,7 +949,7 @@ function kuji(id){
      '</div>'+
      '<div class="ik-roll" id="ikRoll"></div>'+
     '</div>'+
-    '<div class="ik-hint" id="ikHint">👉 <b>黒いつまみ</b>を右へ引っぱってめくる</div>'+
+    '<div class="ik-hint" id="ikHint">👉 <b>黒いつまみ</b>を右へ引いて、点線に沿って開ける</div>'+
    '</div>'+
   '</div>';
 
