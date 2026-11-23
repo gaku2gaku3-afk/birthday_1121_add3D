@@ -16,7 +16,7 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;display:flex;
 .dot{width:14px;height:14px;border-radius:50%;background:var(--accent)}
 .btn{border-radius:999px;padding:9px 18px;font-size:14px;font-weight:600;border:1px solid var(--fg);background:var(--chip);color:var(--chipfg);cursor:pointer;font-family:inherit}
 .btn.ghost{background:none;color:var(--fg);border-color:var(--line)}
-.btn.sm{padding:5px 12px;font-size:12px}
+.btn.sm{padding:5px 11px;font-size:12px}
 .icon{background:none;border:1px solid var(--line);color:var(--fg);border-radius:50%;width:36px;height:36px;cursor:pointer}
 main{padding:0 clamp(16px,4vw,48px)}
 .hero{padding:clamp(48px,10vw,130px) 0 clamp(32px,6vw,70px)}
@@ -33,7 +33,7 @@ ul{list-style:none;margin:0;padding:0}
 .thumb img{width:100%;height:100%;object-fit:cover}
 .title{font-size:clamp(26px,4.6vw,64px);letter-spacing:-.045em;line-height:1.05;font-weight:600;transition:color .25s,transform .35s cubic-bezier(.2,.8,.2,1)}
 .row:hover .title{color:var(--accent);transform:translateX(8px)}
-.sub{font-size:13px;color:var(--muted);margin-top:8px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.sub{font-size:13px;color:var(--muted);margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .chip{border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px}.chip.on{background:var(--accent);color:#0b0b0b;border-color:var(--accent)}
 .qr{background:#fff;padding:6px;border-radius:10px;line-height:0}
 .qr img,.qr canvas{width:96px!important;height:96px!important}
@@ -60,7 +60,6 @@ ul{list-style:none;margin:0;padding:0}
 .ik-ticket.dragging{cursor:grabbing}
 .ik-ticket.opened{cursor:pointer}
 
-/* 1. ベース層（めくった後に現れる当選面：グレーの台紙＋白いカード） */
 .ik-base{
   position:absolute;
   inset:0;
@@ -80,7 +79,6 @@ ul{list-style:none;margin:0;padding:0}
   background-position:0 0,7px 7px;
 }
 
-/* 台紙の上に載った白いカード（QR・番号・当選ランク） */
 .ik-inside{
   position:absolute;
   left:5.5%;
@@ -165,7 +163,6 @@ ul{list-style:none;margin:0;padding:0}
 }
 .ik-ticket.opened .ik-inside-tap{opacity:1;transform:none}
 
-/* 2. めくられる青い表面フラップ */
 .ik-cover-clip{
   position:absolute;
   inset:0;
@@ -369,7 +366,6 @@ ul{list-style:none;margin:0;padding:0}
   line-height:1;
 }
 
-/* 3. 折り目の影 */
 .ik-crease-shadow{
   position:absolute;
   top:0;
@@ -381,8 +377,6 @@ ul{list-style:none;margin:0;padding:0}
   transform:translateX(-100%);
   will-change:left,opacity;
 }
-
-/* 4. めくり上げられたつまみ＋巻き */
 .ik-flap{
   position:absolute;
   top:0;
@@ -484,7 +478,6 @@ ul{list-style:none;margin:0;padding:0}
 .prize p{color:var(--muted);line-height:1.8;margin:0;white-space:pre-line}
 #cf{position:fixed;inset:0;pointer-events:none;z-index:50}
 
-/* 管理画面用カスタムダイアログ */
 .modal-backdrop{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.48);display:flex;align-items:center;justify-content:center;padding:16px}
 .modal-card{width:min(100%,400px);background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
 .modal-card h3{margin:0 0 8px;font-size:18px}
@@ -521,14 +514,12 @@ function media(p){return p.img?'<img src="'+p.img+'" alt="'+p.n+'">':p.e}
 function pad(n){return (n<10?"0":"")+n}
 document.getElementById("theme").onclick=function(){var d=document.documentElement,c=d.getAttribute("data-theme"),dark=c?c==="dark":matchMedia("(prefers-color-scheme: dark)").matches;d.setAttribute("data-theme",dark?"light":"dark")};
 
-/* ---- 紙吹雪 ---- */
 function confetti(){var c=document.getElementById("cf"),x=c.getContext("2d");c.width=innerWidth;c.height=innerHeight;
  var cols=["#a8e05f","#e8ff9a","#f2c14e","#ff7aa2","#7ab8ff","#fff"],a=[];
  for(var i=0;i<160;i++)a.push({x:innerWidth/2,y:innerHeight*.52,vx:(Math.random()-.5)*16,vy:-Math.random()*17-4,s:5+Math.random()*7,r:Math.random()*6,vr:(Math.random()-.5)*.4,c:cols[i%6]});
  var t=0;(function f(){x.clearRect(0,0,c.width,c.height);a.forEach(function(p){p.vy+=.38;p.x+=p.vx;p.y+=p.vy;p.vx*=.99;p.r+=p.vr;x.save();x.translate(p.x,p.y);x.rotate(p.r);x.fillStyle=p.c;x.fillRect(-p.s/2,-p.s/3,p.s,p.s*.6);x.restore()});
  if(++t<170)requestAnimationFrame(f);else x.clearRect(0,0,c.width,c.height)})()}
 
-/* ---- 紙のミシン目破り効果音（Web Audio API） ---- */
 var audioCtx=null;
 function playPaperTick(isSnap){
  try{
@@ -557,7 +548,6 @@ function playPaperTick(isSnap){
  }catch(e){}
 }
 
-/* ---- バーコードHTML生成 ---- */
 function buildBarcodeHTML(id){
  var pattern=[2,1,3,1,1,2,3,1,2,1,1,3,2,1,2,2,1,3,1,1,2,1,3,2,1,1,2,3,1,2,1,2];
  var bars=pattern.map(function(w,idx){
@@ -567,7 +557,6 @@ function buildBarcodeHTML(id){
  return '<div class="ik-barcode"><div class="ik-bars">'+bars+'</div><div class="ik-bar-nums"><span>20</span><span>261126</span><span>1234'+pad(id)+'</span></div></div>';
 }
 
-/* ---- 本物の一番くじ風「表面デザイン」HTML生成 ---- */
 function buildKujiFaceHTML(id){
  return '<div class="ik-face">'+
   '<svg class="ik-perforation" viewBox="0 0 440 278" preserveAspectRatio="none" aria-hidden="true">'+
@@ -599,7 +588,6 @@ function buildKujiFaceHTML(id){
  '</div>';
 }
 
-/* ---- くじ券の飾りQR ---- */
 function qrSVG(id){
  var n=21,m=[],s=(id*7919+104729)>>>0,x,y;
  function rnd(){s=(Math.imul(s,1664525)+1013904223)>>>0;return s/4294967296}
@@ -848,7 +836,6 @@ function glInit(ticket,id,big,kan){
  return {render:render,onResize:onResize,onScroll:onScroll,dispose:dispose};
 }
 
-/* ---- くじ画面（QRから開く：本物の一番くじ風めくり開封） ---- */
 function kuji(id){
  var p=PRIZES[id-1],k=P.get("k")||"1",key="kuji:open:"+k+":"+id,prev=P.get("p")==="1";
  if(!p){app.innerHTML='<div class="center"><h1>くじが見つかりません</h1></div>';return}
@@ -1045,7 +1032,6 @@ function kuji(id){
  });
 }
 
-/* ---- カスタム確認・入力モーダル ---- */
 function openModal(opts){
  var wrap=document.createElement("div");
  wrap.className="modal-backdrop";
@@ -1061,7 +1047,7 @@ function openModal(opts){
  wrap.querySelector("#mOk").onclick=function(){var val=inp?inp.value:true;close();if(opts.onOk)opts.onOk(val)};
 }
 
-/* ---- Canva連携用：くじ券デザイン（表面・裏面）をSVGでダウンロード ---- */
+/* ---- Canva連携用：SVG書き出しヘルパー ---- */
 function triggerSVGDownload(svgText,filename){
  var blob=new Blob([svgText],{type:"image/svg+xml;charset=utf-8"});
  var url=URL.createObjectURL(blob);
@@ -1076,7 +1062,7 @@ function triggerSVGDownload(svgText,filename){
  },1000);
 }
 
-/* 表面SVG（青いデザイン：Canvaでテキスト・吹き出し・バーコード・色をパーツ編集可能） */
+/* 1. 表面SVG（青い表面：Canvaでパーツ単位編集可能） */
 function downloadCanvaFrontSVG(id){
  var pat=[2,1,3,1,1,2,3,1,2,1,1,3,2,1,2,2,1,3,1,1,2,1,3,2,1,1,2,3,1,2,1,2];
  var sum=pat.reduce(function(a,b){return a+b},0),unit=235.2/sum,bx=157.4,bars="";
@@ -1100,17 +1086,12 @@ function downloadCanvaFrontSVG(id){
    '<stop offset="100%" stop-color="#2b89ca"/>'+
   '</linearGradient>'+
  '</defs>'+
- '<g id="card-base">'+
-  '<rect width="440" height="278" rx="8" fill="url(#bg)"/>'+
- '</g>'+
+ '<g id="card-base"><rect width="440" height="278" rx="8" fill="url(#bg)"/></g>'+
  '<g id="perforation">'+
   '<path d="M 118 22 L 138 30 L 386 30 L 404 44 L 404 234 L 386 248 L 138 248 L 118 256" fill="none" stroke="#0c3860" stroke-opacity="0.48" stroke-width="1.6" stroke-dasharray="11 5" stroke-linecap="round"/>'+
   '<path d="M 118 23 L 138 31 L 386 31 L 404 45 L 404 235 L 386 249 L 138 249 L 118 257" fill="none" stroke="#ffffff" stroke-opacity="0.45" stroke-width="1" stroke-dasharray="11 5" stroke-linecap="round"/>'+
  '</g>'+
- '<g id="pull-tab">'+
-  '<rect x="18.5" y="20.9" width="40.5" height="236.3" rx="20.25" fill="#14171c"/>'+
-  vtext+
- '</g>'+
+ '<g id="pull-tab"><rect x="18.5" y="20.9" width="40.5" height="236.3" rx="20.25" fill="#14171c"/>'+vtext+'</g>'+
  '<g id="notch-arrow">'+
   '<path d="M 73 75 Q 123 128 73 181 Q 61 128 73 75 Z" fill="#ffffff" stroke="#0f4169" stroke-opacity="0.28" stroke-width="1.5"/>'+
   '<path d="M 71 89 Q 91 128 71 167" fill="none" stroke="#d5dde6" stroke-width="1.5" stroke-dasharray="4 3"/>'+
@@ -1129,23 +1110,53 @@ function downloadCanvaFrontSVG(id){
   '<text x="344.3" y="78" fill="#ffffff" font-family="sans-serif" font-size="9" font-weight="700" text-anchor="middle">Happy Birthday Special</text>'+
   '<text x="344.3" y="97" fill="#ffffff" font-family="sans-serif" font-size="13" font-weight="900" text-anchor="middle">1回 0円（愛情100%込）</text>'+
  '</g>'+
- '<g id="notice">'+
-  '<text x="147.4" y="161" fill="#ffffff" font-family="sans-serif" font-size="8.2" font-weight="700">※くじ券はその場でめくって開封し、プレゼントと交換してください。</text>'+
- '</g>'+
+ '<g id="notice"><text x="147.4" y="161" fill="#ffffff" font-family="sans-serif" font-size="8.2" font-weight="700">※くじ券はその場でめくって開封し、プレゼントと交換してください。</text></g>'+
  '<g id="barcode">'+
-  '<rect x="147.4" y="177.9" width="255.2" height="70.9" rx="2" fill="#ffffff"/>'+
-  bars+
+  '<rect x="147.4" y="177.9" width="255.2" height="70.9" rx="2" fill="#ffffff"/>'+bars+
   '<text x="157.4" y="243" fill="#111111" font-family="monospace" font-size="12" font-weight="800">20</text>'+
   '<text x="275" y="243" fill="#111111" font-family="monospace" font-size="12" font-weight="800" text-anchor="middle">261126</text>'+
   '<text x="392.6" y="243" fill="#111111" font-family="monospace" font-size="12" font-weight="800" text-anchor="end">1234'+pad(id)+'</text>'+
  '</g>'+
  '</svg>';
 
- triggerSVGDownload(svg,"kuji_front_No"+pad(id)+".svg");
+ triggerSVGDownload(svg,"1_kuji_front_No"+pad(id)+".svg");
 }
 
-/* 裏面SVG（本物の飛び先URL入りQRコード＋当選ランク面：Canvaで両面印刷用に編集可能） */
-function downloadCanvaBackSVG(id){
+/* 2. めくった裏側SVG（黒地に水色のランク文字＋白の「賞」＋HAPPY BIRTHDAY） */
+function downloadCanvaPeelBackSVG(id){
+ var p=PRIZES[id-1];
+ var rk=String(p.r||""),rkKan=/賞$/.test(rk)?"賞":"",rkBig=rk.replace(/賞$/,"");
+ var bigSize=rkBig.length<=1?132:Math.max(46,Math.min(132,240/rkBig.length));
+ /* 表面を左から右へめくったときに現れる裏側（実物の紙で両面印刷した際にミシン目と位置が合う配置） */
+ var cx=344;
+
+ var svg='<?xml version="1.0" encoding="UTF-8"?>'+
+ '<svg xmlns="http://www.w3.org/2000/svg" width="1480" height="935" viewBox="0 0 440 278">'+
+ '<defs>'+
+  '<linearGradient id="darkBg" x1="0" y1="0" x2="1" y2="0">'+
+   '<stop offset="0%" stop-color="#0d1015"/>'+
+   '<stop offset="50%" stop-color="#171b22"/>'+
+   '<stop offset="100%" stop-color="#05070a"/>'+
+  '</linearGradient>'+
+ '</defs>'+
+ '<g id="peel-back-base">'+
+  '<rect width="440" height="278" rx="8" fill="url(#darkBg)"/>'+
+ '</g>'+
+ '<g id="perforation-guide">'+
+  '<path d="M 322 22 L 302 30 L 54 30 L 36 44 L 36 234 L 54 248 L 302 248 L 322 256" fill="none" stroke="#ffffff" stroke-opacity="0.22" stroke-width="1.4" stroke-dasharray="10 5" stroke-linecap="round"/>'+
+ '</g>'+
+ '<g id="rank-text">'+
+  '<text x="'+cx+'" y="'+(rkKan?148:174)+'" fill="#74c4ff" font-family="sans-serif" font-size="'+bigSize+'" font-weight="900" text-anchor="middle">'+rkBig+'</text>'+
+  (rkKan?'<text x="'+cx+'" y="212" fill="#ffffff" font-family="sans-serif" font-size="56" font-weight="900" text-anchor="middle">'+rkKan+'</text>':'')+
+  '<text x="'+cx+'" y="248" fill="#8ec9f5" font-family="sans-serif" font-size="11" font-weight="800" letter-spacing="1" text-anchor="middle">HAPPY BIRTHDAY</text>'+
+ '</g>'+
+ '</svg>';
+
+ triggerSVGDownload(svg,"2_kuji_peel_back_No"+pad(id)+".svg");
+}
+
+/* 3. 台紙SVG（めくった後に下に残る白いカード＋本物の飛び先URL入りQRコード） */
+function downloadCanvaBaseSVG(id){
  var p=PRIZES[id-1],tok=st("kuji:token")||"1",base=st("kuji:base")||(location.origin+location.pathname);
  var targetUrl=base+"?id="+id+"&k="+tok;
  var qrPaths="";
@@ -1181,7 +1192,7 @@ function downloadCanvaBackSVG(id){
  '</g>'+
  '</svg>';
 
- triggerSVGDownload(svg,"kuji_back_No"+pad(id)+".svg");
+ triggerSVGDownload(svg,"3_kuji_base_QR_No"+pad(id)+".svg");
 }
 
 /* ---- 管理画面 ---- */
@@ -1198,8 +1209,9 @@ function admin(){
     '<div class="sub">'+
      '<span class="chip '+(o?"on":"")+'">'+(o?"開封済み(この端末)":"未開封")+'</span>'+
      '<a href="'+url(id,true)+'" target="_blank" rel="noopener">プレビュー ↗</a>'+
-     '<button type="button" class="btn ghost sm" onclick="downloadCanvaFrontSVG('+id+')">表面SVG ↓</button>'+
-     '<button type="button" class="btn ghost sm" onclick="downloadCanvaBackSVG('+id+')">裏面QR SVG ↓</button>'+
+     '<button type="button" class="btn ghost sm" onclick="downloadCanvaFrontSVG('+id+')">①表面(青) ↓</button>'+
+     '<button type="button" class="btn ghost sm" onclick="downloadCanvaPeelBackSVG('+id+')">②めくり裏(黒) ↓</button>'+
+     '<button type="button" class="btn ghost sm" onclick="downloadCanvaBaseSVG('+id+')">③台紙QR ↓</button>'+
     '</div>'+
    '</div>'+
    '<div class="qr" id="q'+id+'"></div>'+
@@ -1207,9 +1219,9 @@ function admin(){
  }).join("");
 
  app.innerHTML=
-  '<section class="hero"><h1>8 surprises. <em>Kanna</em> birthday.</h1><p>QRコードを読み取ると、対応する景品のくじが開きます。Canva用SVGを出力してそのままパーツ編集・印刷フォーマット化できます。</p></section>'+
+  '<section class="hero"><h1>8 surprises. <em>Kanna</em> birthday.</h1><p>QRコードを読み取ると、対応する景品のくじが開きます。Canva用SVG（①表面・②めくり裏・③台紙QR）を出力してそのままパーツ編集・印刷フォーマット化できます。</p></section>'+
   '<div class="bar">'+
-   '<button class="btn" id="dlAllSvg">Canva用SVGを全8枚一括DL</button>'+
+   '<button class="btn" id="dlAllSvg">Canva用SVG3種×全8枚を一括DL</button>'+
    '<button class="btn ghost" id="rs">くじをリセット（QR再発行）</button>'+
    '<button class="btn ghost" id="bs">URLを変更</button>'+
    '<button class="btn ghost" onclick="print()">QRを印刷</button>'+
@@ -1221,14 +1233,15 @@ function admin(){
 
  document.getElementById("dlAllSvg").onclick=function(){
   openModal({
-   title:"Canva用SVG（表面＋裏面）を一括ダウンロード",
-   desc:"全"+PRIZES.length+"枚分の表面SVG（kuji_front_No01〜）と裏面QR SVG（kuji_back_No01〜）を順番にダウンロードします。ブラウザで複数ダウンロードの許可を求められた場合は「許可」を押してください。",
+   title:"Canva用SVG（3種類×8枚＝計24ファイル）を一括DL",
+   desc:"①表面(青)・②めくり裏(黒・等級表示)・③台紙QRの3種類を8枚分順番にダウンロードします。ブラウザで複数ダウンロードの許可を求められた場合は「許可」を押してください。",
    okText:"一括ダウンロード開始",
    onOk:function(){
     PRIZES.forEach(function(_,i){
      var id=i+1;
-     setTimeout(function(){downloadCanvaFrontSVG(id)},i*450);
-     setTimeout(function(){downloadCanvaBackSVG(id)},i*450+200);
+     setTimeout(function(){downloadCanvaFrontSVG(id)},i*600);
+     setTimeout(function(){downloadCanvaPeelBackSVG(id)},i*600+200);
+     setTimeout(function(){downloadCanvaBaseSVG(id)},i*600+400);
     });
    }
   });
