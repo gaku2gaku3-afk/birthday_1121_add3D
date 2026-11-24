@@ -239,47 +239,26 @@ ul{list-style:none;margin:0;padding:0}
   0%,100%{transform:translateX(0)}
   50%{transform:translateX(3px)}
 }
-.ik-burst{
+
+/* 一番くじ風ひし形エンブレムロゴ配置 */
+.ik-logo-emblem{
   position:absolute;
-  left:32%;
-  top:11%;
-  width:31%;
-  height:44%;
+  left:33.5%;
+  top:12.5%;
+  width:27.5%;
+  height:41.5%;
   display:flex;
-  flex-direction:column;
   align-items:center;
   justify-content:center;
-  text-align:center;
-  color:#111;
   z-index:2;
+  filter:drop-shadow(0 2px 4px rgba(0,35,70,.22));
 }
-.ik-burst svg{
-  position:absolute;
-  inset:0;
+.ik-logo-emblem svg{
   width:100%;
   height:100%;
-  filter:drop-shadow(0 2px 6px rgba(255,255,255,.55));
+  display:block;
 }
-.ik-burst-text{
-  position:relative;
-  z-index:1;
-  font-size:clamp(8px,2vw,10.5px);
-  font-weight:800;
-  line-height:1.25;
-  color:#111;
-}
-.ik-burst-id{
-  display:inline-block;
-  margin:2px 0;
-  padding:1px 7px;
-  background:#111;
-  color:#fff;
-  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
-  font-size:clamp(11px,2.8vw,14px);
-  font-weight:900;
-  letter-spacing:.06em;
-  border-radius:2px;
-}
+
 .ik-meta{
   position:absolute;
   left:62%;
@@ -548,6 +527,77 @@ function playPaperTick(isSnap){
  }catch(e){}
 }
 
+/* ---- 一番くじ風ひし形ロゴの共通ベクター生成（DOM / SVG兼用） ---- */
+function buildIchibankujiLogoInner(){
+ return ''+
+  /* 黒ひし形ベース（白いフチ取り付き） */
+  '<polygon points="60,4 114,58 60,112 6,58" fill="#111111" stroke="#ffffff" stroke-width="2.5" stroke-linejoin="round"/>'+
+  /* 下半分：白台形エリア */
+  '<polygon points="10,59 110,59 60,109" fill="#ffffff"/>'+
+  /* 下部めくれ折り返し（グレー影＋赤の裏地＋黒輪郭） */
+  '<path d="M 22 68 L 69 98 L 60 109 Z" fill="#d4d7dc" stroke="#111111" stroke-width="2.4" stroke-linejoin="round"/>'+
+  '<path d="M 22 68 L 71 79 Q 66 89 67 98 L 22 68 Z" fill="#e61c24" stroke="#111111" stroke-width="2.4" stroke-linejoin="round"/>'+
+  /* 中央白帯背景（黒フチ） */
+  '<rect x="7" y="34" width="106" height="23" rx="2" fill="#111111"/>'+
+  /* 「一番くじ」白抜きゴシック文字 */
+  '<text x="60" y="51.5" fill="#ffffff" font-family="\'Hiragino Sans\',\'Noto Sans JP\',\'Yu Gothic\',sans-serif" font-size="20.5" font-weight="900" letter-spacing="1" text-anchor="middle">一番くじ</text>'+
+  /* 「ichibankuji」英字ロゴ */
+  '<text x="60" y="67.5" fill="#111111" font-family="\'Helvetica Neue\',Arial,sans-serif" font-size="8.4" font-weight="900" letter-spacing="1.4" text-anchor="middle">ichibankuji</text>';
+}
+
+/* ---- Canvas用：一番くじ風ひし形ロゴ描画 ---- */
+function drawIchibankujiLogoCanvas(x,cx,cy,size){
+ var s=size/120;
+ x.save();
+ x.translate(cx-size/2,cy-size/2);
+ x.scale(s,s);
+
+ /* 黒ひし形＋白フチ */
+ x.beginPath();
+ x.moveTo(60,4);x.lineTo(114,58);x.lineTo(60,112);x.lineTo(6,58);
+ x.closePath();
+ x.fillStyle="#111111";
+ x.fill();
+ x.lineWidth=2.5;x.lineJoin="round";x.strokeStyle="#ffffff";
+ x.stroke();
+
+ /* 下半分：白エリア */
+ x.beginPath();
+ x.moveTo(10,59);x.lineTo(110,59);x.lineTo(60,109);
+ x.closePath();
+ x.fillStyle="#ffffff";
+ x.fill();
+
+ /* グレー影三角形 */
+ x.beginPath();
+ x.moveTo(22,68);x.lineTo(69,98);x.lineTo(60,109);
+ x.closePath();
+ x.fillStyle="#d4d7dc";x.fill();
+ x.lineWidth=2.4;x.strokeStyle="#111111";x.stroke();
+
+ /* 赤いめくれフラップ */
+ x.beginPath();
+ x.moveTo(22,68);x.lineTo(71,79);x.quadraticCurveTo(66,89,67,98);
+ x.closePath();
+ x.fillStyle="#e61c24";x.fill();
+ x.lineWidth=2.4;x.strokeStyle="#111111";x.stroke();
+
+ /* 文字帯 */
+ kRound(x,7,34,106,23,2);
+ x.fillStyle="#111111";x.fill();
+
+ x.textAlign="center";x.textBaseline="alphabetic";
+ x.fillStyle="#ffffff";
+ x.font="900 20px "+KF;
+ x.fillText("一番くじ",60,51.5);
+
+ x.fillStyle="#111111";
+ x.font="900 8.2px 'Helvetica Neue',Arial,sans-serif";
+ x.fillText("i c h i b a n k u j i",60,67.5);
+
+ x.restore();
+}
+
 function buildBarcodeHTML(id){
  var pattern=[2,1,3,1,1,2,3,1,2,1,1,3,2,1,2,2,1,3,1,1,2,1,3,2,1,1,2,3,1,2,1,2];
  var bars=pattern.map(function(w,idx){
@@ -571,11 +621,9 @@ function buildKujiFaceHTML(id){
     '<path d="M 27 62 L 44 62 L 44 53 L 61 70 L 44 87 L 44 78 L 31 78 Q 25 78 25 70 Q 25 62 27 62 Z" fill="#359be0" stroke="#111" stroke-width="2" stroke-linejoin="round"/>'+
    '</svg>'+
   '</div>'+
-  '<div class="ik-burst">'+
-   '<svg viewBox="0 0 140 120" preserveAspectRatio="none" aria-hidden="true">'+
-    '<polygon points="70,4 86,20 116,12 114,38 136,56 114,76 122,104 92,98 72,116 52,98 22,106 30,78 6,60 28,40 24,14 54,22" fill="#ffffff"/>'+
-   '</svg>'+
-   '<div class="ik-burst-text">このくじの番号は<br><span class="ik-burst-id">No.'+pad(id)+'</span><br>です。</div>'+
+  /* 一番くじ風ひし形ロゴ */
+  '<div class="ik-logo-emblem" aria-hidden="true">'+
+   '<svg viewBox="0 0 120 116">'+buildIchibankujiLogoInner()+'</svg>'+
   '</div>'+
   '<div class="ik-meta">'+
    '<div class="ik-meta-series">Birthday Kuji</div>'+
@@ -644,15 +692,8 @@ function drawKujiFace(id){
  x.fillStyle="#359be0";x.lineWidth=2;x.lineJoin="round";x.strokeStyle="#111";x.fill(ar);x.stroke(ar);
  x.restore();
 
- x.save();x.translate(140.8,30.6);x.scale(136.4/140,122.3/120);
- var pts=[70,4,86,20,116,12,114,38,136,56,114,76,122,104,92,98,72,116,52,98,22,106,30,78,6,60,28,40,24,14,54,22];
- x.beginPath();x.moveTo(pts[0],pts[1]);for(i=2;i<pts.length;i+=2)x.lineTo(pts[i],pts[i+1]);x.closePath();
- x.fillStyle="#fff";x.fill();x.restore();
- x.textBaseline="alphabetic";x.textAlign="center";x.fillStyle="#111";
- x.font="800 9px "+KF;x.fillText("このくじの番号は",209,77);
- kRound(x,209-24,83,48,17,2);x.fillStyle="#111";x.fill();
- x.fillStyle="#fff";x.font="900 12px ui-monospace,Menlo,monospace";x.fillText("No."+pad(id),209,95.5);
- x.fillStyle="#111";x.font="800 9px "+KF;x.fillText("です。",209,113);
+ /* 一番くじ風ひし形ロゴを描画 */
+ drawIchibankujiLogoCanvas(x,208,92,116);
 
  x.save();
  x.shadowColor="rgba(10,55,95,.32)";x.shadowOffsetY=1;x.shadowBlur=0;
@@ -1062,7 +1103,6 @@ function triggerSVGDownload(svgText,filename){
  },1000);
 }
 
-/* 画面上のQRCanvasからピクセルを読み取って確実なSVG矩形群を生成 */
 function buildRealQRRects(id,targetUrl,ox,oy,size){
  var tmp=document.createElement("div");
  tmp.style.cssText="position:fixed;left:-9999px;top:-9999px";
@@ -1074,7 +1114,6 @@ function buildRealQRRects(id,targetUrl,ox,oy,size){
   if(cv){
    var ctx=cv.getContext("2d"),w=cv.width,h=cv.height;
    var imgData=ctx.getImageData(0,0,w,h).data;
-   /* 最初の黒ピクセルとモジュール幅を検出 */
    var firstX=-1,firstY=-1;
    for(var y=0;y<h&&firstY<0;y++){
     for(var x=0;x<w;x++){
@@ -1084,7 +1123,6 @@ function buildRealQRRects(id,targetUrl,ox,oy,size){
    if(firstX>=0){
     var modW=0;
     while(firstX+modW<w&&imgData[(firstY*w+firstX+modW)*4]<128)modW++;
-    /* ファインダーパターン左上の黒幅は7モジュール分 */
     var step=modW/7;
     var count=Math.round((w-firstX*2)/step);
     var cell=size/count;
@@ -1104,7 +1142,7 @@ function buildRealQRRects(id,targetUrl,ox,oy,size){
  return rects;
 }
 
-/* ① 表面SVG（青いデザイン） */
+/* ① 表面SVG（青いデザイン＋一番くじ風ひし形ロゴ） */
 function downloadCanvaFrontSVG(id){
  var pat=[2,1,3,1,1,2,3,1,2,1,1,3,2,1,2,2,1,3,1,1,2,1,3,2,1,1,2,3,1,2,1,2];
  var sum=pat.reduce(function(a,b){return a+b},0),unit=235.2/sum,bx=157.4,bars="";
@@ -1139,12 +1177,8 @@ function downloadCanvaFrontSVG(id){
   '<path d="M 71 89 Q 91 128 71 167" fill="none" stroke="#d5dde6" stroke-width="1.5" stroke-dasharray="4 3"/>'+
   '<path d="M 86 121 L 102 121 L 102 112 L 118 128 L 102 144 L 102 135 L 90 135 Q 84 135 84 128 Q 84 121 86 121 Z" fill="#359be0" stroke="#111111" stroke-width="2" stroke-linejoin="round"/>'+
  '</g>'+
- '<g id="number-burst">'+
-  '<polygon points="209,34 225,50 254,42 252,68 273,86 252,106 260,134 231,128 211,146 192,128 163,136 171,108 147,90 169,70 165,44 194,52" fill="#ffffff"/>'+
-  '<text x="209" y="77" fill="#111111" font-family="sans-serif" font-size="9" font-weight="800" text-anchor="middle">このくじの番号は</text>'+
-  '<rect x="185" y="83" width="48" height="17" rx="2" fill="#111111"/>'+
-  '<text x="209" y="95.5" fill="#ffffff" font-family="monospace" font-size="12" font-weight="900" text-anchor="middle">No.'+pad(id)+'</text>'+
-  '<text x="209" y="113" fill="#111111" font-family="sans-serif" font-size="9" font-weight="800" text-anchor="middle">です。</text>'+
+ '<g id="ichibankuji-logo" transform="translate(150,34) scale(0.966)">'+
+  buildIchibankujiLogoInner()+
  '</g>'+
  '<g id="title-meta">'+
   '<text x="344.3" y="44" fill="#ffffff" font-family="sans-serif" font-size="10" font-weight="800" text-anchor="middle">Birthday Kuji</text>'+
