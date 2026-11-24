@@ -16,7 +16,7 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;display:flex;
 .dot{width:14px;height:14px;border-radius:50%;background:var(--accent)}
 .btn{border-radius:999px;padding:9px 18px;font-size:14px;font-weight:600;border:1px solid var(--fg);background:var(--chip);color:var(--chipfg);cursor:pointer;font-family:inherit}
 .btn.ghost{background:none;color:var(--fg);border-color:var(--line)}
-.btn.sm{padding:5px 11px;font-size:12px}
+.btn.sm{padding:5px 10px;font-size:11.5px}
 .icon{background:none;border:1px solid var(--line);color:var(--fg);border-radius:50%;width:36px;height:36px;cursor:pointer}
 main{padding:0 clamp(16px,4vw,48px)}
 .hero{padding:clamp(48px,10vw,130px) 0 clamp(32px,6vw,70px)}
@@ -33,7 +33,7 @@ ul{list-style:none;margin:0;padding:0}
 .thumb img{width:100%;height:100%;object-fit:cover}
 .title{font-size:clamp(26px,4.6vw,64px);letter-spacing:-.045em;line-height:1.05;font-weight:600;transition:color .25s,transform .35s cubic-bezier(.2,.8,.2,1)}
 .row:hover .title{color:var(--accent);transform:translateX(8px)}
-.sub{font-size:13px;color:var(--muted);margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.sub{font-size:13px;color:var(--muted);margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .chip{border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px}.chip.on{background:var(--accent);color:#0b0b0b;border-color:var(--accent)}
 .qr{background:#fff;padding:6px;border-radius:10px;line-height:0}
 .qr img,.qr canvas{width:96px!important;height:96px!important}
@@ -1062,13 +1062,55 @@ function triggerSVGDownload(svgText,filename){
  },1000);
 }
 
-/* 1. 表面SVG（青い表面：Canvaでパーツ単位編集可能） */
+/* 画面上のQRCanvasからピクセルを読み取って確実なSVG矩形群を生成 */
+function buildRealQRRects(id,targetUrl,ox,oy,size){
+ var tmp=document.createElement("div");
+ tmp.style.cssText="position:fixed;left:-9999px;top:-9999px";
+ document.body.appendChild(tmp);
+ var rects="";
+ try{
+  new QRCode(tmp,{text:targetUrl,width:200,height:200,correctLevel:QRCode.CorrectLevel.M});
+  var cv=tmp.querySelector("canvas");
+  if(cv){
+   var ctx=cv.getContext("2d"),w=cv.width,h=cv.height;
+   var imgData=ctx.getImageData(0,0,w,h).data;
+   /* 最初の黒ピクセルとモジュール幅を検出 */
+   var firstX=-1,firstY=-1;
+   for(var y=0;y<h&&firstY<0;y++){
+    for(var x=0;x<w;x++){
+     if(imgData[(y*w+x)*4]<128){firstX=x;firstY=y;break}
+    }
+   }
+   if(firstX>=0){
+    var modW=0;
+    while(firstX+modW<w&&imgData[(firstY*w+firstX+modW)*4]<128)modW++;
+    /* ファインダーパターン左上の黒幅は7モジュール分 */
+    var step=modW/7;
+    var count=Math.round((w-firstX*2)/step);
+    var cell=size/count;
+    for(var r=0;r<count;r++){
+     for(var c=0;c<count;c++){
+      var sx=Math.floor(firstX+(c+0.5)*step);
+      var sy=Math.floor(firstY+(r+0.5)*step);
+      if(sx<w&&sy<h&&imgData[(sy*w+sx)*4]<128){
+       rects+='<rect x="'+(ox+c*cell).toFixed(2)+'" y="'+(oy+r*cell).toFixed(2)+'" width="'+(cell+0.06).toFixed(2)+'" height="'+(cell+0.06).toFixed(2)+'" fill="#111111"/>';
+      }
+     }
+    }
+   }
+  }
+ }catch(e){}
+ document.body.removeChild(tmp);
+ return rects;
+}
+
+/* ① 表面SVG（青いデザイン） */
 function downloadCanvaFrontSVG(id){
  var pat=[2,1,3,1,1,2,3,1,2,1,1,3,2,1,2,2,1,3,1,1,2,1,3,2,1,1,2,3,1,2,1,2];
  var sum=pat.reduce(function(a,b){return a+b},0),unit=235.2/sum,bx=157.4,bars="";
  pat.forEach(function(w,i){
   var bw=w*unit;
-  if(i%2===0)bars+='<rect x="'+bx.toFixed(2)+'" y="180.9" width="'+bw.toFixed(2)+'" height="44.8" fill="#111"/>';
+  if(i%2===0)bars+='<rect x="'+bx.toFixed(2)+'" y="180.9" width="'+bw.toFixed(2)+'" height="44.8" fill="#111111"/>';
   bx+=bw;
  });
 
@@ -1122,12 +1164,11 @@ function downloadCanvaFrontSVG(id){
  triggerSVGDownload(svg,"1_kuji_front_No"+pad(id)+".svg");
 }
 
-/* 2. めくった裏側SVG（黒地に水色のランク文字＋白の「賞」＋HAPPY BIRTHDAY） */
+/* ② めくった裏側SVG（黒地に水色のランク文字＋白の「賞」＋HAPPY BIRTHDAY） */
 function downloadCanvaPeelBackSVG(id){
  var p=PRIZES[id-1];
  var rk=String(p.r||""),rkKan=/賞$/.test(rk)?"賞":"",rkBig=rk.replace(/賞$/,"");
  var bigSize=rkBig.length<=1?132:Math.max(46,Math.min(132,240/rkBig.length));
- /* 表面を左から右へめくったときに現れる裏側（実物の紙で両面印刷した際にミシン目と位置が合う配置） */
  var cx=344;
 
  var svg='<?xml version="1.0" encoding="UTF-8"?>'+
@@ -1139,60 +1180,58 @@ function downloadCanvaPeelBackSVG(id){
    '<stop offset="100%" stop-color="#05070a"/>'+
   '</linearGradient>'+
  '</defs>'+
- '<g id="peel-back-base">'+
-  '<rect width="440" height="278" rx="8" fill="url(#darkBg)"/>'+
- '</g>'+
- '<g id="perforation-guide">'+
-  '<path d="M 322 22 L 302 30 L 54 30 L 36 44 L 36 234 L 54 248 L 302 248 L 322 256" fill="none" stroke="#ffffff" stroke-opacity="0.22" stroke-width="1.4" stroke-dasharray="10 5" stroke-linecap="round"/>'+
- '</g>'+
- '<g id="rank-text">'+
-  '<text x="'+cx+'" y="'+(rkKan?148:174)+'" fill="#74c4ff" font-family="sans-serif" font-size="'+bigSize+'" font-weight="900" text-anchor="middle">'+rkBig+'</text>'+
-  (rkKan?'<text x="'+cx+'" y="212" fill="#ffffff" font-family="sans-serif" font-size="56" font-weight="900" text-anchor="middle">'+rkKan+'</text>':'')+
-  '<text x="'+cx+'" y="248" fill="#8ec9f5" font-family="sans-serif" font-size="11" font-weight="800" letter-spacing="1" text-anchor="middle">HAPPY BIRTHDAY</text>'+
- '</g>'+
+ '<rect width="440" height="278" rx="8" fill="url(#darkBg)"/>'+
+ '<path d="M 322 22 L 302 30 L 54 30 L 36 44 L 36 234 L 54 248 L 302 248 L 322 256" fill="none" stroke="#ffffff" stroke-opacity="0.22" stroke-width="1.4" stroke-dasharray="10 5" stroke-linecap="round"/>'+
+ '<text x="'+cx+'" y="'+(rkKan?148:174)+'" fill="#74c4ff" font-family="sans-serif" font-size="'+bigSize+'" font-weight="900" text-anchor="middle">'+rkBig+'</text>'+
+ (rkKan?'<text x="'+cx+'" y="212" fill="#ffffff" font-family="sans-serif" font-size="56" font-weight="900" text-anchor="middle">'+rkKan+'</text>':'')+
+ '<text x="'+cx+'" y="248" fill="#8ec9f5" font-family="sans-serif" font-size="11" font-weight="800" letter-spacing="1" text-anchor="middle">HAPPY BIRTHDAY</text>'+
  '</svg>';
 
  triggerSVGDownload(svg,"2_kuji_peel_back_No"+pad(id)+".svg");
 }
 
-/* 3. 台紙SVG（めくった後に下に残る白いカード＋本物の飛び先URL入りQRコード） */
+/* ③ 台紙表面SVG（めくった後に現れる白いカード＋本物の飛び先URL入りQRコード） */
 function downloadCanvaBaseSVG(id){
  var p=PRIZES[id-1],tok=st("kuji:token")||"1",base=st("kuji:base")||(location.origin+location.pathname);
  var targetUrl=base+"?id="+id+"&k="+tok;
- var qrPaths="";
- if(window.QRCodeModel&&window.QRErrorCorrectLevel){
-  var qr=new QRCodeModel(-1,QRErrorCorrectLevel.M);
-  qr.addData(targetUrl);
-  qr.make();
-  var cnt=qr.getModuleCount(),size=112,cell=size/cnt;
-  for(var r=0;r<cnt;r++){
-   for(var c=0;c<cnt;c++){
-    if(qr.isDark(r,c)){
-     qrPaths+='<rect x="'+(42+c*cell).toFixed(2)+'" y="'+(54+r*cell).toFixed(2)+'" width="'+(cell+0.08).toFixed(2)+'" height="'+(cell+0.08).toFixed(2)+'" fill="#111111"/>';
-    }
-   }
-  }
- }
+ var qrRects=buildRealQRRects(id,targetUrl,43,55,110);
 
  var svg='<?xml version="1.0" encoding="UTF-8"?>'+
  '<svg xmlns="http://www.w3.org/2000/svg" width="1480" height="935" viewBox="0 0 440 278">'+
  '<rect width="440" height="278" rx="8" fill="#a8abb2"/>'+
  '<rect x="24" y="24" width="392" height="230" rx="4" fill="#fbfaf6"/>'+
- '<g id="real-qr">'+
-  '<rect x="38" y="50" width="120" height="120" fill="#ffffff" stroke="#cccccc" stroke-width="1"/>'+
-  qrPaths+
-  '<text x="98" y="186" fill="#444444" font-family="monospace" font-size="9" font-weight="700" text-anchor="middle">KJ26-'+pad(id)+'-0001</text>'+
- '</g>'+
- '<g id="prize-rank">'+
-  '<rect x="218" y="52" width="160" height="22" rx="11" fill="#fff8f8" stroke="#b91c1c" stroke-width="1.5"/>'+
-  '<text x="298" y="66.5" fill="#b91c1c" font-family="sans-serif" font-size="10" font-weight="800" text-anchor="middle">No.'+pad(id)+' · HAPPY BIRTHDAY</text>'+
-  '<text x="298" y="138" fill="#e11d48" font-family="sans-serif" font-size="56" font-weight="900" text-anchor="middle">'+p.r+'</text>'+
-  '<text x="298" y="168" fill="#222222" font-family="sans-serif" font-size="13" font-weight="800" text-anchor="middle">QRを読み取って景品を確認！</text>'+
-  '<text x="298" y="190" fill="#666666" font-family="sans-serif" font-size="9.5" font-weight="600" text-anchor="middle">'+p.n+'</text>'+
- '</g>'+
+ '<rect x="38" y="50" width="120" height="120" fill="#ffffff" stroke="#cccccc" stroke-width="1"/>'+
+ qrRects+
+ '<text x="98" y="186" fill="#444444" font-family="monospace" font-size="9" font-weight="700" text-anchor="middle">KJ26-'+pad(id)+'-0001</text>'+
+ '<rect x="218" y="52" width="160" height="22" rx="11" fill="#fff8f8" stroke="#b91c1c" stroke-width="1.5"/>'+
+ '<text x="298" y="66.5" fill="#b91c1c" font-family="sans-serif" font-size="10" font-weight="800" text-anchor="middle">No.'+pad(id)+' · HAPPY BIRTHDAY</text>'+
+ '<text x="298" y="138" fill="#e11d48" font-family="sans-serif" font-size="56" font-weight="900" text-anchor="middle">'+p.r+'</text>'+
+ '<text x="298" y="168" fill="#222222" font-family="sans-serif" font-size="13" font-weight="800" text-anchor="middle">QRを読み取って景品を確認！</text>'+
+ '<text x="298" y="190" fill="#666666" font-family="sans-serif" font-size="9.5" font-weight="600" text-anchor="middle">'+p.n+'</text>'+
  '</svg>';
 
  triggerSVGDownload(svg,"3_kuji_base_QR_No"+pad(id)+".svg");
+}
+
+/* ④ 台紙の裏面SVG（①表面と同色の青グラデーション：くじの背中面） */
+function downloadCanvaBaseBackBlueSVG(id){
+ var svg='<?xml version="1.0" encoding="UTF-8"?>'+
+ '<svg xmlns="http://www.w3.org/2000/svg" width="1480" height="935" viewBox="0 0 440 278">'+
+ '<defs>'+
+  '<linearGradient id="bgBack" x1="0" y1="0" x2="0.3" y2="1">'+
+   '<stop offset="0%" stop-color="#45a8ea"/>'+
+   '<stop offset="48%" stop-color="#359be0"/>'+
+   '<stop offset="100%" stop-color="#2b89ca"/>'+
+  '</linearGradient>'+
+ '</defs>'+
+ '<rect width="440" height="278" rx="8" fill="url(#bgBack)"/>'+
+ '<rect x="14" y="14" width="412" height="250" rx="5" fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="1.2"/>'+
+ '<text x="220" y="132" fill="#ffffff" font-family="sans-serif" font-size="22" font-weight="900" letter-spacing="1" text-anchor="middle">Birthday Kuji</text>'+
+ '<text x="220" y="154" fill="#ffffff" fill-opacity="0.88" font-family="sans-serif" font-size="10.5" font-weight="700" letter-spacing="2" text-anchor="middle">〈KANNA BIRTHDAY SPECIAL〉</text>'+
+ '<text x="220" y="246" fill="#ffffff" fill-opacity="0.7" font-family="monospace" font-size="9.5" font-weight="700" text-anchor="middle">No.'+pad(id)+'</text>'+
+ '</svg>';
+
+ triggerSVGDownload(svg,"4_kuji_base_back_blue_No"+pad(id)+".svg");
 }
 
 /* ---- 管理画面 ---- */
@@ -1212,6 +1251,7 @@ function admin(){
      '<button type="button" class="btn ghost sm" onclick="downloadCanvaFrontSVG('+id+')">①表面(青) ↓</button>'+
      '<button type="button" class="btn ghost sm" onclick="downloadCanvaPeelBackSVG('+id+')">②めくり裏(黒) ↓</button>'+
      '<button type="button" class="btn ghost sm" onclick="downloadCanvaBaseSVG('+id+')">③台紙QR ↓</button>'+
+     '<button type="button" class="btn ghost sm" onclick="downloadCanvaBaseBackBlueSVG('+id+')">④台紙裏(同色青) ↓</button>'+
     '</div>'+
    '</div>'+
    '<div class="qr" id="q'+id+'"></div>'+
@@ -1219,9 +1259,9 @@ function admin(){
  }).join("");
 
  app.innerHTML=
-  '<section class="hero"><h1>8 surprises. <em>Kanna</em> birthday.</h1><p>QRコードを読み取ると、対応する景品のくじが開きます。Canva用SVG（①表面・②めくり裏・③台紙QR）を出力してそのままパーツ編集・印刷フォーマット化できます。</p></section>'+
+  '<section class="hero"><h1>8 surprises. <em>Kanna</em> birthday.</h1><p>QRコードを読み取ると、対応する景品のくじが開きます。Canva用SVG（①表面・②めくり裏・③台紙QR・④台紙裏の同色青）を出力してそのままパーツ編集・両面印刷できます。</p></section>'+
   '<div class="bar">'+
-   '<button class="btn" id="dlAllSvg">Canva用SVG3種×全8枚を一括DL</button>'+
+   '<button class="btn" id="dlAllSvg">Canva用SVG4種×全8枚を一括DL</button>'+
    '<button class="btn ghost" id="rs">くじをリセット（QR再発行）</button>'+
    '<button class="btn ghost" id="bs">URLを変更</button>'+
    '<button class="btn ghost" onclick="print()">QRを印刷</button>'+
@@ -1233,15 +1273,16 @@ function admin(){
 
  document.getElementById("dlAllSvg").onclick=function(){
   openModal({
-   title:"Canva用SVG（3種類×8枚＝計24ファイル）を一括DL",
-   desc:"①表面(青)・②めくり裏(黒・等級表示)・③台紙QRの3種類を8枚分順番にダウンロードします。ブラウザで複数ダウンロードの許可を求められた場合は「許可」を押してください。",
+   title:"Canva用SVG（4種類×8枚＝計32ファイル）を一括DL",
+   desc:"①表面(青)・②めくり裏(黒)・③台紙QR・④台紙裏(表面と同色の青)の4種類を8枚分順番にダウンロードします。ブラウザで複数ダウンロードの許可を求められた場合は「許可」を押してください。",
    okText:"一括ダウンロード開始",
    onOk:function(){
     PRIZES.forEach(function(_,i){
      var id=i+1;
-     setTimeout(function(){downloadCanvaFrontSVG(id)},i*600);
-     setTimeout(function(){downloadCanvaPeelBackSVG(id)},i*600+200);
-     setTimeout(function(){downloadCanvaBaseSVG(id)},i*600+400);
+     setTimeout(function(){downloadCanvaFrontSVG(id)},i*800);
+     setTimeout(function(){downloadCanvaPeelBackSVG(id)},i*800+200);
+     setTimeout(function(){downloadCanvaBaseSVG(id)},i*800+400);
+     setTimeout(function(){downloadCanvaBaseBackBlueSVG(id)},i*800+600);
     });
    }
   });
