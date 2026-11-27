@@ -11,6 +11,9 @@
     <!-- Google Fonts: Inter & M PLUS Rounded 1c -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=M+PLUS+Rounded+1c:wght@500;700&display=swap" rel="stylesheet">
     <style>
+        html, body {
+            background: transparent !important;
+        }
         body {
             font-family: 'M PLUS Rounded 1c', 'Inter', sans-serif;
             margin: 0;
@@ -25,6 +28,7 @@
             height: 100vh;
             display: block;
             cursor: grab;
+            background: transparent;
         }
         #canvas-container:active {
             cursor: grabbing;
@@ -33,47 +37,31 @@
             background: rgba(255, 255, 255, 0.78);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.6);
-            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.08);
+            border: 1px solid rgba(216, 211, 199, 0.85);
+            box-shadow: 0 8px 24px rgba(12, 12, 12, 0.08);
         }
         .dark-theme .glass-panel {
-            background: rgba(30, 41, 59, 0.78);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            color: #f8fafc;
-        }
-        .dark-theme .dark-subtext {
-            color: #94a3b8;
+            background: rgba(22, 22, 22, 0.82);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            color: #f2efe8;
         }
     </style>
 </head>
-<body class="bg-gradient-to-b from-[#eefafc] via-[#ffffff] to-[#dcf2f5] text-slate-700 transition-colors duration-500">
+<body class="bg-transparent text-[#0c0c0c] transition-colors duration-300">
 
     <!-- 3D描画キャンバスコンテナ -->
     <div id="canvas-container"></div>
 
-    <!-- ヘッダー情報（左上） -->
-    <header class="fixed top-4 left-4 sm:top-6 sm:left-6 z-10 pointer-events-none">
-        <div class="glass-panel rounded-2xl px-4 py-3 sm:px-5 sm:py-3.5 inline-block pointer-events-auto transition-all">
-            <div class="flex items-center gap-2.5">
-                <span class="inline-block w-3.5 h-3.5 rounded-full bg-[#35dce8] ring-2 ring-[#ff5c9d]"></span>
-                <h1 class="text-base sm:text-lg font-bold tracking-wide">3D ソフビフィギュアビューアー</h1>
-            </div>
-            <p class="text-xs text-slate-500 dark-subtext mt-1">
-                ドラッグで360°回転 / スクロール・ピンチで拡大縮小
-            </p>
-        </div>
-    </header>
-
     <!-- カメラアングルショートカット（右上） -->
-    <div class="fixed top-4 right-4 sm:top-6 sm:right-6 z-10 flex flex-col gap-2">
-        <div class="glass-panel rounded-2xl p-1.5 flex flex-col sm:flex-row gap-1 text-xs font-medium">
-            <button id="btn-view-front" class="px-3 py-2 rounded-xl hover:bg-teal-500/15 active:scale-95 transition cursor-pointer" title="正面から見る">
+    <div class="fixed top-3 right-3 sm:top-5 sm:right-5 z-10 flex flex-col gap-2">
+        <div class="glass-panel rounded-2xl p-1 flex flex-row gap-1 text-xs font-medium">
+            <button id="btn-view-front" class="px-2.5 py-1.5 rounded-xl hover:bg-black/5 active:scale-95 transition cursor-pointer" title="正面から見る">
                 正面
             </button>
-            <button id="btn-view-side" class="px-3 py-2 rounded-xl hover:bg-teal-500/15 active:scale-95 transition cursor-pointer" title="横から見る">
+            <button id="btn-view-side" class="px-2.5 py-1.5 rounded-xl hover:bg-black/5 active:scale-95 transition cursor-pointer" title="横から見る">
                 横向き
             </button>
-            <button id="btn-view-back" class="px-3 py-2 rounded-xl hover:bg-teal-500/15 active:scale-95 transition cursor-pointer" title="後ろ姿を見る">
+            <button id="btn-view-back" class="px-2.5 py-1.5 rounded-xl hover:bg-black/5 active:scale-95 transition cursor-pointer" title="後ろ姿を見る">
                 後ろ姿
             </button>
         </div>
@@ -120,43 +108,49 @@
         const orbitState = {
             theta: -0.06,               // 水平角度（ラジアン）
             phi: Math.PI / 2 - 0.04,    // 垂直角度（ラジアン：0が真上、PIが真下）
-            radius: 7.2,                // カメラ距離
+            radius: 7.5,                // カメラ距離
             targetTheta: -0.06,
             targetPhi: Math.PI / 2 - 0.04,
-            targetRadius: 7.2,
-            targetCenter: new THREE.Vector3(0, 0.12, 0),
+            targetRadius: 7.5,
+            targetCenter: new THREE.Vector3(0, 0.08, 0),
             isDragging: false,
             prevX: 0,
             prevY: 0,
             pinchStartDist: 0,
-            pinchStartRadius: 7.2
+            pinchStartRadius: 7.5
         };
 
-        // 背景テーマ設定
+        // 背景テーマ設定（index.htmlのライト/ダーク背景に馴染む透明設定）
         const themes = [
             {
-                name: 'studio-white',
-                bgClass: 'bg-gradient-to-b from-[#eefafc] via-[#ffffff] to-[#dcf2f5] text-slate-700',
-                fogColor: 0xeefafc,
-                pedestalColor: 0xd9f1f4,
+                name: 'kuji-light',
+                bgClass: 'bg-transparent text-[#0c0c0c]',
+                pedestalColor: 0xe8e4da,
                 dark: false
             },
             {
-                name: 'aqua-pastel',
-                bgClass: 'bg-gradient-to-b from-[#bae9f0] via-[#d8f4f7] to-[#a7e0e8] text-slate-700',
-                fogColor: 0xc8eff4,
-                pedestalColor: 0xffffff,
-                dark: false
-            },
-            {
-                name: 'night-gallery',
-                bgClass: 'bg-gradient-to-b from-[#0f172a] via-[#1e293b] to-[#0f172a] text-slate-100 dark-theme',
-                fogColor: 0x162032,
-                pedestalColor: 0x334155,
+                name: 'kuji-dark',
+                bgClass: 'bg-transparent text-[#f2efe8] dark-theme',
+                pedestalColor: 0x242424,
                 dark: true
             }
         ];
         let currentThemeIndex = 0;
+
+        /**
+         * テーマ（台座色・UI配色）の適用
+         */
+        function applyTheme(index) {
+            currentThemeIndex = index % themes.length;
+            const theme = themes[currentThemeIndex];
+            document.body.className = `${theme.bgClass} transition-colors duration-300`;
+            if (pedestalGroup) {
+                const pedestalMesh = pedestalGroup.getObjectByName('pedestalMesh');
+                if (pedestalMesh) {
+                    pedestalMesh.material.color.setHex(theme.pedestalColor);
+                }
+            }
+        }
 
         /**
          * シーン・カメラ・ライティング・フィギュアの初期化
@@ -166,9 +160,8 @@
             const width = container.clientWidth || window.innerWidth;
             const height = container.clientHeight || window.innerHeight;
 
-            // シーン作成
+            // シーン作成（透明背景のためフォグなし）
             scene = new THREE.Scene();
-            scene.fog = new THREE.FogExp2(themes[0].fogColor, 0.025);
 
             // カメラ作成
             camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
@@ -198,7 +191,28 @@
             // イベントリスナー登録
             setupControls(container);
             setupUIButtons();
+            syncParentTheme();
             window.addEventListener('resize', onWindowResize);
+        }
+
+        /**
+         * 親ページ（index.html）のライト/ダークテーマと自動同期
+         */
+        function syncParentTheme() {
+            try {
+                if (window.parent && window.parent !== window && window.parent.document) {
+                    const parentRoot = window.parent.document.documentElement;
+                    const updateFromParent = () => {
+                        const isDark = parentRoot.getAttribute('data-theme') === 'dark';
+                        applyTheme(isDark ? 1 : 0);
+                    };
+                    updateFromParent();
+                    const observer = new MutationObserver(updateFromParent);
+                    observer.observe(parentRoot, { attributes: true, attributeFilter: ['data-theme'] });
+                }
+            } catch (e) {
+                // クロスオリジン環境ではデフォルトテーマを維持
+            }
         }
 
         /**
@@ -842,14 +856,7 @@
 
             // 背景テーマ切替
             document.getElementById('btn-theme').addEventListener('click', () => {
-                currentThemeIndex = (currentThemeIndex + 1) % themes.length;
-                const theme = themes[currentThemeIndex];
-                document.body.className = `${theme.bgClass} transition-colors duration-500`;
-                scene.fog.color.setHex(theme.fogColor);
-                const pedestalMesh = pedestalGroup.getObjectByName('pedestalMesh');
-                if (pedestalMesh) {
-                    pedestalMesh.material.color.setHex(theme.pedestalColor);
-                }
+                applyTheme(currentThemeIndex + 1);
             });
         }
 
