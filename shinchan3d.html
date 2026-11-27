@@ -1,0 +1,1378 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>クレヨンしんちゃん もっこもこくつした 3Dビューア</title>
+  <!-- Tailwind CSS の読み込み -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Three.js r128 の読み込み -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- Google Fonts: Inter & M PLUS Rounded 1c（ポップで読みやすい丸ゴシック） -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=M+PLUS+Rounded+1c:wght@500;700;800&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'M PLUS Rounded 1c', 'Inter', sans-serif;
+      background: radial-gradient(circle at 50% 42%, #ffffff 0%, #f1f5ec 55%, #dfe8d5 100%);
+    }
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+      touch-action: none;
+    }
+    #canvas-container:active {
+      cursor: grabbing;
+    }
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.78);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      box-shadow: 0 10px 30px -5px rgba(55, 78, 35, 0.14);
+    }
+    .btn-pill {
+      transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .btn-pill:hover {
+      transform: translateY(-1px);
+    }
+    .btn-pill:active {
+      transform: translateY(1px) scale(0.97);
+    }
+    .btn-active {
+      background: linear-gradient(135deg, #6db33f 0%, #529428 100%);
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(82, 148, 40, 0.35);
+    }
+  </style>
+</head>
+<body>
+  <!-- 3D描画キャンバスコンテナ -->
+  <div id="canvas-container"></div>
+
+  <!-- 上部操作ガイド -->
+  <header class="fixed top-4 left-4 right-4 z-10 flex items-center justify-end pointer-events-none">
+    <div class="glass-panel rounded-full px-3.5 py-1.5 text-[11px] sm:text-xs text-stone-600 font-semibold flex items-center gap-2 pointer-events-auto">
+      <span class="inline-block w-2 h-2 rounded-full bg-lime-500 animate-pulse"></span>
+      <span>ドラッグで360°回転 ・ ホイール/ピンチで拡大縮小</span>
+    </div>
+  </header>
+
+  <!-- 下部コントロールバー -->
+  <nav class="fixed bottom-5 left-4 right-4 z-10 flex justify-center pointer-events-none">
+    <div class="glass-panel rounded-2xl sm:rounded-full p-2 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 pointer-events-auto max-w-full">
+      <button id="btn-front" class="btn-pill px-3.5 py-2 rounded-xl sm:rounded-full text-xs sm:text-sm font-bold text-stone-700 hover:bg-lime-100/80 flex items-center gap-1.5">
+        <span>🐸</span>
+        <span>正面</span>
+      </button>
+      <button id="btn-back" class="btn-pill px-3.5 py-2 rounded-xl sm:rounded-full text-xs sm:text-sm font-bold text-stone-700 hover:bg-lime-100/80 flex items-center gap-1.5">
+        <span>🏷️</span>
+        <span>背面</span>
+      </button>
+      <div class="hidden sm:block w-px h-5 bg-stone-300/70 mx-0.5"></div>
+      <button id="btn-autorotate" class="btn-pill btn-active px-3.5 py-2 rounded-xl sm:rounded-full text-xs sm:text-sm font-bold flex items-center gap-1.5">
+        <span id="autorotate-icon">🔄</span>
+        <span id="autorotate-text">自動回転: ON</span>
+      </button>
+      <button id="btn-pair" class="btn-pill px-3.5 py-2 rounded-xl sm:rounded-full text-xs sm:text-sm font-bold text-stone-700 hover:bg-lime-100/80 flex items-center gap-1.5">
+        <span>🧦</span>
+        <span id="pair-text">表裏並べ比較</span>
+      </button>
+      <button id="btn-reset" class="btn-pill px-3.5 py-2 rounded-xl sm:rounded-full text-xs sm:text-sm font-bold text-stone-600 hover:bg-stone-200/70">
+        リセット
+      </button>
+    </div>
+  </nav>
+
+  <script>
+    /**
+     * クレヨンしんちゃん「もっこもこくつした（カエル）」3D化アプリケーション
+     *
+     * 【設計概要】
+     * 1. プロシージャル高精細テクスチャ生成（HTML5 Canvas）:
+     *    - 靴下本体UVテクスチャ（正面：カエルコスチュームのしんちゃん、背面：白水玉＆©U/F・S・A・A縦ロゴ）
+     *    - モコモコパイル地バンプマップ＆ラフネスマップ（ループ糸の立体的な凹凸）
+     *    - オレンジ色パッケージ帯タグUVテクスチャ（表面：CRAYON SHINCHANロゴ・キャラックス・サイズ表記 / 裏面：双葉社承認マーク・バーコード・QRコード・注意書き）
+     * 2. カスタムパラメトリック3Dジオメトリ:
+     *    - つま先の丸み、2枚重なった靴下のふっくらとした厚み、オレンジ帯タグによるわずかな締め付けくびれを再現
+     *    - 表面法線に沿った約5,000本の極細パイル毛羽（InstancedMesh）を生成し、UV色と連動させることで輪郭までフワフワな質感を表現
+     * 3. 360度スムースオービット＆ズーム操作:
+     *    - マウスドラッグ・タッチスワイプによる全方向360度回転（慣性ダンピング付き）、ホイール＆ピンチズーム、カメラプリセットアニメーション
+     */
+
+    // =========================================================================
+    // 1. 擬似乱数生成器（テクスチャの毛並みやドット配置を一貫させるため）
+    // =========================================================================
+    function createSeededRandom(seed) {
+      let s = seed % 2147483647;
+      if (s <= 0) s += 2147483646;
+      return function () {
+        s = (s * 16807) % 2147483647;
+        return (s - 1) / 2147483646;
+      };
+    }
+
+    // =========================================================================
+    // 2. 靴下本体テクスチャ＆バンプマップの生成
+    // =========================================================================
+    function createSockTextures() {
+      const width = 2048;
+      const height = 1024;
+
+      const colorCanvas = document.createElement('canvas');
+      colorCanvas.width = width;
+      colorCanvas.height = height;
+      const ctx = colorCanvas.getContext('2d');
+
+      const bumpCanvas = document.createElement('canvas');
+      bumpCanvas.width = width;
+      bumpCanvas.height = height;
+      const bCtx = bumpCanvas.getContext('2d');
+
+      const rand = createSeededRandom(20261128);
+
+      // --- ベースカラー（パステルライムグリーン） ---
+      const baseGreen = '#c7dd89';
+      ctx.fillStyle = baseGreen;
+      ctx.fillRect(0, 0, width, height);
+
+      // バンプベース
+      bCtx.fillStyle = '#808080';
+      bCtx.fillRect(0, 0, width, height);
+
+      // 座標マッピング定義:
+      // u = 0.0 -> 背面中央(-Z)の左端〜左側面(-X)〜正面中央(+Z, u=0.5)〜右側面(+X)〜背面中央(-Z, u=1.0)
+      // 扱いやすくするため、u = 0.5 を「正面(+Z)」、u = 0.0 および u = 1.0 を「背面(-Z)」に配置！
+      // v = 0 が上部（履き口）、v = height が下部（つま先）
+
+      // --- 背面側（u = 0.0 付近と u = 1.0 付近）＆側面（u = 0.25, 0.75）の白い水玉模様 ---
+      const dotPositions = [
+        // 背面左側 (u: 0.0 〜 0.28)
+        { u: 0.03, v: 0.22, r: 44 },
+        { u: 0.14, v: 0.16, r: 40 },
+        { u: 0.08, v: 0.38, r: 46 },
+        { u: 0.21, v: 0.34, r: 45 },
+        { u: 0.04, v: 0.56, r: 46 },
+        { u: 0.17, v: 0.52, r: 48 },
+        { u: 0.11, v: 0.72, r: 46 },
+        { u: 0.24, v: 0.68, r: 44 },
+        { u: 0.05, v: 0.86, r: 42 },
+        { u: 0.19, v: 0.84, r: 44 },
+        // 背面右側 (u: 0.72 〜 1.00)
+        { u: 0.97, v: 0.22, r: 44 },
+        { u: 0.86, v: 0.16, r: 40 },
+        { u: 0.92, v: 0.38, r: 46 },
+        { u: 0.79, v: 0.34, r: 45 },
+        { u: 0.96, v: 0.56, r: 46 },
+        { u: 0.83, v: 0.52, r: 48 },
+        { u: 0.89, v: 0.72, r: 46 },
+        { u: 0.76, v: 0.68, r: 44 },
+        { u: 0.95, v: 0.86, r: 42 },
+        { u: 0.81, v: 0.84, r: 44 },
+        // 正面端にも少しだけ回り込む白い水玉
+        { u: 0.32, v: 0.14, r: 38 },
+        { u: 0.68, v: 0.14, r: 38 },
+        { u: 0.31, v: 0.45, r: 36 },
+        { u: 0.69, v: 0.45, r: 36 },
+        { u: 0.32, v: 0.73, r: 38 },
+        { u: 0.68, v: 0.73, r: 38 },
+      ];
+
+      dotPositions.forEach((d) => {
+        const cx = d.u * width;
+        const cy = d.v * height;
+        // 編み込み風のにじみ縁取りを持つ白い水玉
+        ctx.save();
+        ctx.fillStyle = '#f3f6ee';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, d.r * 1.15, d.r * 0.92, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+
+      // --- 背面中央の縦帯＆「© U/F・S・A・A」編み込み文字 ---
+      // u = 0.0 と u = 1.0 の両端に半幅ずつ描画してシームレスにつなげる
+      [0, width].forEach((seamX) => {
+        // 少し濃い黄緑の縦ストライプ帯
+        ctx.fillStyle = '#b4d35b';
+        ctx.fillRect(seamX - 44, height * 0.30, 88, height * 0.52);
+
+        // 縦書き文字の描画
+        const chars = ['©', 'U', '/', 'F', '・', 'S', '・', 'A', '・', 'A'];
+        ctx.save();
+        ctx.fillStyle = '#4c8029';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        chars.forEach((ch, idx) => {
+          const yPos = height * (0.355 + idx * 0.047);
+          ctx.font = ch === '・' ? '900 32px "Inter", sans-serif' : '900 38px "Inter", sans-serif';
+          // 少し横長に引き伸ばしてニット編み目感を表現
+          ctx.save();
+          ctx.translate(seamX, yPos);
+          ctx.scale(1.25, 0.92);
+          ctx.fillText(ch, 0, 0);
+          ctx.restore();
+        });
+        ctx.restore();
+      });
+
+      // --- 正面（u = 0.50 付近）の「カエル着ぐるみ クレヨンしんちゃん」イラスト ---
+      const fx = width * 0.5; // 正面中心 X = 1024
+
+      // 添付画像に合わせたカラーパレット（編み糸の自然な発色）
+      const frogGreen = '#68b243';
+      const frogShadowGreen = '#539933';
+      const frogDarkOutline = '#215319';
+      const skinColor = '#f4c692';
+      const skinShade = '#eab67e';
+
+      ctx.save();
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+
+      // 1) カエル胴体（お腹側・首下〜v=0.76まで、靴下幅いっぱいに大きく配置）
+      ctx.fillStyle = frogGreen;
+      ctx.strokeStyle = frogDarkOutline;
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.moveTo(fx - 215, height * 0.765);
+      ctx.bezierCurveTo(fx - 225, height * 0.65, fx - 205, height * 0.57, fx - 145, height * 0.54);
+      ctx.lineTo(fx + 155, height * 0.54);
+      ctx.bezierCurveTo(fx + 215, height * 0.56, fx + 230, height * 0.64, fx + 215, height * 0.765);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // カエルのお腹の白い丸パーツ（中央〜右寄りに大きく広がる白いお腹）
+      ctx.fillStyle = '#f4f7f0';
+      ctx.beginPath();
+      ctx.moveTo(fx - 135, height * 0.762);
+      ctx.bezierCurveTo(fx - 145, height * 0.65, fx - 65, height * 0.585, fx + 35, height * 0.59);
+      ctx.bezierCurveTo(fx + 135, height * 0.595, fx + 185, height * 0.665, fx + 170, height * 0.762);
+      ctx.closePath();
+      ctx.fill();
+
+      // 左腕（添付画像通り、画面左側から伸びてお腹の上でグッと肘を曲げて拳を上げるポーズ）
+      ctx.fillStyle = frogGreen;
+      ctx.strokeStyle = frogDarkOutline;
+      ctx.lineWidth = 7;
+      ctx.beginPath();
+      ctx.moveTo(fx - 188, height * 0.625);
+      ctx.bezierCurveTo(fx - 195, height * 0.705, fx - 125, height * 0.715, fx - 55, height * 0.695);
+      ctx.bezierCurveTo(fx - 18, height * 0.685, fx - 12, height * 0.645, fx - 38, height * 0.632);
+      ctx.bezierCurveTo(fx - 65, height * 0.620, fx - 82, height * 0.642, fx - 72, height * 0.652);
+      ctx.bezierCurveTo(fx - 108, height * 0.658, fx - 132, height * 0.635, fx - 135, height * 0.588);
+      ctx.stroke();
+      // 腕の内側塗りつぶし
+      ctx.beginPath();
+      ctx.moveTo(fx - 188, height * 0.615);
+      ctx.bezierCurveTo(fx - 195, height * 0.705, fx - 125, height * 0.715, fx - 55, height * 0.695);
+      ctx.bezierCurveTo(fx - 18, height * 0.685, fx - 12, height * 0.645, fx - 38, height * 0.632);
+      ctx.bezierCurveTo(fx - 65, height * 0.620, fx - 82, height * 0.642, fx - 72, height * 0.652);
+      ctx.bezierCurveTo(fx - 108, height * 0.658, fx - 132, height * 0.635, fx - 135, height * 0.585);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // 右側のカエル手（画面右端に見える丸い手）
+      ctx.fillStyle = frogGreen;
+      ctx.beginPath();
+      ctx.arc(fx + 192, height * 0.635, 34, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // 2) カエルフードの頭部シルエット（タグの下〜顎まで大きく包む緑のフード）
+      ctx.fillStyle = frogGreen;
+      ctx.strokeStyle = frogDarkOutline;
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.moveTo(fx - 175, height * 0.24);
+      ctx.bezierCurveTo(fx - 235, height * 0.30, fx - 238, height * 0.52, fx - 155, height * 0.575);
+      ctx.bezierCurveTo(fx - 55, height * 0.595, fx + 85, height * 0.595, fx + 165, height * 0.565);
+      ctx.bezierCurveTo(fx + 235, height * 0.51, fx + 230, height * 0.30, fx + 175, height * 0.24);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // カエルの飛び出た目玉（オレンジタグの左右すぐ横にちょこんと見える目玉）
+      [
+        { ex: fx - 172, ey: height * 0.215, pupilOffsetX: 6 },
+        { ex: fx + 172, ey: height * 0.215, pupilOffsetX: -6 }
+      ].forEach((eye) => {
+        // 緑の外まぶた
+        ctx.fillStyle = frogGreen;
+        ctx.strokeStyle = frogDarkOutline;
+        ctx.lineWidth = 7;
+        ctx.beginPath();
+        ctx.arc(eye.ex, eye.ey, 52, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // 白目（少し縦長の楕円）
+        ctx.fillStyle = '#f5f8f2';
+        ctx.beginPath();
+        ctx.ellipse(eye.ex, eye.ey + 2, 30, 36, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 黒目（深緑の丸）
+        ctx.fillStyle = '#1e4a17';
+        ctx.beginPath();
+        ctx.arc(eye.ex + eye.pupilOffsetX, eye.ey + 5, 14, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // 3) しんちゃんの顔輪郭（左にぷっくりほっぺ、右におでこ・目のくぼみ・鼻・口元の非対称シルエット）
+      ctx.fillStyle = skinColor;
+      ctx.strokeStyle = frogDarkOutline;
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      // 頭頂部中央からスタート
+      ctx.moveTo(fx - 15, height * 0.245);
+      // 右側（おでこ丸み -> 右目横のわずかな凹み -> 鼻〜右頬のふくらみ -> 口元・顎へ）
+      ctx.bezierCurveTo(fx + 85, height * 0.242, fx + 148, height * 0.285, fx + 156, height * 0.355);
+      ctx.bezierCurveTo(fx + 160, height * 0.385, fx + 148, height * 0.405, fx + 154, height * 0.425);
+      ctx.bezierCurveTo(fx + 176, height * 0.465, fx + 168, height * 0.545, fx + 95, height * 0.562);
+      // 下顎ラインから左の大きなぷっくりほっぺへ
+      ctx.bezierCurveTo(fx + 15, height * 0.578, fx - 125, height * 0.582, fx - 172, height * 0.525);
+      // 左ほっぺの大きな丸み（しんちゃん特有の横膨らみ）
+      ctx.bezierCurveTo(fx - 205, height * 0.482, fx - 195, height * 0.415, fx - 155, height * 0.392);
+      // 左こめかみ〜頭頂部へ戻る
+      ctx.bezierCurveTo(fx - 152, height * 0.315, fx - 105, height * 0.248, fx - 15, height * 0.245);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // ほっぺ・顎下にほんのり温かみのある肌色グラデーション陰影
+      ctx.save();
+      ctx.clip();
+      const faceGrad = ctx.createRadialGradient(fx - 20, height * 0.39, 40, fx - 10, height * 0.42, 210);
+      faceGrad.addColorStop(0, 'rgba(255, 224, 185, 0.25)');
+      faceGrad.addColorStop(0.75, 'rgba(244, 198, 146, 0.0)');
+      faceGrad.addColorStop(1, 'rgba(220, 155, 95, 0.28)');
+      ctx.fillStyle = faceGrad;
+      ctx.fillRect(fx - 230, height * 0.22, 460, height * 0.38);
+      ctx.restore();
+
+      // 4) しんちゃんの極太ゲジゲジ眉毛（左右の非対称バランス＆高い山なりアーチ）
+      ctx.fillStyle = '#1b4314';
+      // 向かって左の眉毛（大きく高く弧を描く太眉）
+      ctx.beginPath();
+      ctx.moveTo(fx - 128, height * 0.352);
+      ctx.bezierCurveTo(fx - 115, height * 0.275, fx - 55, height * 0.262, fx - 12, height * 0.308);
+      ctx.bezierCurveTo(fx - 2, height * 0.320, fx - 12, height * 0.342, fx - 28, height * 0.332);
+      ctx.bezierCurveTo(fx - 62, height * 0.308, fx - 92, height * 0.322, fx - 105, height * 0.365);
+      ctx.bezierCurveTo(fx - 114, height * 0.378, fx - 132, height * 0.368, fx - 128, height * 0.352);
+      ctx.closePath();
+      ctx.fill();
+
+      // 向かって右の眉毛（眉間近くから右へ山なりに伸びる太眉）
+      ctx.beginPath();
+      ctx.moveTo(fx + 8, height * 0.312);
+      ctx.bezierCurveTo(fx + 35, height * 0.265, fx + 98, height * 0.268, fx + 125, height * 0.335);
+      ctx.bezierCurveTo(fx + 130, height * 0.352, fx + 112, height * 0.364, fx + 100, height * 0.348);
+      ctx.bezierCurveTo(fx + 78, height * 0.314, fx + 45, height * 0.310, fx + 22, height * 0.335);
+      ctx.bezierCurveTo(fx + 8, height * 0.344, fx + 0, height * 0.325, fx + 8, height * 0.312);
+      ctx.closePath();
+      ctx.fill();
+
+      // 5) しんちゃんの大きな丸目（上まぶたのアーチ線＋大きな深緑の瞳＋中央の白ハイライト）
+      [
+        { mx: fx - 64, my: height * 0.402, rx: 43, ry: 40, lidR: 50 },
+        { mx: fx + 58, my: height * 0.398, rx: 41, ry: 39, lidR: 48 }
+      ].forEach((m) => {
+        // 上まぶたの細い二重アーチ線（しんちゃんの表情の要）
+        ctx.strokeStyle = '#1b4314';
+        ctx.lineWidth = 5.5;
+        ctx.beginPath();
+        ctx.arc(m.mx, m.my - 3, m.lidR, Math.PI * 1.12, Math.PI * 1.88);
+        ctx.stroke();
+
+        // 大きな深緑の黒目
+        ctx.fillStyle = '#1c4615';
+        ctx.beginPath();
+        ctx.ellipse(m.mx, m.my + 2, m.rx, m.ry, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 瞳のほぼ中央にある白いハイライト丸
+        ctx.fillStyle = '#f7faf3';
+        ctx.beginPath();
+        ctx.arc(m.mx - 2, m.my + 1, 11.5, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // 6) しんちゃんの開いたピンクの口（右下の輪郭ラインに沿った斜め楕円）
+      ctx.save();
+      ctx.translate(fx + 114, height * 0.495);
+      ctx.rotate(0.28);
+      ctx.fillStyle = '#e5838d';
+      ctx.strokeStyle = '#4f2c24';
+      ctx.lineWidth = 5.5;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 42, 31, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.restore();
+
+      // --- 全体への「もっこもこパイル繊維＆ニット編み目」質感オーバーレイ ---
+      // 細かい毛糸ループと編み目をカラーとバンプの両方に高密度で描画する
+      const imageData = ctx.getImageData(0, 0, width, height);
+      const data = imageData.data;
+
+      // 色の微細な揺らぎ（メランジ糸の風合い）＋微細なニット縦横編み目
+      for (let py = 0; py < height; py++) {
+        const rowWave = Math.sin(py * 0.85) * 4;
+        for (let px = 0; px < width; px++) {
+          const i = (py * width + px) * 4;
+          const colWave = Math.cos(px * 0.95) * 4;
+          const grain = (rand() - 0.5) * 18 + rowWave + colWave;
+          data[i] = Math.min(255, Math.max(0, data[i] + grain));
+          data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + grain));
+          data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + grain * 0.8));
+        }
+      }
+      ctx.putImageData(imageData, 0, 0);
+
+      // パイルループ（毛束の輪郭と凹凸）を描画
+      ctx.lineWidth = 2.2;
+      bCtx.lineWidth = 3.0;
+      for (let i = 0; i < 28000; i++) {
+        const px = rand() * width;
+        const py = rand() * height;
+        const angle = rand() * Math.PI * 2;
+        const len = 4 + rand() * 8;
+        const dx = Math.cos(angle) * len;
+        const dy = Math.sin(angle) * len;
+
+        // 明るい毛羽ハイライトと影を交互に描画
+        const isHighlight = rand() > 0.48;
+        ctx.strokeStyle = isHighlight ? 'rgba(255, 255, 255, 0.14)' : 'rgba(55, 85, 30, 0.09)';
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        ctx.quadraticCurveTo(px + dy * 0.5, py - dx * 0.5, px + dx, py + dy);
+        ctx.stroke();
+
+        bCtx.strokeStyle = isHighlight ? 'rgba(235, 235, 235, 0.38)' : 'rgba(30, 30, 30, 0.35)';
+        bCtx.beginPath();
+        bCtx.moveTo(px, py);
+        bCtx.quadraticCurveTo(px + dy * 0.5, py - dx * 0.5, px + dx, py + dy);
+        bCtx.stroke();
+      }
+
+      const colorTexture = new THREE.CanvasTexture(colorCanvas);
+      colorTexture.wrapS = THREE.RepeatWrapping;
+      colorTexture.wrapT = THREE.ClampToEdgeWrapping;
+      colorTexture.encoding = THREE.sRGBEncoding;
+      colorTexture.anisotropy = 8;
+
+      const bumpTexture = new THREE.CanvasTexture(bumpCanvas);
+      bumpTexture.wrapS = THREE.RepeatWrapping;
+      bumpTexture.wrapT = THREE.ClampToEdgeWrapping;
+      bumpTexture.anisotropy = 8;
+
+      return { colorTexture, bumpTexture, colorCanvas };
+    }
+
+    // =========================================================================
+    // 3. オレンジ色パッケージ帯タグ（表面・裏面）テクスチャの生成
+    // =========================================================================
+    function createTagTexture() {
+      const width = 2048;
+      const height = 512;
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+
+      // 鮮やかなオレンジグラデーション背景
+      const grad = ctx.createLinearGradient(0, 0, 0, height);
+      grad.addColorStop(0, '#f79824');
+      grad.addColorStop(0.5, '#f48c16');
+      grad.addColorStop(1, '#eb7f0e');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, width, height);
+
+      // 紙の折り目ライン（上下の角丸折り返し陰影）
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
+      ctx.fillRect(0, 0, width, 16);
+      ctx.fillStyle = 'rgba(140, 60, 0, 0.16)';
+      ctx.fillRect(0, height - 16, width, 16);
+
+      // -----------------------------------------------------------------------
+      // タグ表面（u = 0.50 付近, cx = 1024）
+      // -----------------------------------------------------------------------
+      const frontX = width * 0.5;
+
+      // カラフルロゴ「CRAYON SHINCHAN」
+      const logoLetters = [
+        { ch: 'C', color: '#e63946' },
+        { ch: 'R', color: '#f4a261' },
+        { ch: 'A', color: '#ffde22' },
+        { ch: 'Y', color: '#52b788' },
+        { ch: 'O', color: '#3a86ff' },
+        { ch: 'N', color: '#9b5de5' },
+        { ch: ' ', color: '#ffffff' },
+        { ch: 'S', color: '#e63946' },
+        { ch: 'H', color: '#ffbe0b' },
+        { ch: 'I', color: '#38b000' },
+        { ch: 'N', color: '#0096c7' },
+        { ch: 'C', color: '#f72585' },
+        { ch: 'H', color: '#ff9f1c' },
+        { ch: 'A', color: '#4cc9f0' },
+        { ch: 'N', color: '#e63946' }
+      ];
+
+      ctx.save();
+      ctx.font = '800 44px "M PLUS Rounded 1c", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const startX = frontX - 210;
+      logoLetters.forEach((item, idx) => {
+        const lx = startX + idx * 30;
+        const ly = 165 + Math.sin(idx * 0.7) * 4;
+        ctx.lineWidth = 7;
+        ctx.strokeStyle = '#222222';
+        ctx.strokeText(item.ch, lx, ly);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#ffffff';
+        ctx.strokeText(item.ch, lx, ly);
+        ctx.fillStyle = item.color;
+        ctx.fillText(item.ch, lx, ly);
+      });
+      ctx.restore();
+
+      // 左下：青い丸角バッジ「キャラックス」
+      ctx.save();
+      const badgeX = frontX - 165;
+      const badgeY = 395;
+      ctx.fillStyle = '#1b5fa8';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 4;
+      roundRect(ctx, badgeX - 68, badgeY - 22, 136, 44, 22);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '800 22px "M PLUS Rounded 1c", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('キャラックス', badgeX, badgeY + 1);
+      ctx.restore();
+
+      // 右下：もっこもこくつした＆SIZE:約23〜25cm
+      ctx.save();
+      const textX = frontX + 115;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      // 「もっこもこ」
+      ctx.font = '800 26px "M PLUS Rounded 1c", sans-serif';
+      ctx.lineWidth = 6;
+      ctx.strokeStyle = '#ffffff';
+      ctx.strokeText('もっこもこ', textX, 342);
+      ctx.fillStyle = '#c84b18';
+      ctx.fillText('もっこもこ', textX, 342);
+
+      // 「くつした」
+      ctx.font = '800 30px "M PLUS Rounded 1c", sans-serif';
+      ctx.strokeText('くつした', textX, 376);
+      ctx.fillText('くつした', textX, 376);
+
+      // 「SIZE:約23〜25cm」
+      ctx.font = '700 20px "M PLUS Rounded 1c", sans-serif';
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = '#6e3208';
+      ctx.strokeText('SIZE:約23〜25cm', textX, 412);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText('SIZE:約23〜25cm', textX, 412);
+      ctx.restore();
+
+      // -----------------------------------------------------------------------
+      // タグ裏面（u = 0.0 / 1.0 付近、両端にシームレス描画）
+      // -----------------------------------------------------------------------
+      [0, width].forEach((bx) => {
+        ctx.save();
+
+        // 1) 上部左：使用上の注意テキストブロック
+        ctx.fillStyle = '#3d220a';
+        ctx.font = '600 11px "M PLUS Rounded 1c", sans-serif';
+        ctx.textAlign = 'left';
+        const notes = [
+          '●塩素系漂白剤は使用しないでください。',
+          '●濃色物は淡色物と一緒に洗わないでください。',
+          '●タンブラー乾燥はお避けください。',
+          '●強い摩擦や水濡れにより色落ちすることがあります。',
+          '●フローリングでは滑る場合がありますのでご注意ください。'
+        ];
+        notes.forEach((line, idx) => {
+          ctx.fillText(line, bx - 220, 48 + idx * 17);
+        });
+
+        // 2) 上部右：プラ・紙リサイクルマーク＆材質表示
+        ctx.strokeStyle = '#3d220a';
+        ctx.lineWidth = 2;
+        roundRect(ctx, bx + 115, 36, 38, 24, 4);
+        ctx.stroke();
+        roundRect(ctx, bx + 162, 36, 38, 24, 4);
+        ctx.stroke();
+        ctx.font = '700 13px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('プラ', bx + 134, 52);
+        ctx.fillText('紙', bx + 181, 52);
+
+        roundRect(ctx, bx + 115, 76, 86, 44, 4);
+        ctx.stroke();
+        ctx.font = '600 11px sans-serif';
+        ctx.fillText('組成表示', bx + 158, 90);
+        ctx.fillText('ポリエステル', bx + 158, 103);
+        ctx.fillText('ポリウレタン', bx + 158, 115);
+
+        ctx.font = '700 12px sans-serif';
+        ctx.fillText('原産国：中国', bx + 158, 136);
+
+        // 3) 中段左：著作権表示＆緑色の「双葉社ライセンス A 承認済」丸シール
+        ctx.textAlign = 'left';
+        ctx.font = '600 10px sans-serif';
+        ctx.fillText('©臼井儀人／双葉社・シンエイ・テレビ朝日・ADK', bx - 220, 154);
+
+        // 緑のライセンス丸シール
+        const sealX = bx - 165;
+        const sealY = 205;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(sealX, sealY, 38, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#2d8a4e';
+        ctx.lineWidth = 5;
+        ctx.stroke();
+
+        ctx.fillStyle = '#2d8a4e';
+        ctx.textAlign = 'center';
+        ctx.font = '800 10px sans-serif';
+        ctx.fillText('双葉社ライセンス', sealX, sealY - 14);
+        ctx.font = '800 24px sans-serif';
+        ctx.fillText('A', sealX, sealY + 7);
+        ctx.font = '800 10px sans-serif';
+        ctx.fillText('承認済', sealX, sealY + 23);
+
+        // 会社情報
+        ctx.fillStyle = '#3d220a';
+        ctx.textAlign = 'left';
+        ctx.font = '700 13px sans-serif';
+        ctx.fillText('Small Planet Co., Ltd.', bx - 220, 265);
+        ctx.font = '600 11px sans-serif';
+        ctx.fillText('株式会社スモール・プラネット', bx - 220, 281);
+        ctx.fillText('TEL:042-643-2779', bx - 220, 296);
+        ctx.fillText('https://www.smallplanet.co.jp/', bx - 220, 311);
+
+        // 4) 中段右：QRコード枠
+        const qrX = bx + 115;
+        const qrY = 175;
+        const qrSize = 84;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(qrX, qrY, qrSize, qrSize);
+        ctx.fillStyle = '#1f1f1f';
+        const qRand = createSeededRandom(998877);
+        const grid = 14;
+        const cell = (qrSize - 12) / grid;
+        for (let gy = 0; gy < grid; gy++) {
+          for (let gx = 0; gx < grid; gx++) {
+            const isFinder =
+              (gx < 4 && gy < 4) ||
+              (gx >= grid - 4 && gy < 4) ||
+              (gx < 4 && gy >= grid - 4);
+            if (isFinder || qRand() > 0.48) {
+              ctx.fillRect(qrX + 6 + gx * cell, qrY + 6 + gy * cell, cell * 0.9, cell * 0.9);
+            }
+          }
+        }
+
+        // 5) 下部：白いJANバーコードラベル
+        const barW = 420;
+        const barH = 128;
+        const barX = bx - barW / 2;
+        const barY = 336;
+        ctx.fillStyle = '#ffffff';
+        roundRect(ctx, barX, barY, barW, barH, 8);
+        ctx.fill();
+
+        ctx.fillStyle = '#1a1a1a';
+        ctx.textAlign = 'left';
+        ctx.font = '700 15px sans-serif';
+        ctx.fillText('KY5267J', barX + 18, barY + 24);
+        ctx.font = '600 13px "M PLUS Rounded 1c", sans-serif';
+        ctx.fillText('もっこもこ靴下 クレヨンしんちゃん', barX + 105, barY + 23);
+        ctx.fillText('カエル', barX + 105, barY + 40);
+
+        // バーコード縦線
+        const bRand = createSeededRandom(455037);
+        let curX = barX + 42;
+        const endX = barX + barW - 42;
+        while (curX < endX) {
+          const w = bRand() > 0.55 ? 4 : 2;
+          ctx.fillRect(curX, barY + 50, w, 50);
+          curX += w + (bRand() > 0.5 ? 4 : 2);
+        }
+
+        // JANコード数字
+        ctx.textAlign = 'center';
+        ctx.font = '700 16px monospace';
+        ctx.fillText('JPH  4550376294177', bx, barY + 117);
+
+        ctx.restore();
+      });
+
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.ClampToEdgeWrapping;
+      texture.encoding = THREE.sRGBEncoding;
+      texture.anisotropy = 8;
+      return texture;
+    }
+
+    // 角丸矩形ヘルパー関数
+    function roundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    // =========================================================================
+    // 4. 3D靴下メッシュ（ふっくらフォルム＋帯締めくびれ＋パイル毛羽）の構築
+    // =========================================================================
+    function createSockMeshGroup(sockTexData, tagTexture) {
+      const group = new THREE.Group();
+
+      // --- 4-1. 靴下本体のパラメトリックジオメトリ生成 ---
+      const radialSegments = 96;
+      const heightSegments = 88;
+      const totalHeight = 3.36; // y: -1.68 〜 +1.68
+      const halfH = totalHeight / 2;
+
+      const positions = [];
+      const uvs = [];
+      const indices = [];
+
+      // 各高さ y における横半径 rx と厚み半径 rz を返すプロファイル関数
+      function getProfile(vNorm) {
+        // vNorm: 0 (上端 y=+halfH) -> 1 (下端つま先 y=-halfH)
+        const y = halfH - vNorm * totalHeight;
+
+        let rx = 0.72;
+        let rz = 0.31;
+
+        // 上端の履き口丸め (vNorm: 0.0 〜 0.03)
+        if (vNorm < 0.03) {
+          const t = vNorm / 0.03;
+          const cap = Math.sqrt(Math.max(0.001, 1 - Math.pow(1 - t, 2)));
+          rx *= 0.88 * cap;
+          rz *= 0.82 * cap;
+        }
+        // 履き口〜タグ上部ふくらみ (vNorm: 0.03 〜 0.08)
+        else if (vNorm < 0.08) {
+          const t = (vNorm - 0.03) / 0.05;
+          rx *= 0.88 + 0.06 * Math.sin(t * Math.PI);
+          rz *= 0.82 + 0.08 * Math.sin(t * Math.PI);
+        }
+        // オレンジ紙タグが巻かれているくびれ部分 (vNorm: 0.07 〜 0.27)
+        else if (vNorm < 0.27) {
+          const t = (vNorm - 0.07) / 0.20;
+          const pinch = Math.sin(t * Math.PI) * 0.045;
+          rx *= 0.90 - pinch;
+          rz *= 0.84 - pinch * 1.3;
+        }
+        // タグ直下のふっくら段差 (vNorm: 0.27 〜 0.34)
+        else if (vNorm < 0.34) {
+          const t = (vNorm - 0.27) / 0.07;
+          rx *= 0.90 + 0.10 * t;
+          rz *= 0.84 + 0.16 * t;
+        }
+        // 中央胴体部分 (vNorm: 0.34 〜 0.76)
+        else if (vNorm < 0.76) {
+          const t = (vNorm - 0.34) / 0.42;
+          // わずかに中央がふっくら
+          const bulge = Math.sin(t * Math.PI) * 0.025;
+          rx *= 1.0 + bulge;
+          rz *= 1.0 + bulge;
+        }
+        // つま先の丸いカーブ (vNorm: 0.76 〜 1.0)
+        else {
+          const t = (vNorm - 0.76) / 0.24;
+          const dome = Math.sqrt(Math.max(0.0, 1 - t * t));
+          rx *= dome;
+          rz *= Math.pow(dome, 0.78);
+        }
+
+        return { y, rx, rz };
+      }
+
+      for (let iy = 0; iy <= heightSegments; iy++) {
+        const vNorm = iy / heightSegments;
+        const { y, rx, rz } = getProfile(vNorm);
+
+        for (let ix = 0; ix <= radialSegments; ix++) {
+          const uNorm = ix / radialSegments;
+          // uNorm = 0.5 が +Z（正面）になるように角度を設定
+          // uNorm = 0.0, 1.0 が -Z（背面）
+          const theta = (uNorm - 0.25) * Math.PI * 2;
+          const cosT = Math.cos(theta);
+          const sinT = Math.sin(theta);
+
+          // スーパエリップス風の角丸断面（2枚重ね靴下の平たい丸み）
+          const roundness = 0.88;
+          const sx = Math.sign(cosT) * Math.pow(Math.abs(cosT), roundness);
+          const sz = Math.sign(sinT) * Math.pow(Math.abs(sinT), roundness);
+
+          // 微細な有機的うねり（布の柔らかさ）
+          const wave = 1.0 + 0.008 * Math.sin(uNorm * Math.PI * 10 + vNorm * 14);
+
+          const x = sx * rx * wave;
+          const z = sz * rz * wave;
+
+          positions.push(x, y, z);
+          // テクスチャの上下向き（v = 1 が上端、v = 0 が下端）
+          uvs.push(uNorm, 1.0 - vNorm);
+        }
+      }
+
+      for (let iy = 0; iy < heightSegments; iy++) {
+        for (let ix = 0; ix < radialSegments; ix++) {
+          const a = iy * (radialSegments + 1) + ix;
+          const b = a + 1;
+          const c = (iy + 1) * (radialSegments + 1) + ix;
+          const d = c + 1;
+
+          // 外向き法線になる反時計回りの頂点順で面を構築
+          indices.push(a, b, c);
+          indices.push(b, d, c);
+        }
+      }
+
+      const sockGeo = new THREE.BufferGeometry();
+      sockGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+      sockGeo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      sockGeo.setIndex(indices);
+      sockGeo.computeVertexNormals();
+
+      // ベルベット・パイル生地らしい光沢（sheen）を持つ物理マテリアル（Three.js r128仕様）
+      const sockMat = new THREE.MeshPhysicalMaterial({
+        map: sockTexData.colorTexture,
+        bumpMap: sockTexData.bumpTexture,
+        bumpScale: 0.028,
+        roughness: 0.92,
+        metalness: 0.0,
+        sheen: new THREE.Color(0x5c6e4b),
+        transparent: false,
+        depthWrite: true
+      });
+
+      const sockMesh = new THREE.Mesh(sockGeo, sockMat);
+      sockMesh.castShadow = true;
+      sockMesh.receiveShadow = true;
+      group.add(sockMesh);
+
+      // --- 4-2. モコモコ毛羽立ち繊維（InstancedMeshによる立体パイル表現） ---
+      const fuzzCount = 4600;
+      const fuzzGeo = new THREE.ConeGeometry(0.009, 0.042, 4);
+      // 根元を原点にオフセット
+      fuzzGeo.translate(0, 0.018, 0);
+
+      const fuzzMat = new THREE.MeshLambertMaterial({
+        color: 0xffffff
+      });
+
+      const fuzzInstanced = new THREE.InstancedMesh(fuzzGeo, fuzzMat, fuzzCount);
+
+      // テクスチャキャンバスから色を読み取るための準備
+      const texCanvas = sockTexData.colorCanvas;
+      const texCtx = texCanvas.getContext('2d');
+      const texImgData = texCtx.getImageData(0, 0, texCanvas.width, texCanvas.height).data;
+
+      const fRand = createSeededRandom(774411);
+      const dummy = new THREE.Object3D();
+      const upVec = new THREE.Vector3(0, 1, 0);
+      const normalVec = new THREE.Vector3();
+      const tempColor = new THREE.Color();
+
+      let placed = 0;
+      let attempts = 0;
+      while (placed < fuzzCount && attempts < fuzzCount * 3) {
+        attempts++;
+        const vNorm = 0.02 + fRand() * 0.96;
+        // オレンジ色の紙タグに完全に隠れる中央帯域は毛羽を減らす
+        if (vNorm > 0.085 && vNorm < 0.255 && fRand() > 0.12) continue;
+
+        const uNorm = fRand();
+        const { y, rx, rz } = getProfile(vNorm);
+        const theta = (uNorm - 0.25) * Math.PI * 2;
+        const cosT = Math.cos(theta);
+        const sinT = Math.sin(theta);
+
+        const roundness = 0.88;
+        const sx = Math.sign(cosT) * Math.pow(Math.abs(cosT), roundness);
+        const sz = Math.sign(sinT) * Math.pow(Math.abs(sinT), roundness);
+
+        const x = sx * rx;
+        const z = sz * rz;
+
+        dummy.position.set(x, y, z);
+
+        // 法線方向＋ランダムな毛並みの傾き
+        normalVec.set(sx / Math.max(0.1, rx), (vNorm - 0.5) * 0.15, sz / Math.max(0.1, rz)).normalize();
+        normalVec.x += (fRand() - 0.5) * 0.55;
+        normalVec.y += (fRand() - 0.5) * 0.55;
+        normalVec.z += (fRand() - 0.5) * 0.55;
+        normalVec.normalize();
+
+        dummy.quaternion.setFromUnitVectors(upVec, normalVec);
+        const sScale = 0.7 + fRand() * 0.8;
+        dummy.scale.set(sScale, sScale, sScale);
+        dummy.updateMatrix();
+        fuzzInstanced.setMatrixAt(placed, dummy.matrix);
+
+        // UV位置のピクセル色を取得して繊維の色を完全に一致させる
+        const px = Math.min(texCanvas.width - 1, Math.floor(uNorm * texCanvas.width));
+        const py = Math.min(texCanvas.height - 1, Math.floor(vNorm * texCanvas.height));
+        const idx = (py * texCanvas.width + px) * 4;
+        const r = Math.min(255, texImgData[idx] + 12) / 255;
+        const g = Math.min(255, texImgData[idx + 1] + 12) / 255;
+        const b = Math.min(255, texImgData[idx + 2] + 12) / 255;
+        tempColor.setRGB(r, g, b);
+        fuzzInstanced.setColorAt(placed, tempColor);
+
+        placed++;
+      }
+      fuzzInstanced.count = placed;
+      fuzzInstanced.instanceMatrix.needsUpdate = true;
+      if (fuzzInstanced.instanceColor) fuzzInstanced.instanceColor.needsUpdate = true;
+      group.add(fuzzInstanced);
+
+      // --- 4-3. オレンジ色の紙タグ（帯パッケージ） ---
+      const tagRadSegs = 80;
+      const tagHeightSegs = 16;
+      const tagTopV = 0.068;
+      const tagBotV = 0.272;
+      const tagPos = [];
+      const tagUvs = [];
+      const tagIndices = [];
+
+      for (let iy = 0; iy <= tagHeightSegs; iy++) {
+        const t = iy / tagHeightSegs;
+        const vNorm = tagTopV + t * (tagBotV - tagTopV);
+        const { y, rx, rz } = getProfile(vNorm);
+
+        // タグの厚み分だけ靴下表面よりわずかに外側に配置
+        const padX = rx + 0.018;
+        const padZ = rz + 0.018;
+
+        for (let ix = 0; ix <= tagRadSegs; ix++) {
+          const uNorm = ix / tagRadSegs;
+          const theta = (uNorm - 0.25) * Math.PI * 2;
+          const cosT = Math.cos(theta);
+          const sinT = Math.sin(theta);
+
+          const roundness = 0.85;
+          const sx = Math.sign(cosT) * Math.pow(Math.abs(cosT), roundness);
+          const sz = Math.sign(sinT) * Math.pow(Math.abs(sinT), roundness);
+
+          tagPos.push(sx * padX, y, sz * padZ);
+          tagUvs.push(uNorm, 1.0 - t);
+        }
+      }
+
+      for (let iy = 0; iy < tagHeightSegs; iy++) {
+        for (let ix = 0; ix < tagRadSegs; ix++) {
+          const a = iy * (tagRadSegs + 1) + ix;
+          const b = a + 1;
+          const c = (iy + 1) * (tagRadSegs + 1) + ix;
+          const d = c + 1;
+
+          // タグも外向き法線になるよう頂点順を修正
+          tagIndices.push(a, b, c);
+          tagIndices.push(b, d, c);
+        }
+      }
+
+      const tagGeo = new THREE.BufferGeometry();
+      tagGeo.setAttribute('position', new THREE.Float32BufferAttribute(tagPos, 3));
+      tagGeo.setAttribute('uv', new THREE.Float32BufferAttribute(tagUvs, 2));
+      tagGeo.setIndex(tagIndices);
+      tagGeo.computeVertexNormals();
+
+      const tagMat = new THREE.MeshPhysicalMaterial({
+        map: tagTexture,
+        roughness: 0.36,
+        metalness: 0.02,
+        clearcoat: 0.25,
+        clearcoatRoughness: 0.3,
+        side: THREE.DoubleSide
+      });
+
+      const tagMesh = new THREE.Mesh(tagGeo, tagMat);
+      tagMesh.castShadow = true;
+      tagMesh.receiveShadow = true;
+      group.add(tagMesh);
+
+      // --- 4-4. 黒いプラスチック製ハンガーフック ---
+      const hookCurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0.0, 1.48, 0.0),
+        new THREE.Vector3(0.0, 1.66, 0.0),
+        new THREE.Vector3(0.04, 1.76, 0.0),
+        new THREE.Vector3(0.11, 1.85, 0.0),
+        new THREE.Vector3(0.06, 1.98, 0.0),
+        new THREE.Vector3(-0.06, 2.00, 0.0),
+        new THREE.Vector3(-0.13, 1.90, 0.0),
+        new THREE.Vector3(-0.08, 1.80, 0.0)
+      ]);
+
+      const hookGeo = new THREE.TubeGeometry(hookCurve, 36, 0.026, 12, false);
+      const hookMat = new THREE.MeshStandardMaterial({
+        color: 0x18181b,
+        roughness: 0.26,
+        metalness: 0.12
+      });
+      const hookMesh = new THREE.Mesh(hookGeo, hookMat);
+      hookMesh.castShadow = true;
+      group.add(hookMesh);
+
+      // フック先端の丸みキャップ
+      const tipSphere = new THREE.Mesh(new THREE.SphereGeometry(0.027, 12, 12), hookMat);
+      tipSphere.position.set(-0.08, 1.80, 0.0);
+      group.add(tipSphere);
+
+      return group;
+    }
+
+    // =========================================================================
+    // 5. メインアプリケーション初期化＆360度カメラコントロール
+    // =========================================================================
+    window.onload = function () {
+      const container = document.getElementById('canvas-container');
+
+      // シーン初期化
+      const scene = new THREE.Scene();
+
+      // カメラ初期化
+      const camera = new THREE.PerspectiveCamera(
+        38,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100
+      );
+
+      // レンダラー初期化
+      const renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+        powerPreference: 'high-performance'
+      });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.06;
+      container.appendChild(renderer.domElement);
+
+      // --- スタジオ3点照明ライティング ---
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.72);
+      scene.add(ambientLight);
+
+      const keyLight = new THREE.DirectionalLight(0xfffdf7, 0.85);
+      keyLight.position.set(3.5, 5.0, 4.5);
+      keyLight.castShadow = true;
+      keyLight.shadow.mapSize.width = 1024;
+      keyLight.shadow.mapSize.height = 1024;
+      keyLight.shadow.camera.near = 1;
+      keyLight.shadow.camera.far = 15;
+      keyLight.shadow.bias = -0.0005;
+      scene.add(keyLight);
+
+      const fillLight = new THREE.DirectionalLight(0xe8f5e9, 0.45);
+      fillLight.position.set(-4.0, 2.0, -3.5);
+      scene.add(fillLight);
+
+      const rimLight = new THREE.DirectionalLight(0xffffff, 0.42);
+      rimLight.position.set(0.0, 4.0, -5.0);
+      scene.add(rimLight);
+
+      // 床面のソフトドロップシャドウ（影受けプレーン）
+      const shadowPlaneGeo = new THREE.PlaneGeometry(12, 12);
+      const shadowPlaneMat = new THREE.ShadowMaterial({ opacity: 0.14 });
+      const shadowPlane = new THREE.Mesh(shadowPlaneGeo, shadowPlaneMat);
+      shadowPlane.rotation.x = -Math.PI / 2;
+      shadowPlane.position.y = -1.85;
+      shadowPlane.receiveShadow = true;
+      scene.add(shadowPlane);
+
+      // --- テクスチャ＆3Dモデル生成 ---
+      const sockTexData = createSockTextures();
+      const tagTexture = createTagTexture();
+
+      // 単体表示用モデル（360度自由に表裏を回転可能）
+      const singleSock = createSockMeshGroup(sockTexData, tagTexture);
+      singleSock.position.set(0, 0.05, 0);
+      scene.add(singleSock);
+
+      // 表裏並べ比較用ペアモデル（左に正面、右に背面）
+      const pairGroup = new THREE.Group();
+      const leftFrontSock = createSockMeshGroup(sockTexData, tagTexture);
+      leftFrontSock.position.set(-0.88, 0.05, 0);
+      const rightBackSock = createSockMeshGroup(sockTexData, tagTexture);
+      rightBackSock.position.set(0.88, 0.05, 0);
+      rightBackSock.rotation.y = Math.PI; // 背面を正面に向ける
+      pairGroup.add(leftFrontSock);
+      pairGroup.add(rightBackSock);
+      pairGroup.visible = false;
+      scene.add(pairGroup);
+
+      // --- 360度スムースオービットカメラ制御（マウス＆タッチ完全対応） ---
+      const orbitState = {
+        // 球面座標（theta: 水平角, phi: 垂直角, radius: 距離）
+        theta: 0.0,
+        phi: Math.PI / 2 - 0.04,
+        radius: 6.2,
+        targetTheta: 0.0,
+        targetPhi: Math.PI / 2 - 0.04,
+        targetRadius: 6.2,
+        targetCenter: new THREE.Vector3(0, 0.12, 0),
+        isDragging: false,
+        prevX: 0,
+        prevY: 0,
+        pinchDist: 0,
+        autoRotate: true,
+        isPairMode: false
+      };
+
+      function updateCameraFromOrbit() {
+        // 滑らかなダンピング補間
+        orbitState.theta += (orbitState.targetTheta - orbitState.theta) * 0.12;
+        orbitState.phi += (orbitState.targetPhi - orbitState.phi) * 0.12;
+        orbitState.radius += (orbitState.targetRadius - orbitState.radius) * 0.12;
+
+        // 360度フル垂直回転にも対応できるように上方向ベクトルと位置を計算
+        const sinPhi = Math.sin(orbitState.phi);
+        const cosPhi = Math.cos(orbitState.phi);
+        const sinTheta = Math.sin(orbitState.theta);
+        const cosTheta = Math.cos(orbitState.theta);
+
+        camera.position.set(
+          orbitState.targetCenter.x + orbitState.radius * sinPhi * sinTheta,
+          orbitState.targetCenter.y + orbitState.radius * cosPhi,
+          orbitState.targetCenter.z + orbitState.radius * sinPhi * cosTheta
+        );
+
+        // 真上・真下を越えて360度回転しても反転破綻しないアップベクトル
+        camera.up.set(0, sinPhi >= 0 ? 1 : -1, 0);
+        camera.lookAt(orbitState.targetCenter);
+      }
+
+      // マウスイベント
+      container.addEventListener('mousedown', (e) => {
+        orbitState.isDragging = true;
+        orbitState.prevX = e.clientX;
+        orbitState.prevY = e.clientY;
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!orbitState.isDragging) return;
+        const dx = e.clientX - orbitState.prevX;
+        const dy = e.clientY - orbitState.prevY;
+        orbitState.prevX = e.clientX;
+        orbitState.prevY = e.clientY;
+
+        orbitState.targetTheta -= dx * 0.0085;
+        orbitState.targetPhi -= dy * 0.0085;
+      });
+
+      window.addEventListener('mouseup', () => {
+        orbitState.isDragging = false;
+      });
+
+      // ホイールズーム
+      container.addEventListener(
+        'wheel',
+        (e) => {
+          e.preventDefault();
+          const zoomSpeed = 0.0045;
+          orbitState.targetRadius = Math.max(
+            2.6,
+            Math.min(12.0, orbitState.targetRadius + e.deltaY * zoomSpeed)
+          );
+        },
+        { passive: false }
+      );
+
+      // タッチイベント（1本指360°回転 / 2本指ピンチズーム）
+      container.addEventListener(
+        'touchstart',
+        (e) => {
+          if (e.touches.length === 1) {
+            orbitState.isDragging = true;
+            orbitState.prevX = e.touches[0].clientX;
+            orbitState.prevY = e.touches[0].clientY;
+          } else if (e.touches.length === 2) {
+            orbitState.isDragging = false;
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            orbitState.pinchDist = Math.hypot(dx, dy);
+          }
+        },
+        { passive: false }
+      );
+
+      container.addEventListener(
+        'touchmove',
+        (e) => {
+          e.preventDefault();
+          if (e.touches.length === 1 && orbitState.isDragging) {
+            const dx = e.touches[0].clientX - orbitState.prevX;
+            const dy = e.touches[0].clientY - orbitState.prevY;
+            orbitState.prevX = e.touches[0].clientX;
+            orbitState.prevY = e.touches[0].clientY;
+
+            orbitState.targetTheta -= dx * 0.01;
+            orbitState.targetPhi -= dy * 0.01;
+          } else if (e.touches.length === 2) {
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            const dist = Math.hypot(dx, dy);
+            const delta = orbitState.pinchDist - dist;
+            orbitState.pinchDist = dist;
+
+            orbitState.targetRadius = Math.max(
+              2.6,
+              Math.min(12.0, orbitState.targetRadius + delta * 0.015)
+            );
+          }
+        },
+        { passive: false }
+      );
+
+      container.addEventListener('touchend', () => {
+        orbitState.isDragging = false;
+      });
+
+      // --- UIボタン連携 ---
+      const btnFront = document.getElementById('btn-front');
+      const btnBack = document.getElementById('btn-back');
+      const btnAutoRotate = document.getElementById('btn-autorotate');
+      const autoRotateText = document.getElementById('autorotate-text');
+      const btnPair = document.getElementById('btn-pair');
+      const pairText = document.getElementById('pair-text');
+      const btnReset = document.getElementById('btn-reset');
+
+      function setAutoRotate(enabled) {
+        orbitState.autoRotate = enabled;
+        if (enabled) {
+          btnAutoRotate.classList.add('btn-active');
+          autoRotateText.textContent = '自動回転: ON';
+        } else {
+          btnAutoRotate.classList.remove('btn-active');
+          autoRotateText.textContent = '自動回転: OFF';
+        }
+      }
+
+      // 現在の回転角から最短距離で指定角度へ向かうヘルパー
+      function rotateToNearestAngle(targetAngle) {
+        const twoPi = Math.PI * 2;
+        const currentMod = ((orbitState.targetTheta % twoPi) + twoPi) % twoPi;
+        let diff = targetAngle - currentMod;
+        if (diff > Math.PI) diff -= twoPi;
+        if (diff < -Math.PI) diff += twoPi;
+        orbitState.targetTheta += diff;
+        orbitState.targetPhi = Math.PI / 2 - 0.03;
+      }
+
+      btnFront.addEventListener('click', () => {
+        setAutoRotate(false);
+        rotateToNearestAngle(0);
+      });
+
+      btnBack.addEventListener('click', () => {
+        setAutoRotate(false);
+        rotateToNearestAngle(Math.PI);
+      });
+
+      btnAutoRotate.addEventListener('click', () => {
+        setAutoRotate(!orbitState.autoRotate);
+      });
+
+      btnPair.addEventListener('click', () => {
+        orbitState.isPairMode = !orbitState.isPairMode;
+        singleSock.visible = !orbitState.isPairMode;
+        pairGroup.visible = orbitState.isPairMode;
+
+        if (orbitState.isPairMode) {
+          btnPair.classList.add('btn-active');
+          pairText.textContent = '単体表示へ戻る';
+          orbitState.targetRadius = Math.max(orbitState.targetRadius, 6.8);
+          setAutoRotate(false);
+          rotateToNearestAngle(0);
+        } else {
+          btnPair.classList.remove('btn-active');
+          pairText.textContent = '表裏並べ比較';
+          orbitState.targetRadius = 6.2;
+        }
+      });
+
+      btnReset.addEventListener('click', () => {
+        orbitState.targetTheta = 0;
+        orbitState.targetPhi = Math.PI / 2 - 0.04;
+        orbitState.targetRadius = orbitState.isPairMode ? 6.8 : 6.2;
+        setAutoRotate(true);
+      });
+
+      // リサイズ対応
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      // メインアニメーションループ
+      let clock = new THREE.Clock();
+      function animate() {
+        requestAnimationFrame(animate);
+        const elapsed = clock.getElapsedTime();
+
+        // 自動回転（ドラッグ中でないとき）
+        if (orbitState.autoRotate && !orbitState.isDragging) {
+          orbitState.targetTheta += 0.007;
+        }
+
+        // ふんわりとした浮遊感アニメーション
+        const floatY = Math.sin(elapsed * 1.8) * 0.04;
+        singleSock.position.y = 0.06 + floatY;
+        pairGroup.position.y = floatY;
+
+        updateCameraFromOrbit();
+        renderer.render(scene, camera);
+      }
+
+      animate();
+    };
+  </script>
+</body>
+</html>
