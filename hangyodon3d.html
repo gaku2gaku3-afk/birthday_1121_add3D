@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>3D Figure Viewer - Hangyodon & Sayuri</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js r128 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Google Fonts: Inter & M PLUS Rounded 1c -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=M+PLUS+Rounded+1c:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'M PLUS Rounded 1c', 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            touch-action: none; /* スマホでのスクロール干渉を防止 */
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+            cursor: grab;
+        }
+        #canvas-container:active {
+            cursor: grabbing;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.78);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.08);
+        }
+        .dark-theme .glass-panel {
+            background: rgba(30, 41, 59, 0.78);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #f8fafc;
+        }
+        .dark-theme .dark-subtext {
+            color: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-b from-[#eefafc] via-[#ffffff] to-[#dcf2f5] text-slate-700 transition-colors duration-500">
+
+    <!-- 3D描画キャンバスコンテナ -->
+    <div id="canvas-container"></div>
+
+    <!-- ヘッダー情報（左上） -->
+    <header class="fixed top-4 left-4 sm:top-6 sm:left-6 z-10 pointer-events-none">
+        <div class="glass-panel rounded-2xl px-4 py-3 sm:px-5 sm:py-3.5 inline-block pointer-events-auto transition-all">
+            <div class="flex items-center gap-2.5">
+                <span class="inline-block w-3.5 h-3.5 rounded-full bg-[#35dce8] ring-2 ring-[#ff5c9d]"></span>
+                <h1 class="text-base sm:text-lg font-bold tracking-wide">3D ソフビフィギュアビューアー</h1>
+            </div>
+            <p class="text-xs text-slate-500 dark-subtext mt-1">
+                ドラッグで360°回転 / スクロール・ピンチで拡大縮小
+            </p>
+        </div>
+    </header>
+
+    <!-- カメラアングルショートカット（右上） -->
+    <div class="fixed top-4 right-4 sm:top-6 sm:right-6 z-10 flex flex-col gap-2">
+        <div class="glass-panel rounded-2xl p-1.5 flex flex-col sm:flex-row gap-1 text-xs font-medium">
+            <button id="btn-view-front" class="px-3 py-2 rounded-xl hover:bg-teal-500/15 active:scale-95 transition cursor-pointer" title="正面から見る">
+                正面
+            </button>
+            <button id="btn-view-side" class="px-3 py-2 rounded-xl hover:bg-teal-500/15 active:scale-95 transition cursor-pointer" title="横から見る">
+                横向き
+            </button>
+            <button id="btn-view-back" class="px-3 py-2 rounded-xl hover:bg-teal-500/15 active:scale-95 transition cursor-pointer" title="後ろ姿を見る">
+                後ろ姿
+            </button>
+        </div>
+    </div>
+
+    <!-- コントロールパネル（下部中央） -->
+    <footer class="fixed bottom-5 left-1/2 -translate-x-1/2 z-10 w-[92%] max-w-md">
+        <div class="glass-panel rounded-2xl p-2.5 sm:p-3 flex items-center justify-around gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium">
+            <!-- 自動回転トグル -->
+            <button id="btn-autorotate" class="flex-1 py-2.5 px-3 rounded-xl bg-[#27b3c4] text-white shadow-sm hover:bg-[#1e9eae] active:scale-95 transition flex items-center justify-center gap-1.5 cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                <span id="autorotate-label">自動回転: OFF</span>
+            </button>
+
+            <!-- ゆらゆらアニメーション -->
+            <button id="btn-bounce" class="flex-1 py-2.5 px-3 rounded-xl hover:bg-slate-500/10 active:scale-95 transition flex items-center justify-center gap-1.5 cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <span id="bounce-label">ゆらゆら: ON</span>
+            </button>
+
+            <!-- 背景テーマ切替 -->
+            <button id="btn-theme" class="py-2.5 px-3 rounded-xl hover:bg-slate-500/10 active:scale-95 transition flex items-center justify-center cursor-pointer" title="背景色を変更">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/>
+                </svg>
+            </button>
+        </div>
+    </footer>
+
+    <script>
+        /**
+         * ハンギョドン＆さゆりちゃん 3Dソフビフィギュア生成＆360度ビューアー
+         */
+        let scene, camera, renderer, characterGroup, pedestalGroup;
+        let autoRotate = false;
+        let isBouncing = true;
+        const clock = new THREE.Clock();
+
+        // 360度オービット制御用パラメータ（球面座標系）
+        const orbitState = {
+            theta: -0.06,               // 水平角度（ラジアン）
+            phi: Math.PI / 2 - 0.04,    // 垂直角度（ラジアン：0が真上、PIが真下）
+            radius: 7.2,                // カメラ距離
+            targetTheta: -0.06,
+            targetPhi: Math.PI / 2 - 0.04,
+            targetRadius: 7.2,
+            targetCenter: new THREE.Vector3(0, 0.12, 0),
+            isDragging: false,
+            prevX: 0,
+            prevY: 0,
+            pinchStartDist: 0,
+            pinchStartRadius: 7.2
+        };
+
+        // 背景テーマ設定
+        const themes = [
+            {
+                name: 'studio-white',
+                bgClass: 'bg-gradient-to-b from-[#eefafc] via-[#ffffff] to-[#dcf2f5] text-slate-700',
+                fogColor: 0xeefafc,
+                pedestalColor: 0xd9f1f4,
+                dark: false
+            },
+            {
+                name: 'aqua-pastel',
+                bgClass: 'bg-gradient-to-b from-[#bae9f0] via-[#d8f4f7] to-[#a7e0e8] text-slate-700',
+                fogColor: 0xc8eff4,
+                pedestalColor: 0xffffff,
+                dark: false
+            },
+            {
+                name: 'night-gallery',
+                bgClass: 'bg-gradient-to-b from-[#0f172a] via-[#1e293b] to-[#0f172a] text-slate-100 dark-theme',
+                fogColor: 0x162032,
+                pedestalColor: 0x334155,
+                dark: true
+            }
+        ];
+        let currentThemeIndex = 0;
+
+        /**
+         * シーン・カメラ・ライティング・フィギュアの初期化
+         */
+        function init() {
+            const container = document.getElementById('canvas-container');
+            const width = container.clientWidth || window.innerWidth;
+            const height = container.clientHeight || window.innerHeight;
+
+            // シーン作成
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(themes[0].fogColor, 0.025);
+
+            // カメラ作成
+            camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
+            updateCameraPosition(true);
+
+            // レンダラー作成
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.outputEncoding = THREE.sRGBEncoding;
+            renderer.toneMapping = THREE.NoToneMapping;
+            container.appendChild(renderer.domElement);
+
+            // ライティング設定（ソフビの丸みと鮮やかな発色を引き立てる3点照明＋環境光）
+            setupLights();
+
+            // 台座と接地シャドウ作成
+            pedestalGroup = buildPedestal();
+            scene.add(pedestalGroup);
+
+            // ハンギョドン＆さゆりちゃんフィギュア構築
+            characterGroup = buildHangyodonFigure();
+            scene.add(characterGroup);
+
+            // イベントリスナー登録
+            setupControls(container);
+            setupUIButtons();
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        /**
+         * 照明セットアップ
+         */
+        function setupLights() {
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x99dce6, 0.65);
+            hemiLight.position.set(0, 10, 0);
+            scene.add(hemiLight);
+
+            // メインキーライト（斜め前上方から）
+            const keyLight = new THREE.DirectionalLight(0xffffff, 0.82);
+            keyLight.position.set(4.5, 7.5, 6.0);
+            keyLight.castShadow = true;
+            keyLight.shadow.mapSize.width = 1024;
+            keyLight.shadow.mapSize.height = 1024;
+            keyLight.shadow.camera.near = 1;
+            keyLight.shadow.camera.far = 20;
+            const d = 3.2;
+            keyLight.shadow.camera.left = -d;
+            keyLight.shadow.camera.right = d;
+            keyLight.shadow.camera.top = d;
+            keyLight.shadow.camera.bottom = -d;
+            keyLight.shadow.bias = -0.001;
+            scene.add(keyLight);
+
+            // フィルライト（左斜め前から影を和らげる）
+            const fillLight = new THREE.DirectionalLight(0xe0f7fa, 0.35);
+            fillLight.position.set(-5.5, 3.0, 4.0);
+            scene.add(fillLight);
+
+            // リムライト（背面からの輪郭強調）
+            const rimLight = new THREE.DirectionalLight(0xffffff, 0.45);
+            rimLight.position.set(0, 5.5, -6.5);
+            scene.add(rimLight);
+        }
+
+        /**
+         * 台座とソフトな接地影の作成
+         */
+        function buildPedestal() {
+            const group = new THREE.Group();
+
+            // 接地シャドウ用テクスチャ生成
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            const grad = ctx.createRadialGradient(128, 128, 15, 128, 128, 120);
+            grad.addColorStop(0, 'rgba(18, 65, 75, 0.28)');
+            grad.addColorStop(0.55, 'rgba(18, 65, 75, 0.11)');
+            grad.addColorStop(1, 'rgba(18, 65, 75, 0)');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 256, 256);
+
+            const shadowTex = new THREE.CanvasTexture(canvas);
+            const shadowPlane = new THREE.Mesh(
+                new THREE.PlaneGeometry(3.8, 3.8),
+                new THREE.MeshBasicMaterial({
+                    map: shadowTex,
+                    transparent: true,
+                    depthWrite: false
+                })
+            );
+            shadowPlane.rotation.x = -Math.PI / 2;
+            shadowPlane.position.y = -1.61;
+            group.add(shadowPlane);
+
+            // シンプルで上品な円形ディスプレイ台座
+            const baseGeo = new THREE.CylinderGeometry(1.75, 1.85, 0.12, 48);
+            const baseMat = new THREE.MeshStandardMaterial({
+                color: themes[0].pedestalColor,
+                roughness: 0.55,
+                metalness: 0.05
+            });
+            const baseMesh = new THREE.Mesh(baseGeo, baseMat);
+            baseMesh.position.y = -1.68;
+            baseMesh.receiveShadow = true;
+            baseMesh.name = 'pedestalMesh';
+            group.add(baseMesh);
+
+            return group;
+        }
+
+        /**
+         * ハンギョドン＆さゆりちゃんの3Dフィギュア本体を構築
+         */
+        function buildHangyodonFigure() {
+            const root = new THREE.Group();
+
+            // --- カラーパレット（さらに彩度を高めたビビッドソフビカラー） ---
+            const colors = {
+                bodyAqua: 0x35dce8,      // 本体・頭・手足の鮮烈なアクアブルー
+                finBlue: 0x0099ff,       // 頭・耳・背中のヒレのビビッドスカイブルー
+                finGroove: 0x0066b3,     // ヒレの溝のディープブルー
+                lipPink: 0xff5c9d,       // 特徴的なたらこ唇の鮮やかなビビッドピンク
+                lipCrease: 0xd9266e,     // 上下唇の境界の濃いローズピンク
+                eyeWhite: 0xffffff,      // 白目
+                pupilDark: 0x162229,     // 黒目（チャコールダーク）
+                sayuriOrange: 0xff2a00,  // さゆりちゃんの鮮烈な朱赤オレンジ
+                sayuriMouth: 0xff7043,   // さゆりちゃんの口の鮮やかなコーラル
+                sayuriEye: 0x162026      // さゆりちゃんのニッコリ目
+            };
+
+            // --- マテリアル定義（発色の良いソフビ質感） ---
+            const matBody = new THREE.MeshStandardMaterial({
+                color: colors.bodyAqua,
+                roughness: 0.5,
+                metalness: 0.01
+            });
+
+            const matFin = new THREE.MeshStandardMaterial({
+                color: colors.finBlue,
+                roughness: 0.42,
+                metalness: 0.02
+            });
+
+            const matFinGroove = new THREE.MeshStandardMaterial({
+                color: colors.finGroove,
+                roughness: 0.55,
+                metalness: 0.01
+            });
+
+            const matLip = new THREE.MeshStandardMaterial({
+                color: colors.lipPink,
+                roughness: 0.44,
+                metalness: 0.01
+            });
+
+            const matLipCrease = new THREE.MeshStandardMaterial({
+                color: colors.lipCrease,
+                roughness: 0.55,
+                metalness: 0.01
+            });
+
+            const matEyeWhite = new THREE.MeshStandardMaterial({
+                color: colors.eyeWhite,
+                roughness: 0.35,
+                metalness: 0.0
+            });
+
+            const matPupil = new THREE.MeshStandardMaterial({
+                color: colors.pupilDark,
+                roughness: 0.3,
+                metalness: 0.05
+            });
+
+            const matSayuri = new THREE.MeshStandardMaterial({
+                color: colors.sayuriOrange,
+                roughness: 0.48,
+                metalness: 0.01
+            });
+
+            const matSayuriMouth = new THREE.MeshStandardMaterial({
+                color: colors.sayuriMouth,
+                roughness: 0.45,
+                metalness: 0.0
+            });
+
+            // ==========================================
+            // 1. 頭部（ふっくら丸みのあるおにぎり型シルエット）
+            // ==========================================
+            const headGroup = new THREE.Group();
+            headGroup.position.set(0, 0.62, 0);
+
+            const headGeo = new THREE.SphereGeometry(1.18, 64, 48);
+            const posAttr = headGeo.attributes.position;
+            const v = new THREE.Vector3();
+
+            for (let i = 0; i < posAttr.count; i++) {
+                v.fromBufferAttribute(posAttr, i);
+                const ny = v.y / 1.18; // -1 〜 +1
+
+                // 頭頂部はなめらかに丸く、頬〜口元にかけて少し横幅を広げる
+                let widthScale = 1.04;
+                if (ny > 0) {
+                    widthScale = 1.04 - 0.14 * Math.pow(ny, 1.8);
+                } else {
+                    widthScale = 1.04 + 0.07 * Math.sin(Math.abs(ny) * Math.PI * 0.8);
+                }
+
+                // 前後の奥行きもバランスよく調整
+                let depthScale = 0.94;
+                if (ny < 0 && v.z > 0) {
+                    depthScale += 0.05 * Math.abs(ny);
+                }
+
+                v.x *= widthScale;
+                v.z *= depthScale;
+                v.y *= 0.96;
+
+                posAttr.setXYZ(i, v.x, v.y, v.z);
+            }
+            headGeo.computeVertexNormals();
+
+            const headMesh = new THREE.Mesh(headGeo, matBody);
+            headMesh.castShadow = true;
+            headMesh.receiveShadow = true;
+            headGroup.add(headMesh);
+
+            // ==========================================
+            // 2. 頭頂部のトサカ（ツノ型ヒレ）
+            // ==========================================
+            const topFinGroup = new THREE.Group();
+            topFinGroup.position.set(0, 1.18, 0.02);
+
+            const topFinGeo = new THREE.ConeGeometry(0.24, 0.52, 32);
+            topFinGeo.scale(0.85, 1.0, 1.05);
+            const topFinMesh = new THREE.Mesh(topFinGeo, matFin);
+            topFinMesh.position.y = 0.14;
+            topFinMesh.castShadow = true;
+            topFinGroup.add(topFinMesh);
+
+            // 頭頂ヒレの溝ライン（前後）
+            const topGrooveGeo = new THREE.CylinderGeometry(0.013, 0.018, 0.34, 12);
+            const topGrooveFront = new THREE.Mesh(topGrooveGeo, matFinGroove);
+            topGrooveFront.position.set(0, 0.13, 0.12);
+            topGrooveFront.rotation.x = -0.36;
+            topFinGroup.add(topGrooveFront);
+
+            const topGrooveBack = new THREE.Mesh(topGrooveGeo, matFinGroove);
+            topGrooveBack.position.set(0, 0.13, -0.12);
+            topGrooveBack.rotation.x = 0.36;
+            topFinGroup.add(topGrooveBack);
+
+            headGroup.add(topFinGroup);
+
+            // ==========================================
+            // 3. 左右の耳ヒレ
+            // ==========================================
+            function createEarFin(side) {
+                // side: -1 (左), +1 (右)
+                const earGroup = new THREE.Group();
+                earGroup.position.set(side * 1.18, 0.04, -0.02);
+                earGroup.rotation.z = side * -0.08;
+
+                // 半円状の丸みのある耳ヒレ
+                const earGeo = new THREE.SphereGeometry(0.36, 32, 24);
+                earGeo.scale(0.75, 1.15, 0.32);
+                const earMesh = new THREE.Mesh(earGeo, matFin);
+                earMesh.position.x = side * 0.06;
+                earMesh.castShadow = true;
+                earGroup.add(earMesh);
+
+                // 耳ヒレの2本の横溝
+                [-0.1, 0.1].forEach((offsetY) => {
+                    const grooveGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.22, 12);
+                    grooveGeo.rotateZ(Math.PI / 2);
+                    const grooveFront = new THREE.Mesh(grooveGeo, matFinGroove);
+                    grooveFront.position.set(side * 0.13, offsetY, 0.105);
+                    earGroup.add(grooveFront);
+
+                    const grooveBack = new THREE.Mesh(grooveGeo, matFinGroove);
+                    grooveBack.position.set(side * 0.13, offsetY, -0.105);
+                    earGroup.add(grooveBack);
+                });
+
+                return earGroup;
+            }
+            headGroup.add(createEarFin(-1));
+            headGroup.add(createEarFin(1));
+
+            // ==========================================
+            // 4. 大きな瞳（少し寄り目の愛らしい表情）
+            // ==========================================
+            function createEye(side) {
+                const eyeGroup = new THREE.Group();
+                // 顔の曲面に沿わせて配置
+                eyeGroup.position.set(side * 0.45, 0.08, 1.03);
+                eyeGroup.rotation.y = side * 0.34;
+                eyeGroup.rotation.x = -0.04;
+
+                // 白目（少し縦長のドーム形状）
+                const whiteGeo = new THREE.SphereGeometry(0.36, 36, 28);
+                whiteGeo.scale(0.96, 1.05, 0.28);
+                const whiteMesh = new THREE.Mesh(whiteGeo, matEyeWhite);
+                eyeGroup.add(whiteMesh);
+
+                // 黒目（中央よりやや内側に配置して寄り目感を再現）
+                const pupilGeo = new THREE.SphereGeometry(0.115, 24, 24);
+                pupilGeo.scale(1.0, 1.05, 0.35);
+                const pupilMesh = new THREE.Mesh(pupilGeo, matPupil);
+                pupilMesh.position.set(-side * 0.075, -0.025, 0.095);
+                eyeGroup.add(pupilMesh);
+
+                return eyeGroup;
+            }
+            headGroup.add(createEye(-1));
+            headGroup.add(createEye(1));
+
+            // ==========================================
+            // 5. 立体的なピンクのたらこ唇
+            // ==========================================
+            const lipGroup = new THREE.Group();
+            lipGroup.position.set(0, -0.46, 1.06);
+
+            // 上唇のなめらかなカーブ
+            const upperLipCurve = new THREE.CatmullRomCurve3([
+                new THREE.Vector3(-0.92, -0.04, -0.32),
+                new THREE.Vector3(-0.52, 0.05, -0.03),
+                new THREE.Vector3(0.0, 0.09, 0.09),
+                new THREE.Vector3(0.52, 0.05, -0.03),
+                new THREE.Vector3(0.92, -0.04, -0.32)
+            ]);
+            const upperLipGeo = new THREE.TubeGeometry(upperLipCurve, 48, 0.135, 24, false);
+            upperLipGeo.scale(1.0, 0.85, 1.05);
+            const upperLipMesh = new THREE.Mesh(upperLipGeo, matLip);
+            upperLipMesh.castShadow = true;
+            lipGroup.add(upperLipMesh);
+
+            // 下唇のなめらかなカーブ
+            const lowerLipCurve = new THREE.CatmullRomCurve3([
+                new THREE.Vector3(-0.90, -0.08, -0.32),
+                new THREE.Vector3(-0.50, -0.09, -0.04),
+                new THREE.Vector3(0.0, -0.07, 0.08),
+                new THREE.Vector3(0.50, -0.09, -0.04),
+                new THREE.Vector3(0.90, -0.08, -0.32)
+            ]);
+            const lowerLipGeo = new THREE.TubeGeometry(lowerLipCurve, 48, 0.13, 24, false);
+            lowerLipGeo.scale(1.0, 0.85, 1.05);
+            const lowerLipMesh = new THREE.Mesh(lowerLipGeo, matLip);
+            lowerLipMesh.castShadow = true;
+            lipGroup.add(lowerLipMesh);
+
+            // 左右の口角の丸みキャップ
+            [-1, 1].forEach((side) => {
+                const cornerGeo = new THREE.SphereGeometry(0.13, 20, 20);
+                cornerGeo.scale(1.05, 0.95, 1.0);
+                const cornerMesh = new THREE.Mesh(cornerGeo, matLip);
+                cornerMesh.position.set(side * 0.91, -0.06, -0.32);
+                lipGroup.add(cornerMesh);
+            });
+
+            // 上下唇の境界ライン（ローズピンクの溝）
+            const creaseCurve = new THREE.CatmullRomCurve3([
+                new THREE.Vector3(-0.84, -0.06, -0.22),
+                new THREE.Vector3(-0.46, -0.02, 0.06),
+                new THREE.Vector3(0.0, 0.01, 0.18),
+                new THREE.Vector3(0.46, -0.02, 0.06),
+                new THREE.Vector3(0.84, -0.06, -0.22)
+            ]);
+            const creaseGeo = new THREE.TubeGeometry(creaseCurve, 40, 0.02, 12, false);
+            const creaseMesh = new THREE.Mesh(creaseGeo, matLipCrease);
+            lipGroup.add(creaseMesh);
+
+            headGroup.add(lipGroup);
+            root.add(headGroup);
+
+            // ==========================================
+            // 6. 胴体（ずんぐり丸い座りポーズの体）
+            // ==========================================
+            const bodyGroup = new THREE.Group();
+            bodyGroup.position.set(0, -0.78, -0.04);
+
+            const bodyGeo = new THREE.SphereGeometry(0.98, 56, 44);
+            const bPos = bodyGeo.attributes.position;
+            for (let i = 0; i < bPos.count; i++) {
+                v.fromBufferAttribute(bPos, i);
+                const ny = v.y / 0.98;
+                // 下半身（お尻・お腹）をふっくら広げる
+                const bellyFactor = ny < 0 ? 1.0 + 0.12 * Math.abs(ny) : 1.0 - 0.08 * ny;
+                v.x *= 1.05 * bellyFactor;
+                v.z *= 0.96 * bellyFactor;
+                v.y *= 0.88;
+                bPos.setXYZ(i, v.x, v.y, v.z);
+            }
+            bodyGeo.computeVertexNormals();
+
+            const bodyMesh = new THREE.Mesh(bodyGeo, matBody);
+            bodyMesh.castShadow = true;
+            bodyMesh.receiveShadow = true;
+            bodyGroup.add(bodyMesh);
+
+            // 背中の背ビレ（360°後ろ姿用ディテール）
+            const backFinGroup = new THREE.Group();
+            backFinGroup.position.set(0, 0.05, -0.92);
+            backFinGroup.rotation.x = -0.35;
+
+            const backFinGeo = new THREE.ConeGeometry(0.22, 0.48, 28);
+            backFinGeo.scale(0.55, 1.0, 1.15);
+            const backFinMesh = new THREE.Mesh(backFinGeo, matFin);
+            backFinMesh.rotation.x = -Math.PI / 2.4;
+            backFinMesh.castShadow = true;
+            backFinGroup.add(backFinMesh);
+
+            bodyGroup.add(backFinGroup);
+            root.add(bodyGroup);
+
+            // ==========================================
+            // 7. さゆりちゃん（抱えられたタコの親友）
+            // ==========================================
+            const sayuriGroup = new THREE.Group();
+            sayuriGroup.position.set(0, -0.82, 0.72);
+            sayuriGroup.rotation.x = -0.08;
+
+            // さゆりちゃんの丸い体
+            const sayuriBodyGeo = new THREE.SphereGeometry(0.46, 40, 32);
+            sayuriBodyGeo.scale(0.96, 1.12, 0.78);
+            const sayuriBodyMesh = new THREE.Mesh(sayuriBodyGeo, matSayuri);
+            sayuriBodyMesh.castShadow = true;
+            sayuriGroup.add(sayuriBodyMesh);
+
+            // さゆりちゃんの裾（タコ足の広がり）
+            [-1, 1].forEach((side) => {
+                const tentacleGeo = new THREE.ConeGeometry(0.18, 0.34, 20);
+                tentacleGeo.scale(1.1, 1.0, 0.75);
+                const tentacleMesh = new THREE.Mesh(tentacleGeo, matSayuri);
+                tentacleMesh.position.set(side * 0.22, -0.45, 0.02);
+                tentacleMesh.rotation.z = side * -2.75;
+                sayuriGroup.add(tentacleMesh);
+            });
+
+            // さゆりちゃんのニッコリ目（^ ^ アーチ型）
+            const matSayuriEye = new THREE.MeshStandardMaterial({
+                color: colors.sayuriEye,
+                roughness: 0.4
+            });
+            [-1, 1].forEach((side) => {
+                const eyeArcGeo = new THREE.TorusGeometry(0.065, 0.018, 12, 24, Math.PI);
+                const eyeArcMesh = new THREE.Mesh(eyeArcGeo, matSayuriEye);
+                eyeArcMesh.position.set(side * 0.13, 0.14, 0.33);
+                eyeArcMesh.rotation.x = -0.25;
+                eyeArcMesh.rotation.y = side * 0.2;
+                sayuriGroup.add(eyeArcMesh);
+            });
+
+            // さゆりちゃんの丸いコーラルピンクの口
+            const sMouthGeo = new THREE.SphereGeometry(0.19, 32, 24);
+            sMouthGeo.scale(1.05, 0.95, 0.35);
+            const sMouthMesh = new THREE.Mesh(sMouthGeo, matSayuriMouth);
+            sMouthMesh.position.set(0, -0.08, 0.34);
+            sayuriGroup.add(sMouthMesh);
+
+            // 口の中央の白い点（おちょぼ口）
+            const sMouthHoleGeo = new THREE.SphereGeometry(0.042, 16, 16);
+            sMouthHoleGeo.scale(1.0, 1.0, 0.4);
+            const sMouthHoleMesh = new THREE.Mesh(sMouthHoleGeo, matEyeWhite);
+            sMouthHoleMesh.position.set(0, -0.08, 0.398);
+            sayuriGroup.add(sMouthHoleMesh);
+
+            root.add(sayuriGroup);
+
+            // ==========================================
+            // 8. 両腕（さゆりちゃんをぎゅっと抱える短い手）
+            // ==========================================
+            function createArm(side) {
+                const armGroup = new THREE.Group();
+
+                const armCurve = new THREE.CatmullRomCurve3([
+                    new THREE.Vector3(side * 0.88, -0.58, 0.12),
+                    new THREE.Vector3(side * 0.84, -0.74, 0.56),
+                    new THREE.Vector3(side * 0.46, -0.78, 0.88)
+                ]);
+                const armGeo = new THREE.TubeGeometry(armCurve, 28, 0.21, 20, false);
+                const armMesh = new THREE.Mesh(armGeo, matBody);
+                armMesh.castShadow = true;
+                armGroup.add(armMesh);
+
+                // 手先の丸み
+                const handGeo = new THREE.SphereGeometry(0.215, 24, 24);
+                handGeo.scale(1.05, 0.95, 0.95);
+                const handMesh = new THREE.Mesh(handGeo, matBody);
+                handMesh.position.set(side * 0.46, -0.78, 0.88);
+                handMesh.castShadow = true;
+                armGroup.add(handMesh);
+
+                return armGroup;
+            }
+            root.add(createArm(-1));
+            root.add(createArm(1));
+
+            // ==========================================
+            // 9. 両足（水かき付きのぷっくりしたお座り足）
+            // ==========================================
+            function createFoot(side) {
+                const footGroup = new THREE.Group();
+                footGroup.position.set(side * 0.68, -1.32, 0.62);
+                footGroup.rotation.y = side * 0.42;
+                footGroup.rotation.x = 0.22;
+
+                // 足裏・甲のベース
+                const soleGeo = new THREE.SphereGeometry(0.42, 36, 28);
+                soleGeo.scale(0.95, 0.68, 1.18);
+                const soleMesh = new THREE.Mesh(soleGeo, matBody);
+                soleMesh.castShadow = true;
+                soleMesh.receiveShadow = true;
+                footGroup.add(soleMesh);
+
+                // 水かき風の3つの丸い指先
+                [-0.22, 0, 0.22].forEach((toeX, idx) => {
+                    const toeGeo = new THREE.SphereGeometry(0.16, 20, 20);
+                    toeGeo.scale(0.95, 0.72, 1.15);
+                    const toeMesh = new THREE.Mesh(toeGeo, matBody);
+                    const zAdvance = idx === 1 ? 0.42 : 0.36;
+                    toeMesh.position.set(toeX, -0.02, zAdvance);
+                    toeMesh.castShadow = true;
+                    footGroup.add(toeMesh);
+                });
+
+                return footGroup;
+            }
+            root.add(createFoot(-1));
+            root.add(createFoot(1));
+
+            return root;
+        }
+
+        /**
+         * カメラ位置を球面座標（orbitState）から計算して更新
+         */
+        function updateCameraPosition(immediate = false) {
+            const lerpFactor = immediate ? 1.0 : 0.14;
+            orbitState.theta += (orbitState.targetTheta - orbitState.theta) * lerpFactor;
+            orbitState.phi += (orbitState.targetPhi - orbitState.phi) * lerpFactor;
+            orbitState.radius += (orbitState.targetRadius - orbitState.radius) * lerpFactor;
+
+            const sinPhi = Math.sin(orbitState.phi);
+            const cosPhi = Math.cos(orbitState.phi);
+            const sinTheta = Math.sin(orbitState.theta);
+            const cosTheta = Math.cos(orbitState.theta);
+
+            camera.position.x = orbitState.targetCenter.x + orbitState.radius * sinPhi * sinTheta;
+            camera.position.y = orbitState.targetCenter.y + orbitState.radius * cosPhi;
+            camera.position.z = orbitState.targetCenter.z + orbitState.radius * sinPhi * cosTheta;
+
+            camera.lookAt(orbitState.targetCenter);
+        }
+
+        /**
+         * マウス＆タッチでの360度ドラッグ・ズーム操作セットアップ
+         */
+        function setupControls(domElement) {
+            // マウスダウン
+            domElement.addEventListener('mousedown', (e) => {
+                orbitState.isDragging = true;
+                orbitState.prevX = e.clientX;
+                orbitState.prevY = e.clientY;
+            });
+
+            // マウス移動
+            window.addEventListener('mousemove', (e) => {
+                if (!orbitState.isDragging) return;
+                const dx = e.clientX - orbitState.prevX;
+                const dy = e.clientY - orbitState.prevY;
+                orbitState.prevX = e.clientX;
+                orbitState.prevY = e.clientY;
+
+                orbitState.targetTheta -= dx * 0.0085;
+                orbitState.targetPhi -= dy * 0.0075;
+                // 真上・真下での反転を防止
+                orbitState.targetPhi = Math.max(0.22, Math.min(Math.PI - 0.25, orbitState.targetPhi));
+            });
+
+            // マウスアップ
+            window.addEventListener('mouseup', () => {
+                orbitState.isDragging = false;
+            });
+
+            // ホイールズーム
+            domElement.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                orbitState.targetRadius += e.deltaY * 0.0045;
+                orbitState.targetRadius = Math.max(3.8, Math.min(13.0, orbitState.targetRadius));
+            }, { passive: false });
+
+            // タッチ操作（1本指回転・2本指ピンチズーム）
+            domElement.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    orbitState.isDragging = true;
+                    orbitState.prevX = e.touches[0].clientX;
+                    orbitState.prevY = e.touches[0].clientY;
+                } else if (e.touches.length === 2) {
+                    orbitState.isDragging = false;
+                    const dx = e.touches[0].clientX - e.touches[1].clientX;
+                    const dy = e.touches[0].clientY - e.touches[1].clientY;
+                    orbitState.pinchStartDist = Math.hypot(dx, dy);
+                    orbitState.pinchStartRadius = orbitState.targetRadius;
+                }
+            }, { passive: true });
+
+            domElement.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 1 && orbitState.isDragging) {
+                    const dx = e.touches[0].clientX - orbitState.prevX;
+                    const dy = e.touches[0].clientY - orbitState.prevY;
+                    orbitState.prevX = e.touches[0].clientX;
+                    orbitState.prevY = e.touches[0].clientY;
+
+                    orbitState.targetTheta -= dx * 0.01;
+                    orbitState.targetPhi -= dy * 0.009;
+                    orbitState.targetPhi = Math.max(0.22, Math.min(Math.PI - 0.25, orbitState.targetPhi));
+                } else if (e.touches.length === 2 && orbitState.pinchStartDist > 0) {
+                    const dx = e.touches[0].clientX - e.touches[1].clientX;
+                    const dy = e.touches[0].clientY - e.touches[1].clientY;
+                    const dist = Math.hypot(dx, dy);
+                    const scale = orbitState.pinchStartDist / dist;
+                    orbitState.targetRadius = Math.max(3.8, Math.min(13.0, orbitState.pinchStartRadius * scale));
+                }
+            }, { passive: true });
+
+            domElement.addEventListener('touchend', () => {
+                orbitState.isDragging = false;
+                orbitState.pinchStartDist = 0;
+            });
+        }
+
+        /**
+         * UIボタンのイベント設定
+         */
+        function setupUIButtons() {
+            // カメラアングル移動
+            document.getElementById('btn-view-front').addEventListener('click', () => {
+                setNearestAngle(0);
+                orbitState.targetPhi = Math.PI / 2 - 0.04;
+            });
+
+            document.getElementById('btn-view-side').addEventListener('click', () => {
+                setNearestAngle(Math.PI / 2);
+                orbitState.targetPhi = Math.PI / 2 - 0.04;
+            });
+
+            document.getElementById('btn-view-back').addEventListener('click', () => {
+                setNearestAngle(Math.PI);
+                orbitState.targetPhi = Math.PI / 2 - 0.06;
+            });
+
+            // 自動回転トグル
+            const btnAuto = document.getElementById('btn-autorotate');
+            const labelAuto = document.getElementById('autorotate-label');
+            btnAuto.addEventListener('click', () => {
+                autoRotate = !autoRotate;
+                labelAuto.textContent = autoRotate ? '自動回転: ON' : '自動回転: OFF';
+            });
+
+            // ゆらゆらアニメーショントグル
+            const btnBounce = document.getElementById('btn-bounce');
+            const labelBounce = document.getElementById('bounce-label');
+            btnBounce.addEventListener('click', () => {
+                isBouncing = !isBouncing;
+                labelBounce.textContent = isBouncing ? 'ゆらゆら: ON' : 'ゆらゆら: OFF';
+            });
+
+            // 背景テーマ切替
+            document.getElementById('btn-theme').addEventListener('click', () => {
+                currentThemeIndex = (currentThemeIndex + 1) % themes.length;
+                const theme = themes[currentThemeIndex];
+                document.body.className = `${theme.bgClass} transition-colors duration-500`;
+                scene.fog.color.setHex(theme.fogColor);
+                const pedestalMesh = pedestalGroup.getObjectByName('pedestalMesh');
+                if (pedestalMesh) {
+                    pedestalMesh.material.color.setHex(theme.pedestalColor);
+                }
+            });
+        }
+
+        /**
+         * 現在の回転周回数を考慮して最短経路で指定角度へカメラを向ける
+         */
+        function setNearestAngle(desiredModAngle) {
+            const twoPi = Math.PI * 2;
+            const currentTurns = Math.round((orbitState.targetTheta - desiredModAngle) / twoPi);
+            orbitState.targetTheta = desiredModAngle + currentTurns * twoPi;
+        }
+
+        /**
+         * ウィンドウリサイズ対応
+         */
+        function onWindowResize() {
+            const container = document.getElementById('canvas-container');
+            const width = container.clientWidth || window.innerWidth;
+            const height = container.clientHeight || window.innerHeight;
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+        }
+
+        /**
+         * メインアニメーションループ
+         */
+        function animateLoop() {
+            requestAnimationFrame(animateLoop);
+            const elapsed = clock.getElapsedTime();
+
+            // 自動回転処理（ドラッグ中は一時停止）
+            if (autoRotate && !orbitState.isDragging) {
+                orbitState.targetTheta += 0.008;
+            }
+
+            // フィギュアの優しいゆらゆらアニメーション
+            if (characterGroup) {
+                if (isBouncing) {
+                    characterGroup.position.y = Math.sin(elapsed * 2.2) * 0.035;
+                    characterGroup.rotation.z = Math.sin(elapsed * 1.6) * 0.025;
+                } else {
+                    characterGroup.position.y += (0 - characterGroup.position.y) * 0.1;
+                    characterGroup.rotation.z += (0 - characterGroup.rotation.z) * 0.1;
+                }
+            }
+
+            updateCameraPosition(false);
+            renderer.render(scene, camera);
+        }
+
+        window.onload = function () {
+            init();
+            animateLoop();
+        };
+    </script>
+</body>
+</html>
