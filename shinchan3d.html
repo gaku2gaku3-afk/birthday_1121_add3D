@@ -25,7 +25,10 @@
       height: 100%;
       overflow: hidden;
       font-family: 'M PLUS Rounded 1c', 'Inter', sans-serif;
-      background: radial-gradient(circle at 50% 42%, #ffffff 0%, #f1f5ec 55%, #dfe8d5 100%);
+      background: #f4f1ea;
+    }
+    html.in-iframe, html.in-iframe body {
+      background: transparent !important;
     }
     #canvas-container {
       position: fixed;
@@ -39,11 +42,11 @@
       cursor: grabbing;
     }
     .glass-panel {
-      background: rgba(255, 255, 255, 0.78);
+      background: rgba(255, 255, 255, 0.82);
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
-      border: 1px solid rgba(255, 255, 255, 0.9);
-      box-shadow: 0 10px 30px -5px rgba(55, 78, 35, 0.14);
+      border: 1px solid rgba(216, 211, 199, 0.85);
+      box-shadow: 0 10px 30px -5px rgba(12, 12, 12, 0.10);
     }
     .btn-pill {
       transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
@@ -100,6 +103,11 @@
   </nav>
 
   <script>
+    // iframe内で表示されている場合は親ページ(index.html)の背景色(#f4f1ea / ダーク時#0b0b0b)をそのまま透過させる
+    if (window.self !== window.top) {
+      document.documentElement.classList.add('in-iframe');
+    }
+
     /**
      * クレヨンしんちゃん「もっこもこくつした（カエル）」3D化アプリケーション
      *
