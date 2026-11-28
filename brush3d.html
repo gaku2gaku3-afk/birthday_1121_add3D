@@ -1,0 +1,1514 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>クリニカ アドバンテージ ハブラシ 3Dビューア</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Three.js r128 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800;900&family=Noto+Sans+JP:wght@500;700;900&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Noto Sans JP', 'Inter', sans-serif;
+      background: #f4f1ea;
+    }
+    html.in-iframe, html.in-iframe body {
+      background: transparent !important;
+    }
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+      touch-action: none;
+    }
+    #canvas-container:active {
+      cursor: grabbing;
+    }
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.84);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(216, 211, 199, 0.85);
+      box-shadow: 0 10px 30px -5px rgba(12, 12, 12, 0.10);
+    }
+    .btn-pill {
+      transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .btn-pill:hover {
+      transform: translateY(-1px);
+    }
+    .btn-pill:active {
+      transform: translateY(1px) scale(0.97);
+    }
+    .btn-active {
+      background: linear-gradient(135deg, #0b3d91 0%, #1664c0 100%);
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(11, 61, 145, 0.32);
+    }
+  </style>
+</head>
+<body>
+  <!-- 3D描画キャンバスコンテナ -->
+  <div id="canvas-container"></div>
+
+  <!-- 上部操作ガイド -->
+  <header class="fixed top-4 left-4 right-4 z-10 flex items-center justify-end pointer-events-none">
+    <div class="glass-panel rounded-full px-3.5 py-1.5 text-[11px] sm:text-xs text-slate-600 font-semibold flex items-center gap-2 pointer-events-auto">
+      <span class="inline-block w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+      <span>ドラッグで360°回転 ・ ホイール/ピンチで拡大縮小</span>
+    </div>
+  </header>
+
+  <!-- 下部コントロールバー -->
+  <nav class="fixed bottom-5 left-4 right-4 z-10 flex justify-center pointer-events-none">
+    <div class="glass-panel rounded-2xl sm:rounded-full p-2 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 pointer-events-auto max-w-full">
+      <button id="btn-front" class="btn-pill px-3.5 py-2 rounded-xl sm:rounded-full text-xs sm:text-sm font-bold text-slate-700 hover:bg-blue-50 flex items-center gap-1.5">
+        <span>🪥</span>
+        <span>正面</span>
+      </button>
+      <button id="btn-back" class="btn-pill px-3.5 py-2 rounded-xl sm:rounded-full text-xs sm:text-sm font-bold text-slate-700 hover:bg-blue-50 flex items-center gap-1.5">
+        <span>📄</span>
+        <span>裏面</span>
+      </button>
+      <button id="btn-side" class="btn-pill px-3.5 py-2 rounded-xl sm:rounded-full text-xs sm:text-sm font-bold text-slate-700 hover:bg-blue-50 flex items-center gap-1.5">
+        <span>📏</span>
+        <span>横から（極薄）</span>
+      </button>
+      <div class="hidden sm:block w-px h-5 bg-slate-300/80 mx-0.5"></div>
+      <button id="btn-naked" class="btn-pill px-3.5 py-2 rounded-xl sm:rounded-full text-xs sm:text-sm font-bold text-slate-700 hover:bg-pink-50 flex items-center gap-1.5">
+        <span>✨</span>
+        <span id="naked-text">ブラシ単体</span>
+      </button>
+      <button id="btn-autorotate" class="btn-pill btn-active px-3.5 py-2 rounded-xl sm:rounded-full text-xs sm:text-sm font-bold flex items-center gap-1.5">
+        <span id="autorotate-text">自動回転: ON</span>
+      </button>
+      <button id="btn-reset" class="btn-pill px-3 py-2 rounded-xl sm:rounded-full text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-200/70">
+        リセット
+      </button>
+    </div>
+  </nav>
+
+  <script>
+    // iframe内で埋め込み表示される場合は親ページの背景色を透過させる
+    if (window.self !== window.top) {
+      document.documentElement.classList.add('in-iframe');
+    }
+
+    /**
+     * LION「クリニカ アドバンテージ ハブラシ（3列 超コンパクト やわらかめ）」3D化ビューア
+     *
+     * 【構成・再現ポイント】
+     * 1. パッケージ台紙（Custom ExtrudeGeometry + 表裏高精細Canvasテクスチャ）:
+     *    - 左上のオープンフック穴形状まで再現した台紙輪郭
+     *    - 表面：LIONロゴ、3列 超コンパクト、極薄ヘッド図解、歯科医推奨設計／奥歯のさらに奥まで届く、
+     *      歯の虫眼鏡アイコン、クリニカ CLINICA ADVANTAGE、やわらかめ表示
+     *    - 裏面：製品特長図解、材質・耐熱温度表記、使用上の注意、バーコード
+     * 2. ハブラシ本体（3D精密モデリング）:
+     *    - 極薄ヘッド（側面から見たときの薄型プロファイル）
+     *    - 3列植毛（中央7束・左右各6束＝計19束、約760本の極細毛フィラメントをInstancedMeshで立体配置）
+     *    - ホワイト＆マゼンタピンクのラバーグリップ（親指部の4本滑り止めリブ＆CLINICAロゴ印字）
+     * 3. 透明ブリスターパック（クリア樹脂ドーム＆圧着フランジ）:
+     *    - 光沢反射のある透明カバー。「ブラシ単体」ボタンで着脱可能。
+     */
+
+    // =========================================================================
+    // 1. 共通Canvasヘルパー
+    // =========================================================================
+    function roundRectPath(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    // 縦書きテキスト描画ヘルパー
+    function drawVerticalText(ctx, text, x, y, lineHeight, options = {}) {
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const chars = text.split('');
+      chars.forEach((ch, idx) => {
+        const cy = y + idx * lineHeight;
+        ctx.save();
+        ctx.translate(x, cy);
+        // 長音符「ー」は縦書き用に90度回転
+        if (ch === 'ー' || ch === '〜') {
+          ctx.rotate(Math.PI / 2);
+        }
+        if (options.strokeStyle && options.lineWidth) {
+          ctx.strokeStyle = options.strokeStyle;
+          ctx.lineWidth = options.lineWidth;
+          ctx.lineJoin = 'round';
+          ctx.strokeText(ch, 0, 0);
+        }
+        ctx.fillStyle = options.fillStyle || '#ffffff';
+        ctx.fillText(ch, 0, 0);
+        ctx.restore();
+      });
+      ctx.restore();
+    }
+
+    // =========================================================================
+    // 2. パッケージ台紙（表面・裏面）高精細テクスチャ生成
+    // =========================================================================
+    function createCardFrontTexture() {
+      const W = 512;
+      const H = 2048;
+      const canvas = document.createElement('canvas');
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext('2d');
+
+      // --- ベース背景（下部オフホワイト領域） ---
+      const bottomGrad = ctx.createLinearGradient(0, H * 0.62, 0, H);
+      bottomGrad.addColorStop(0, '#f3f5f8');
+      bottomGrad.addColorStop(1, '#e6e9ef');
+      ctx.fillStyle = bottomGrad;
+      ctx.fillRect(0, 0, W, H);
+
+      // --- 中段ロイヤルブルー〜シアン領域 (y: 17.5% 〜 63.5%) ---
+      const midTop = H * 0.175;
+      const midBot = H * 0.635;
+      const blueGrad = ctx.createLinearGradient(0, midTop, 0, midBot);
+      blueGrad.addColorStop(0.0, '#04174a');
+      blueGrad.addColorStop(0.22, '#072770');
+      blueGrad.addColorStop(0.68, '#0c3f9e');
+      blueGrad.addColorStop(0.86, '#1f7fd1');
+      blueGrad.addColorStop(1.0, '#62c4ec');
+      ctx.fillStyle = blueGrad;
+      ctx.fillRect(0, midTop, W, midBot - midTop);
+
+      // 中段に走る光の斜めストリーク演出
+      ctx.save();
+      const shineGrad = ctx.createLinearGradient(0, midTop + 120, W, midBot - 80);
+      shineGrad.addColorStop(0, 'rgba(255,255,255,0)');
+      shineGrad.addColorStop(0.5, 'rgba(130, 210, 255, 0.14)');
+      shineGrad.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = shineGrad;
+      ctx.fillRect(0, midTop, W, midBot - midTop);
+      ctx.restore();
+
+      // --- 上段ライムイエローグリーン領域 (y: 0 〜 17.5%) ---
+      const topGrad = ctx.createLinearGradient(0, 0, 0, midTop);
+      topGrad.addColorStop(0, '#c6d11b');
+      topGrad.addColorStop(1, '#b5c112');
+      ctx.fillStyle = topGrad;
+      ctx.fillRect(0, 0, W, midTop);
+
+      // 1) 左上「LION」ロゴ
+      ctx.save();
+      ctx.fillStyle = '#115b2b';
+      ctx.font = 'italic 900 44px "Inter", sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('LION', 44, H * 0.036);
+      ctx.restore();
+
+      // 2) 右上縦型カプセル「やわらかめ」
+      ctx.save();
+      const capX = W * 0.875;
+      const capY = H * 0.032;
+      const capW = 36;
+      const capH = 128;
+      ctx.fillStyle = '#ffffff';
+      roundRectPath(ctx, capX - capW / 2, capY, capW, capH, 18);
+      ctx.fill();
+      ctx.strokeStyle = '#d92638';
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      ctx.font = '900 20px "Noto Sans JP", sans-serif';
+      drawVerticalText(ctx, 'やわらかめ', capX, capY + 20, 22, {
+        fillStyle: '#d92638'
+      });
+      ctx.restore();
+
+      // 3) 右寄り「3列」表記
+      ctx.save();
+      ctx.fillStyle = '#0e1b33';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'alphabetic';
+      ctx.font = '900 94px "Inter", sans-serif';
+      ctx.fillText('3', W * 0.72, H * 0.146);
+      ctx.font = '900 56px "Noto Sans JP", sans-serif';
+      ctx.fillText('列', W * 0.85, H * 0.144);
+      ctx.restore();
+
+      // 4) ピンク帯バナー「超コンパクト」
+      ctx.save();
+      const bannerY = H * 0.153;
+      const bannerH = H * 0.025;
+      const pinkGrad = ctx.createLinearGradient(0, bannerY, W, bannerY);
+      pinkGrad.addColorStop(0, '#ee6aa7');
+      pinkGrad.addColorStop(0.5, '#e2468f');
+      pinkGrad.addColorStop(1, '#d83682');
+      ctx.fillStyle = pinkGrad;
+      ctx.fillRect(28, bannerY, W - 56, bannerH);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'left';
+      ctx.font = '900 38px "Noto Sans JP", sans-serif';
+      ctx.fillText('超', 52, bannerY + bannerH / 2 + 1);
+      ctx.font = '900 29px "Noto Sans JP", sans-serif';
+      ctx.fillText('コンパクト', 118, bannerY + bannerH / 2 + 1);
+      ctx.restore();
+
+      // 5) 極薄ヘッド図解ボックス（中段左上）
+      ctx.save();
+      const diagX = 48;
+      const diagY = H * 0.212;
+      const diagW = 205;
+      const diagH = 175;
+
+      // 背景パネル
+      const boxGrad = ctx.createLinearGradient(diagX, diagY, diagX + diagW, diagY + diagH);
+      boxGrad.addColorStop(0, 'rgba(32, 86, 175, 0.85)');
+      boxGrad.addColorStop(1, 'rgba(78, 152, 232, 0.85)');
+      ctx.fillStyle = boxGrad;
+      roundRectPath(ctx, diagX, diagY, diagW, diagH, 10);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(180, 225, 255, 0.75)';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+
+      // 図解内の極薄ヘッド側面イラスト
+      const headX = diagX + 118;
+      const headTop = diagY + 26;
+      // 植毛部分（白い横向き毛束）
+      ctx.fillStyle = '#f8fafc';
+      for (let r = 0; r < 5; r++) {
+        ctx.fillRect(headX - 58, headTop + 10 + r * 14, 58, 9);
+      }
+      // 極薄ヘッド本体＆ネック
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 2;
+      roundRectPath(ctx, headX, headTop + 4, 18, 86, 6);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillRect(headX + 3, headTop + 88, 12, 58);
+
+      // 左右から挟む青い矢印（薄さの強調）
+      ctx.fillStyle = '#0c3b8e';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      // 左矢印
+      ctx.beginPath();
+      ctx.moveTo(headX - 52, headTop + 42);
+      ctx.lineTo(headX - 24, headTop + 42);
+      ctx.lineTo(headX - 24, headTop + 31);
+      ctx.lineTo(headX - 4, headTop + 48);
+      ctx.lineTo(headX - 24, headTop + 65);
+      ctx.lineTo(headX - 24, headTop + 54);
+      ctx.lineTo(headX - 52, headTop + 54);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // 右矢印
+      ctx.beginPath();
+      ctx.moveTo(headX + 66, headTop + 42);
+      ctx.lineTo(headX + 42, headTop + 42);
+      ctx.lineTo(headX + 42, headTop + 31);
+      ctx.lineTo(headX + 22, headTop + 48);
+      ctx.lineTo(headX + 42, headTop + 65);
+      ctx.lineTo(headX + 42, headTop + 54);
+      ctx.lineTo(headX + 66, headTop + 54);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      // 6) 「極薄ヘッド」タイトル文字
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.lineJoin = 'round';
+
+      ctx.font = '900 58px "Noto Sans JP", sans-serif';
+      ctx.strokeStyle = '#041a4d';
+      ctx.lineWidth = 10;
+      ctx.strokeText('極薄', 148, H * 0.326);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText('極薄', 148, H * 0.326);
+
+      ctx.font = '900 44px "Noto Sans JP", sans-serif';
+      ctx.strokeStyle = '#041a4d';
+      ctx.lineWidth = 8;
+      ctx.strokeText('ヘッド', 148, H * 0.356);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText('ヘッド', 148, H * 0.356);
+      ctx.restore();
+
+      // 7) 縦書きキャッチコピー「歯科医推奨設計」「奥歯のさらに奥まで届く」
+      ctx.save();
+      // 右側縦列：歯科医推奨設計
+      ctx.font = '700 28px "Noto Sans JP", sans-serif';
+      drawVerticalText(ctx, '歯科医推奨設計', 194, H * 0.398, 34, {
+        fillStyle: '#e0f2fe',
+        strokeStyle: 'rgba(4, 24, 72, 0.7)',
+        lineWidth: 4
+      });
+
+      // 左側縦列：奥歯のさらに奥まで届く
+      ctx.font = '900 35px "Noto Sans JP", sans-serif';
+      drawVerticalText(ctx, '奥歯のさらに奥まで届く', 132, H * 0.398, 41, {
+        fillStyle: '#ffffff',
+        strokeStyle: 'rgba(4, 24, 72, 0.85)',
+        lineWidth: 5
+      });
+      ctx.restore();
+
+      // 8) 下部白エリア：歯＋虫眼鏡イラスト
+      ctx.save();
+      const toothX = 145;
+      const toothY = H * 0.695;
+
+      // 背景の淡い水色円
+      ctx.fillStyle = 'rgba(130, 210, 235, 0.25)';
+      ctx.beginPath();
+      ctx.arc(toothX, toothY, 54, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 歯のシルエット
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#299ec7';
+      ctx.lineWidth = 5;
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(toothX - 32, toothY - 24);
+      ctx.bezierCurveTo(toothX - 32, toothY - 42, toothX - 8, toothY - 42, toothX, toothY - 30);
+      ctx.bezierCurveTo(toothX + 8, toothY - 42, toothX + 32, toothY - 42, toothX + 32, toothY - 24);
+      ctx.bezierCurveTo(toothX + 34, toothY - 2, toothX + 26, toothY + 34, toothX + 14, toothY + 34);
+      ctx.bezierCurveTo(toothX + 6, toothY + 34, toothX + 5, toothY + 10, toothX, toothY + 10);
+      ctx.bezierCurveTo(toothX - 5, toothY + 10, toothX - 6, toothY + 34, toothX - 14, toothY + 34);
+      ctx.bezierCurveTo(toothX - 26, toothY + 34, toothX - 34, toothY - 2, toothX - 32, toothY - 24);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // 虫眼鏡リング＆持ち手
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 4.5;
+      ctx.beginPath();
+      ctx.arc(toothX + 12, toothY - 4, 24, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(toothX + 29, toothY + 13);
+      ctx.lineTo(toothX + 46, toothY + 30);
+      ctx.stroke();
+
+      // キラッと光る星マーク
+      ctx.fillStyle = '#0ea5e9';
+      ctx.beginPath();
+      const sx = toothX + 10;
+      const sy = toothY - 5;
+      ctx.moveTo(sx, sy - 11);
+      ctx.lineTo(sx + 3, sy - 3);
+      ctx.lineTo(sx + 11, sy);
+      ctx.lineTo(sx + 3, sy + 3);
+      ctx.lineTo(sx, sy + 11);
+      ctx.lineTo(sx - 3, sy + 3);
+      ctx.lineTo(sx - 11, sy);
+      ctx.lineTo(sx - 3, sy - 3);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      // 9) 下部縦書きブランドロゴ「予防歯科から生まれた」「クリニカ」「CLINICA ADVANTAGE」
+      ctx.save();
+      // 予防歯科から生まれた（2列縦書き）
+      ctx.font = '700 22px "Noto Sans JP", sans-serif';
+      drawVerticalText(ctx, '予防歯科から', 216, H * 0.768, 25, { fillStyle: '#334155' });
+      drawVerticalText(ctx, '生まれた', 188, H * 0.768, 25, { fillStyle: '#334155' });
+
+      // メインブランドロゴ「クリニカ」（大きく鮮やかなクリニカブルー）
+      ctx.font = '900 72px "Noto Sans JP", sans-serif';
+      drawVerticalText(ctx, 'クリニカ', 136, H * 0.845, 76, {
+        fillStyle: '#0b57a4',
+        strokeStyle: '#ffffff',
+        lineWidth: 4
+      });
+
+      // 左端の縦向き英字「CLINICA ADVANTAGE」＋シアンアクセントバー
+      ctx.fillStyle = '#19a7ce';
+      ctx.fillRect(62, H * 0.892, 16, H * 0.045);
+
+      ctx.save();
+      ctx.translate(70, H * 0.742);
+      ctx.rotate(Math.PI / 2);
+      ctx.fillStyle = '#1e293b';
+      ctx.font = '800 21px "Inter", sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('CLINICA ADVANTAGE', 0, 0);
+      ctx.restore();
+      ctx.restore();
+
+      // 10) 最下部左：「毛のかたさ」「やわらかめ」カプセル
+      ctx.save();
+      ctx.fillStyle = '#334155';
+      ctx.font = '700 20px "Noto Sans JP", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('毛のかたさ', 142, H * 0.953);
+
+      roundRectPath(ctx, 56, H * 0.961, 172, 42, 21);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+      ctx.strokeStyle = '#d92638';
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      ctx.fillStyle = '#d92638';
+      ctx.font = '900 25px "Noto Sans JP", sans-serif';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('やわらかめ', 142, H * 0.961 + 22);
+      ctx.restore();
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.encoding = THREE.sRGBEncoding;
+      tex.anisotropy = 8;
+      return tex;
+    }
+
+    function createCardBackTexture() {
+      const W = 512;
+      const H = 2048;
+      const canvas = document.createElement('canvas');
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext('2d');
+
+      // 台紙裏面（ナチュラルクラフトホワイト紙）
+      ctx.fillStyle = '#f2f1ed';
+      ctx.fillRect(0, 0, W, H);
+
+      // 上部ヘッダー帯
+      ctx.fillStyle = '#0b3d91';
+      ctx.fillRect(28, H * 0.09, W - 56, 72);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '900 24px "Noto Sans JP", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('クリニカ アドバンテージ ハブラシ', W / 2, H * 0.09 + 32);
+      ctx.font = '700 18px "Noto Sans JP", sans-serif';
+      ctx.fillStyle = '#bae6fd';
+      ctx.fillText('3列 超コンパクト ／ やわらかめ', W / 2, H * 0.09 + 58);
+
+      // 特長説明セクション
+      const sections = [
+        {
+          y: H * 0.145,
+          title: '1. 歯科医推奨設計の「極薄ヘッド」',
+          body: 'ヘッドの厚みを極限まで薄くした2.6mm設計。お口の中で動かしやすく、奥歯のさらに奥まで無理なく届きます。'
+        },
+        {
+          y: H * 0.255,
+          title: '2. 弾力フィット毛で歯垢をかき出す',
+          body: 'コシのある弾力フィット毛が歯面や歯と歯ぐきの境目にしっかり密着し、プラークを効率よく除去します。'
+        },
+        {
+          y: H * 0.365,
+          title: '3. ペングリップで持ちやすい六角形スリムネック',
+          body: '軽い力で小刻みに動かしやすいスリムネック＆すべりにくいラバーグリップを採用。'
+        }
+      ];
+
+      sections.forEach((sec) => {
+        roundRectPath(ctx, 32, sec.y, W - 64, 180, 14);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.fillStyle = '#0b57a4';
+        ctx.font = '900 20px "Noto Sans JP", sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(sec.title, 48, sec.y + 38);
+
+        ctx.fillStyle = '#334155';
+        ctx.font = '500 17px "Noto Sans JP", sans-serif';
+        wrapText(ctx, sec.body, 48, sec.y + 74, W - 96, 28);
+      });
+
+      // 品質表示テーブル
+      const tableY = H * 0.48;
+      roundRectPath(ctx, 32, tableY, W - 64, 340, 12);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      const specs = [
+        ['柄の材質', '本体：ポリプロピレン / ラバー部：EPDM、ポリプロピレン'],
+        ['毛の材質', '飽和ポリエステル樹脂'],
+        ['毛の硬さ', 'やわらかめ'],
+        ['耐熱温度', '80℃'],
+        ['原産国', '日本（MADE IN JAPAN）']
+      ];
+      specs.forEach((row, i) => {
+        const ry = tableY + 42 + i * 62;
+        if (i > 0) {
+          ctx.strokeStyle = '#e2e8f0';
+          ctx.beginPath();
+          ctx.moveTo(44, ry - 26);
+          ctx.lineTo(W - 44, ry - 26);
+          ctx.stroke();
+        }
+        ctx.fillStyle = '#0f172a';
+        ctx.font = '700 17px "Noto Sans JP", sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(row[0], 48, ry);
+
+        ctx.fillStyle = '#475569';
+        ctx.font = '500 15px "Noto Sans JP", sans-serif';
+        ctx.fillText(row[1], 145, ry);
+      });
+
+      // ご注意＆メーカー表記
+      const noteY = H * 0.67;
+      ctx.fillStyle = '#334155';
+      ctx.font = '700 18px "Noto Sans JP", sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('【使用上の注意】', 36, noteY);
+      ctx.font = '500 16px "Noto Sans JP", sans-serif';
+      wrapText(
+        ctx,
+        '●毛先がひらいたらとりかえましょう。●軽い力で小刻みに磨きましょう。力を入れすぎると、歯ぐきを傷つけるとともに、毛先もひらきやすくなります。',
+        36,
+        noteY + 34,
+        W - 72,
+        26
+      );
+
+      // LION 会社情報
+      ctx.fillStyle = '#115b2b';
+      ctx.font = 'italic 900 34px "Inter", sans-serif';
+      ctx.fillText('LION', 36, H * 0.805);
+      ctx.fillStyle = '#1e293b';
+      ctx.font = '700 18px "Noto Sans JP", sans-serif';
+      ctx.fillText('ライオン株式会社', 132, H * 0.803);
+      ctx.font = '500 15px "Noto Sans JP", sans-serif';
+      ctx.fillStyle = '#475569';
+      ctx.fillText('〒111-8644 東京都台東区蔵前1-3-28', 36, H * 0.824);
+      ctx.fillText('お問合せ先 0120-556-913', 36, H * 0.840);
+
+      // プラ・紙マーク
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 2.5;
+      roundRectPath(ctx, W - 150, H * 0.79, 46, 36, 6);
+      ctx.stroke();
+      roundRectPath(ctx, W - 92, H * 0.79, 46, 36, 6);
+      ctx.stroke();
+      ctx.fillStyle = '#334155';
+      ctx.font = '700 16px "Noto Sans JP", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('プラ', W - 127, H * 0.79 + 24);
+      ctx.fillText('紙', W - 69, H * 0.79 + 24);
+
+      // JANバーコード枠
+      const barX = 76;
+      const barY = H * 0.875;
+      const barW = W - 152;
+      const barH = 140;
+      ctx.fillStyle = '#ffffff';
+      roundRectPath(ctx, barX, barY, barW, barH, 10);
+      ctx.fill();
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.stroke();
+
+      // バーコード縦縞
+      const pattern = [3, 1, 2, 1, 3, 2, 1, 1, 3, 1, 2, 2, 1, 3, 1, 2, 1, 1, 3, 2, 1, 2, 3, 1, 1, 2, 2, 1, 3, 1];
+      let cx = barX + 34;
+      ctx.fillStyle = '#0f172a';
+      pattern.forEach((w, idx) => {
+        const bw = w * 3.2;
+        if (idx % 2 === 0) {
+          ctx.fillRect(cx, barY + 18, bw, 76);
+        }
+        cx += bw + 2.5;
+      });
+      ctx.font = '700 22px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('4 903301 247005', W / 2, barY + 122);
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.encoding = THREE.sRGBEncoding;
+      tex.anisotropy = 8;
+      return tex;
+    }
+
+    function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+      let line = '';
+      let curY = y;
+      for (let i = 0; i < text.length; i++) {
+        const testLine = line + text[i];
+        if (ctx.measureText(testLine).width > maxWidth && line !== '') {
+          ctx.fillText(line, x, curY);
+          line = text[i];
+          curY += lineHeight;
+        } else {
+          line = testLine;
+        }
+      }
+      ctx.fillText(line, x, curY);
+    }
+
+    // =========================================================================
+    // 3. パッケージ台紙の3Dジオメトリ（左上オープンフック切り欠き付き）
+    // =========================================================================
+    function createBackingCardMesh(frontTex, backTex) {
+      const W = 1.38;
+      const H = 5.52;
+      const halfW = W / 2;
+      const halfH = H / 2;
+      const depth = 0.022;
+
+      // 添付画像の台紙外周シルエット（時計回り / 反時計回りパス）
+      // x: -halfW .. +halfW, y: -halfH .. +halfH
+      const s = new THREE.Shape();
+      const r = 0.06;
+
+      // 左下から反時計回りに開始
+      s.moveTo(-halfW + r, -halfH);
+      // 底辺 -> 右下角丸
+      s.lineTo(halfW - r, -halfH);
+      s.quadraticCurveTo(halfW, -halfH, halfW, -halfH + r);
+      // 右辺 -> 右上角丸
+      s.lineTo(halfW, halfH - r * 1.4);
+      s.quadraticCurveTo(halfW, halfH, halfW - r * 1.4, halfH);
+      // 上辺 -> 左上角丸
+      s.lineTo(-halfW + r * 2.2, halfH);
+      s.quadraticCurveTo(-halfW + r * 0.4, halfH, -halfW + r * 0.4, halfH - r * 2.0);
+      // 左上フック耳の左側を下へ
+      s.lineTo(-halfW + r * 0.4, halfH - 0.34);
+      s.quadraticCurveTo(-halfW + r * 0.4, halfH - 0.44, -halfW + 0.16, halfH - 0.44);
+      // フック開口部から内部スロットへ
+      s.lineTo(-halfW + 0.36, halfH - 0.44);
+      s.quadraticCurveTo(-halfW + 0.44, halfH - 0.44, -halfW + 0.44, halfH - 0.34);
+      s.lineTo(-halfW + 0.44, halfH - 0.24);
+      s.quadraticCurveTo(-halfW + 0.44, halfH - 0.14, -halfW + 0.56, halfH - 0.14);
+      // スロット上辺
+      s.lineTo(-halfW + 0.84, halfH - 0.14);
+      s.quadraticCurveTo(-halfW + 0.96, halfH - 0.14, -halfW + 0.96, halfH - 0.25);
+      // スロット右辺
+      s.lineTo(-halfW + 0.96, halfH - 0.43);
+      s.quadraticCurveTo(-halfW + 0.96, halfH - 0.54, -halfW + 0.84, halfH - 0.54);
+      // 左側へ抜けるフック出口下辺
+      s.lineTo(-halfW + 0.10, halfH - 0.54);
+      s.quadraticCurveTo(-halfW, halfH - 0.54, -halfW, halfH - 0.65);
+      // 左辺をまっすぐ下へ -> 左下角丸
+      s.lineTo(-halfW, -halfH + r);
+      s.quadraticCurveTo(-halfW, -halfH, -halfW + r, -halfH);
+
+      const extrudeSettings = {
+        depth: depth,
+        bevelEnabled: true,
+        bevelThickness: 0.003,
+        bevelSize: 0.003,
+        bevelSegments: 2
+      };
+
+      const geo = new THREE.ExtrudeGeometry(s, extrudeSettings);
+
+      // UV座標を台紙バウンディングボックス [0..1] に正規化マッピング
+      const pos = geo.attributes.position;
+      const norm = geo.attributes.normal;
+      const uv = geo.attributes.uv;
+
+      for (let i = 0; i < pos.count; i++) {
+        const px = pos.getX(i);
+        const py = pos.getY(i);
+        const nz = norm.getZ(i);
+
+        let u = (px + halfW) / W;
+        const v = (py + halfH) / H;
+
+        // 裏面（nz < 0）は左右反転して正像になるようUを反転
+        if (nz < 0) {
+          u = 1.0 - u;
+        }
+        uv.setXY(i, u, v);
+      }
+      uv.needsUpdate = true;
+
+      // マテリアルグループ設定：表面(frontTex) / 裏面(backTex) / 側面(紙の断面色)
+      // ExtrudeGeometryはグループ0: 前後面, グループ1: 側面 を生成するため、前後面を分離する
+      geo.clearGroups();
+      const indexCount = pos.count;
+      // 非インデックスジオメトリなので3頂点=1ポリゴン単位で法線Z向きから表面/裏面/側面を振り分け
+      let currentMat = -1;
+      let groupStart = 0;
+
+      for (let i = 0; i < indexCount; i += 3) {
+        const nz = (norm.getZ(i) + norm.getZ(i + 1) + norm.getZ(i + 2)) / 3;
+        let matIdx = 2; // 側面
+        if (nz > 0.5) matIdx = 0; // 表面
+        else if (nz < -0.5) matIdx = 1; // 裏面
+
+        if (matIdx !== currentMat) {
+          if (currentMat !== -1) {
+            geo.addGroup(groupStart, i - groupStart, currentMat);
+          }
+          currentMat = matIdx;
+          groupStart = i;
+        }
+      }
+      if (currentMat !== -1) {
+        geo.addGroup(groupStart, indexCount - groupStart, currentMat);
+      }
+
+      const frontMat = new THREE.MeshStandardMaterial({
+        map: frontTex,
+        roughness: 0.34,
+        metalness: 0.03
+      });
+      const backMat = new THREE.MeshStandardMaterial({
+        map: backTex,
+        roughness: 0.58,
+        metalness: 0.01
+      });
+      const edgeMat = new THREE.MeshStandardMaterial({
+        color: 0xe7e5df,
+        roughness: 0.75
+      });
+
+      const cardMesh = new THREE.Mesh(geo, [frontMat, backMat, edgeMat]);
+      cardMesh.position.z = -depth / 2;
+      cardMesh.castShadow = true;
+      cardMesh.receiveShadow = true;
+
+      return cardMesh;
+    }
+
+    // =========================================================================
+    // 4. クリニカ アドバンテージ ハブラシ本体（3D精密モデリング）
+    // =========================================================================
+    function createClinicaToothbrush() {
+      const brushGroup = new THREE.Group();
+
+      // 共通マテリアル
+      const whitePolyMat = new THREE.MeshPhysicalMaterial({
+        color: 0xfbfcfd,
+        roughness: 0.18,
+        metalness: 0.0,
+        clearcoat: 0.65,
+        clearcoatRoughness: 0.14
+      });
+
+      const pinkRubberMat = new THREE.MeshStandardMaterial({
+        color: 0xc91e6b,
+        roughness: 0.58,
+        metalness: 0.02
+      });
+
+      // -----------------------------------------------------------------------
+      // 4-1. 極薄ヘッド（スーパーコンパクト楕円形・厚みわずか0.068）
+      // -----------------------------------------------------------------------
+      const headW = 0.235;
+      const headH = 0.56;
+      const headThick = 0.064; // 極薄ヘッドの薄さを強調
+
+      const headShape = new THREE.Shape();
+      headShape.absellipse(0, 0, headW / 2, headH / 2, 0, Math.PI * 2, false, 0);
+
+      const headGeo = new THREE.ExtrudeGeometry(headShape, {
+        depth: headThick,
+        bevelEnabled: true,
+        bevelThickness: 0.012,
+        bevelSize: 0.012,
+        bevelSegments: 4,
+        curveSegments: 32
+      });
+      const headMesh = new THREE.Mesh(headGeo, whitePolyMat);
+      headMesh.position.set(0, 1.88, -headThick / 2);
+      headMesh.castShadow = true;
+      headMesh.receiveShadow = true;
+      brushGroup.add(headMesh);
+
+      // -----------------------------------------------------------------------
+      // 4-2. 3列植毛ブラシ（中央7束・左右各6束＝計19束、極細毛フィラメント）
+      // -----------------------------------------------------------------------
+      const tufts = [];
+      // 中央列（7束）
+      for (let i = 0; i < 7; i++) {
+        const ty = 1.65 + (i / 6) * 0.46;
+        tufts.push({ x: 0, y: ty, len: 0.255 });
+      }
+      // 左右列（各6束）
+      for (let i = 0; i < 6; i++) {
+        const ty = 1.685 + (i / 5) * 0.39;
+        // ヘッド楕円に沿って上下端は少し内側に寄せる
+        const normY = (ty - 1.88) / 0.24;
+        const xOffset = 0.064 * Math.sqrt(Math.max(0.45, 1 - normY * normY * 0.55));
+        tufts.push({ x: -xOffset, y: ty, len: 0.245 });
+        tufts.push({ x: xOffset, y: ty, len: 0.245 });
+      }
+
+      const bristlesPerTuft = 38;
+      const totalBristles = tufts.length * bristlesPerTuft;
+
+      // 先端に向かって細くなる極細毛ジオメトリ
+      const bristleGeo = new THREE.CylinderGeometry(0.0014, 0.0028, 1.0, 5);
+      bristleGeo.rotateX(Math.PI / 2); // +Z方向（手前）へ植毛
+      bristleGeo.translate(0, 0, 0.5);
+
+      const bristleMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        roughness: 0.28,
+        metalness: 0.02
+      });
+
+      const bristleInstanced = new THREE.InstancedMesh(bristleGeo, bristleMat, totalBristles);
+      const dummy = new THREE.Object3D();
+      const color = new THREE.Color();
+
+      let idx = 0;
+      tufts.forEach((tuft, tIdx) => {
+        for (let b = 0; b < bristlesPerTuft; b++) {
+          // 黄金角スパイラルで毛束内に均一配置
+          const angle = b * 2.39996 + tIdx;
+          const radius = Math.sqrt(b / bristlesPerTuft) * 0.021;
+          const bx = tuft.x + Math.cos(angle) * radius;
+          const by = tuft.y + Math.sin(angle) * radius;
+
+          dummy.position.set(bx, by, headThick / 2 + 0.006);
+          // 毛束の外周に向かってわずかに広がる自然な開き角
+          dummy.rotation.set(
+            Math.sin(angle) * radius * 1.6,
+            -Math.cos(angle) * radius * 1.6,
+            0
+          );
+          const lenScale = tuft.len * (0.95 + (b % 5) * 0.02);
+          dummy.scale.set(1, 1, lenScale);
+          dummy.updateMatrix();
+          bristleInstanced.setMatrixAt(idx, dummy.matrix);
+
+          // わずかに透明感のある白〜パールホワイトの色味差
+          const shade = 0.94 + (b % 4) * 0.018;
+          color.setRGB(shade, shade + 0.01, 1.0);
+          bristleInstanced.setColorAt(idx, color);
+          idx++;
+        }
+      });
+      bristleInstanced.instanceMatrix.needsUpdate = true;
+      if (bristleInstanced.instanceColor) bristleInstanced.instanceColor.needsUpdate = true;
+      brushGroup.add(bristleInstanced);
+
+      // -----------------------------------------------------------------------
+      // 4-3. スリムネック＆ホワイト外枠ハンドル（断面プロファイルスイープ）
+      // -----------------------------------------------------------------------
+      const bodyHeightSegs = 90;
+      const bodyRadSegs = 32;
+      const yTop = 1.62;
+      const yBot = -2.54;
+
+      function getHandleProfile(y) {
+        // y: 1.62 (ヘッド付け根) -> 0.52 (肩) -> -2.54 (ハンドル下端)
+        let halfW = 0.068;
+        let halfT = 0.036;
+
+        if (y > 0.56) {
+          // スリムネック区間 (0.56 .. 1.62)
+          const t = (y - 0.56) / (1.62 - 0.56);
+          halfW = 0.078 - 0.016 * t;
+          halfT = 0.044 - 0.008 * t;
+        } else if (y > 0.34) {
+          // ネックからグリップ肩へのフレア拡張 (0.34 .. 0.56)
+          const t = (y - 0.34) / (0.56 - 0.34);
+          const smooth = t * t * (3 - 2 * t);
+          halfW = 0.168 - (0.168 - 0.078) * smooth;
+          halfT = 0.088 - (0.088 - 0.044) * smooth;
+        } else if (y > -2.42) {
+          // メインハンドル区間 (-2.42 .. 0.34)
+          const t = (0.34 - y) / (0.34 - (-2.42)); // 0(上) -> 1(下)
+          // 中央付近がわずかにくびれ、下部でしっかり握れる人間工学カーブ
+          const waist = Math.sin(t * Math.PI) * 0.018;
+          halfW = 0.168 - waist - 0.016 * t;
+          halfT = 0.088 - waist * 0.5;
+        } else {
+          // ハンドル下端の丸みキャップ (-2.54 .. -2.42)
+          const t = (-2.42 - y) / 0.12;
+          const dome = Math.sqrt(Math.max(0.001, 1 - t * t));
+          halfW = 0.152 * dome;
+          halfT = 0.086 * dome;
+        }
+        return { halfW, halfT };
+      }
+
+      const bPos = [];
+      const bIdx = [];
+
+      for (let iy = 0; iy <= bodyHeightSegs; iy++) {
+        const v = iy / bodyHeightSegs;
+        const y = yTop - v * (yTop - yBot);
+        const { halfW, halfT } = getHandleProfile(y);
+
+        for (let ix = 0; ix <= bodyRadSegs; ix++) {
+          const u = ix / bodyRadSegs;
+          const theta = u * Math.PI * 2;
+          const cosT = Math.cos(theta);
+          const sinT = Math.sin(theta);
+
+          // 六角形〜角丸断面（スーパエリップス指数 0.72）
+          const exp = 0.72;
+          const sx = Math.sign(cosT) * Math.pow(Math.abs(cosT), exp);
+          const sz = Math.sign(sinT) * Math.pow(Math.abs(sinT), exp);
+
+          bPos.push(sx * halfW, y, sz * halfT);
+        }
+      }
+
+      for (let iy = 0; iy < bodyHeightSegs; iy++) {
+        for (let ix = 0; ix < bodyRadSegs; ix++) {
+          const a = iy * (bodyRadSegs + 1) + ix;
+          const b = a + 1;
+          const c = (iy + 1) * (bodyRadSegs + 1) + ix;
+          const d = c + 1;
+          bIdx.push(a, c, b);
+          bIdx.push(b, c, d);
+        }
+      }
+
+      const handleGeo = new THREE.BufferGeometry();
+      handleGeo.setAttribute('position', new THREE.Float32BufferAttribute(bPos, 3));
+      handleGeo.setIndex(bIdx);
+      handleGeo.computeVertexNormals();
+
+      const handleMesh = new THREE.Mesh(handleGeo, whitePolyMat);
+      handleMesh.castShadow = true;
+      handleMesh.receiveShadow = true;
+      brushGroup.add(handleMesh);
+
+      // -----------------------------------------------------------------------
+      // 4-4. マゼンタピンクのラバーグリップ（表裏＋滑り止め4段リブ＋CLINICAロゴ）
+      // -----------------------------------------------------------------------
+      const gripShape = new THREE.Shape();
+      // 上端（肩の三角形風頂点 y = +0.44）〜下端（丸み y = -2.44）
+      gripShape.moveTo(0, 0.44);
+      gripShape.quadraticCurveTo(0.115, 0.34, 0.122, 0.22);
+      gripShape.bezierCurveTo(0.115, -0.35, 0.105, -0.85, 0.115, -1.45);
+      gripShape.lineTo(0.112, -2.34);
+      gripShape.quadraticCurveTo(0.112, -2.45, 0, -2.45);
+      gripShape.quadraticCurveTo(-0.112, -2.45, -0.112, -2.34);
+      gripShape.lineTo(-0.115, -1.45);
+      gripShape.bezierCurveTo(-0.105, -0.85, -0.115, -0.35, -0.122, 0.22);
+      gripShape.quadraticCurveTo(-0.115, 0.34, 0, 0.44);
+
+      const gripGeo = new THREE.ExtrudeGeometry(gripShape, {
+        depth: 0.168,
+        bevelEnabled: true,
+        bevelThickness: 0.012,
+        bevelSize: 0.008,
+        bevelSegments: 3
+      });
+      const gripMesh = new THREE.Mesh(gripGeo, pinkRubberMat);
+      gripMesh.position.set(0, 0, -0.084);
+      gripMesh.castShadow = true;
+      gripMesh.receiveShadow = true;
+      brushGroup.add(gripMesh);
+
+      // 上部親指位置の4本横リブ（立体突起）
+      for (let r = 0; r < 4; r++) {
+        const ry = 0.20 - r * 0.135;
+        const ribGeo = new THREE.BoxGeometry(0.185, 0.042, 0.198);
+        const ribMesh = new THREE.Mesh(ribGeo, pinkRubberMat);
+        ribMesh.position.set(0, ry, 0);
+        brushGroup.add(ribMesh);
+      }
+
+      // 下部グリップ上の白い「CLINICA」ロゴプレート（表裏両面）
+      const logoCanvas = document.createElement('canvas');
+      logoCanvas.width = 128;
+      logoCanvas.height = 512;
+      const lCtx = logoCanvas.getContext('2d');
+      lCtx.clearRect(0, 0, 128, 512);
+      lCtx.save();
+      lCtx.translate(64, 256);
+      lCtx.rotate(Math.PI / 2);
+      lCtx.fillStyle = '#ffffff';
+      lCtx.font = '800 54px "Inter", sans-serif';
+      lCtx.textAlign = 'center';
+      lCtx.textBaseline = 'middle';
+      lCtx.fillText('CLINICA', 0, 0);
+      lCtx.restore();
+
+      const clinicaLogoTex = new THREE.CanvasTexture(logoCanvas);
+      clinicaLogoTex.encoding = THREE.sRGBEncoding;
+
+      const logoMat = new THREE.MeshBasicMaterial({
+        map: clinicaLogoTex,
+        transparent: true,
+        depthWrite: false
+      });
+
+      const frontLogo = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.60), logoMat);
+      frontLogo.position.set(0, -1.96, 0.098);
+      brushGroup.add(frontLogo);
+
+      const backLogo = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 0.60), logoMat);
+      backLogo.rotation.y = Math.PI;
+      backLogo.position.set(0, -1.96, -0.098);
+      brushGroup.add(backLogo);
+
+      return brushGroup;
+    }
+
+    // =========================================================================
+    // 5. 透明ブリスターカバー（歯ブラシを覆う立体クリアドーム）
+    // =========================================================================
+    function createBlisterCover() {
+      const blisterGroup = new THREE.Group();
+
+      const yTop = 2.28;
+      const yBot = -2.64;
+      const hSegs = 80;
+      const rSegs = 40;
+
+      // ブリスターの輪郭プロファイル（ヘッド側が広く、ネックでくびれ、ハンドルで再び広がる）
+      function getBlisterProfile(y) {
+        let halfW = 0.22;
+        let depthZ = 0.26;
+
+        if (y > 2.16) {
+          // 上端ドーム丸め
+          const t = (y - 2.16) / (2.28 - 2.16);
+          const cap = Math.sqrt(Math.max(0.01, 1 - t * t));
+          halfW = 0.245 * cap;
+          depthZ = 0.36 * cap;
+        } else if (y > 1.56) {
+          // ヘッド収納ワイド空間 (1.56 .. 2.16)
+          halfW = 0.245;
+          depthZ = 0.36;
+        } else if (y > 1.38) {
+          // ヘッドからネックへのくびれ遷移 (1.38 .. 1.56)
+          const t = (y - 1.38) / (1.56 - 1.38);
+          const smooth = t * t * (3 - 2 * t);
+          halfW = 0.165 + (0.245 - 0.165) * smooth;
+          depthZ = 0.21 + (0.36 - 0.21) * smooth;
+        } else if (y > 0.64) {
+          // ネック部分 (0.64 .. 1.38)
+          halfW = 0.165;
+          depthZ = 0.21;
+        } else if (y > 0.42) {
+          // ハンドル肩の広がり (0.42 .. 0.64)
+          const t = (y - 0.42) / (0.64 - 0.42);
+          const smooth = t * t * (3 - 2 * t);
+          halfW = 0.228 - (0.228 - 0.165) * smooth;
+          depthZ = 0.24 - (0.24 - 0.21) * smooth;
+        } else if (y > -2.50) {
+          // ハンドル収納部 (-2.50 .. 0.42)
+          halfW = 0.228;
+          depthZ = 0.24;
+        } else {
+          // 下端ラウンド (-2.64 .. -2.50)
+          const t = (-2.50 - y) / 0.14;
+          const cap = Math.sqrt(Math.max(0.01, 1 - t * t));
+          halfW = 0.228 * cap;
+          depthZ = 0.24 * cap;
+        }
+        return { halfW, depthZ };
+      }
+
+      const pos = [];
+      const idx = [];
+
+      // 半円筒アーチ断面（theta: 0 .. PI, z >= 0 のドーム形状）
+      for (let iy = 0; iy <= hSegs; iy++) {
+        const v = iy / hSegs;
+        const y = yTop - v * (yTop - yBot);
+        const { halfW, depthZ } = getBlisterProfile(y);
+
+        for (let ix = 0; ix <= rSegs; ix++) {
+          const u = ix / rSegs;
+          const theta = u * Math.PI; // 0(右端) -> PI/2(手前頂点) -> PI(左端)
+          const cosT = Math.cos(theta);
+          const sinT = Math.sin(theta);
+
+          // 角丸箱型ブリスター断面（スーパエリップス）
+          const exp = 0.68;
+          const x = Math.sign(cosT) * Math.pow(Math.abs(cosT), exp) * halfW;
+          const z = Math.pow(sinT, exp) * depthZ;
+
+          pos.push(x, y, z);
+        }
+      }
+
+      for (let iy = 0; iy < hSegs; iy++) {
+        for (let ix = 0; ix < rSegs; ix++) {
+          const a = iy * (rSegs + 1) + ix;
+          const b = a + 1;
+          const c = (iy + 1) * (rSegs + 1) + ix;
+          const d = c + 1;
+          idx.push(a, c, b);
+          idx.push(b, c, d);
+        }
+      }
+
+      const domeGeo = new THREE.BufferGeometry();
+      domeGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      domeGeo.setIndex(idx);
+      domeGeo.computeVertexNormals();
+
+      const plasticMat = new THREE.MeshPhysicalMaterial({
+        color: 0xf4f9ff,
+        transparent: true,
+        opacity: 0.25,
+        roughness: 0.07,
+        metalness: 0.02,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.05,
+        reflectivity: 0.95,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      });
+
+      const domeMesh = new THREE.Mesh(domeGeo, plasticMat);
+      blisterGroup.add(domeMesh);
+
+      // 台紙に熱圧着されたブリスターの外周フランジ枠
+      const flangeGeo = new THREE.PlaneGeometry(0.58, 5.04);
+      const flangeMat = new THREE.MeshPhysicalMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.14,
+        roughness: 0.12,
+        clearcoat: 0.9,
+        depthWrite: false
+      });
+      const flangeMesh = new THREE.Mesh(flangeGeo, flangeMat);
+      flangeMesh.position.set(0, -0.18, 0.002);
+      blisterGroup.add(flangeMesh);
+
+      return blisterGroup;
+    }
+
+    // =========================================================================
+    // 6. メインシーン構築＆360度オービット操作
+    // =========================================================================
+    window.onload = function () {
+      const container = document.getElementById('canvas-container');
+
+      const scene = new THREE.Scene();
+
+      const camera = new THREE.PerspectiveCamera(
+        36,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100
+      );
+
+      const renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+        powerPreference: 'high-performance'
+      });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.06;
+      container.appendChild(renderer.domElement);
+
+      // --- スタジオライティング（光沢プラスチック＆台紙の陰影を美しく表現） ---
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.74);
+      scene.add(ambientLight);
+
+      const keyLight = new THREE.DirectionalLight(0xffffff, 0.92);
+      keyLight.position.set(3.8, 5.5, 5.2);
+      keyLight.castShadow = true;
+      keyLight.shadow.mapSize.width = 1024;
+      keyLight.shadow.mapSize.height = 1024;
+      keyLight.shadow.camera.near = 1;
+      keyLight.shadow.camera.far = 18;
+      keyLight.shadow.bias = -0.0005;
+      scene.add(keyLight);
+
+      const fillLight = new THREE.DirectionalLight(0xe0f2fe, 0.48);
+      fillLight.position.set(-4.5, 1.5, -3.5);
+      scene.add(fillLight);
+
+      const rimLight = new THREE.DirectionalLight(0xffffff, 0.50);
+      rimLight.position.set(-1.5, 4.0, -5.5);
+      scene.add(rimLight);
+
+      // 床面ドロップシャドウ
+      const shadowPlane = new THREE.Mesh(
+        new THREE.PlaneGeometry(14, 14),
+        new THREE.ShadowMaterial({ opacity: 0.13 })
+      );
+      shadowPlane.rotation.x = -Math.PI / 2;
+      shadowPlane.position.y = -3.05;
+      shadowPlane.receiveShadow = true;
+      scene.add(shadowPlane);
+
+      // --- 製品グループ組み立て ---
+      const productGroup = new THREE.Group();
+      scene.add(productGroup);
+
+      // 1) パッケージ台紙
+      const frontTex = createCardFrontTexture();
+      const backTex = createCardBackTexture();
+      const cardMesh = createBackingCardMesh(frontTex, backTex);
+      productGroup.add(cardMesh);
+
+      // 2) クリニカ ハブラシ本体（台紙右半分に配置）
+      const brushGroup = createClinicaToothbrush();
+      brushGroup.position.set(0.245, -0.14, 0.085);
+      productGroup.add(brushGroup);
+
+      // 3) 透明ブリスターカバー
+      const blisterGroup = createBlisterCover();
+      blisterGroup.position.set(0.245, 0.0, 0.012);
+      productGroup.add(blisterGroup);
+
+      // --- 360度カメラオービット状態管理 ---
+      const orbitState = {
+        theta: 0.0,
+        phi: Math.PI / 2 - 0.03,
+        radius: 9.6,
+        targetTheta: 0.0,
+        targetPhi: Math.PI / 2 - 0.03,
+        targetRadius: 9.6,
+        targetCenter: new THREE.Vector3(0, 0.0, 0),
+        isDragging: false,
+        prevX: 0,
+        prevY: 0,
+        pinchDist: 0,
+        autoRotate: true,
+        isNakedMode: false
+      };
+
+      function updateCameraFromOrbit() {
+        orbitState.theta += (orbitState.targetTheta - orbitState.theta) * 0.12;
+        orbitState.phi += (orbitState.targetPhi - orbitState.phi) * 0.12;
+        orbitState.radius += (orbitState.targetRadius - orbitState.radius) * 0.12;
+
+        const sinPhi = Math.sin(orbitState.phi);
+        const cosPhi = Math.cos(orbitState.phi);
+        const sinTheta = Math.sin(orbitState.theta);
+        const cosTheta = Math.cos(orbitState.theta);
+
+        camera.position.set(
+          orbitState.targetCenter.x + orbitState.radius * sinPhi * sinTheta,
+          orbitState.targetCenter.y + orbitState.radius * cosPhi,
+          orbitState.targetCenter.z + orbitState.radius * sinPhi * cosTheta
+        );
+
+        camera.up.set(0, sinPhi >= 0 ? 1 : -1, 0);
+        camera.lookAt(orbitState.targetCenter);
+      }
+
+      // --- マウス＆タッチ360°操作イベント ---
+      container.addEventListener('mousedown', (e) => {
+        orbitState.isDragging = true;
+        orbitState.prevX = e.clientX;
+        orbitState.prevY = e.clientY;
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!orbitState.isDragging) return;
+        const dx = e.clientX - orbitState.prevX;
+        const dy = e.clientY - orbitState.prevY;
+        orbitState.prevX = e.clientX;
+        orbitState.prevY = e.clientY;
+
+        orbitState.targetTheta -= dx * 0.0085;
+        orbitState.targetPhi -= dy * 0.0085;
+      });
+
+      window.addEventListener('mouseup', () => {
+        orbitState.isDragging = false;
+      });
+
+      container.addEventListener(
+        'wheel',
+        (e) => {
+          e.preventDefault();
+          orbitState.targetRadius = Math.max(
+            3.2,
+            Math.min(16.5, orbitState.targetRadius + e.deltaY * 0.006)
+          );
+        },
+        { passive: false }
+      );
+
+      container.addEventListener(
+        'touchstart',
+        (e) => {
+          if (e.touches.length === 1) {
+            orbitState.isDragging = true;
+            orbitState.prevX = e.touches[0].clientX;
+            orbitState.prevY = e.touches[0].clientY;
+          } else if (e.touches.length === 2) {
+            orbitState.isDragging = false;
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            orbitState.pinchDist = Math.hypot(dx, dy);
+          }
+        },
+        { passive: false }
+      );
+
+      container.addEventListener(
+        'touchmove',
+        (e) => {
+          e.preventDefault();
+          if (e.touches.length === 1 && orbitState.isDragging) {
+            const dx = e.touches[0].clientX - orbitState.prevX;
+            const dy = e.touches[0].clientY - orbitState.prevY;
+            orbitState.prevX = e.touches[0].clientX;
+            orbitState.prevY = e.touches[0].clientY;
+
+            orbitState.targetTheta -= dx * 0.01;
+            orbitState.targetPhi -= dy * 0.01;
+          } else if (e.touches.length === 2) {
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            const dist = Math.hypot(dx, dy);
+            const delta = orbitState.pinchDist - dist;
+            orbitState.pinchDist = dist;
+
+            orbitState.targetRadius = Math.max(
+              3.2,
+              Math.min(16.5, orbitState.targetRadius + delta * 0.018)
+            );
+          }
+        },
+        { passive: false }
+      );
+
+      container.addEventListener('touchend', () => {
+        orbitState.isDragging = false;
+      });
+
+      // --- UIボタン連携 ---
+      const btnFront = document.getElementById('btn-front');
+      const btnBack = document.getElementById('btn-back');
+      const btnSide = document.getElementById('btn-side');
+      const btnNaked = document.getElementById('btn-naked');
+      const nakedText = document.getElementById('naked-text');
+      const btnAutoRotate = document.getElementById('btn-autorotate');
+      const autoRotateText = document.getElementById('autorotate-text');
+      const btnReset = document.getElementById('btn-reset');
+
+      function setAutoRotate(enabled) {
+        orbitState.autoRotate = enabled;
+        if (enabled) {
+          btnAutoRotate.classList.add('btn-active');
+          autoRotateText.textContent = '自動回転: ON';
+        } else {
+          btnAutoRotate.classList.remove('btn-active');
+          autoRotateText.textContent = '自動回転: OFF';
+        }
+      }
+
+      function rotateToNearestAngle(targetAngle) {
+        const twoPi = Math.PI * 2;
+        const currentMod = ((orbitState.targetTheta % twoPi) + twoPi) % twoPi;
+        let diff = targetAngle - currentMod;
+        if (diff > Math.PI) diff -= twoPi;
+        if (diff < -Math.PI) diff += twoPi;
+        orbitState.targetTheta += diff;
+        orbitState.targetPhi = Math.PI / 2 - 0.03;
+      }
+
+      btnFront.addEventListener('click', () => {
+        setAutoRotate(false);
+        rotateToNearestAngle(0);
+      });
+
+      btnBack.addEventListener('click', () => {
+        setAutoRotate(false);
+        rotateToNearestAngle(Math.PI);
+      });
+
+      btnSide.addEventListener('click', () => {
+        setAutoRotate(false);
+        // 極薄ヘッドが横から一番よく見える角度へ回転＆少しズーム
+        rotateToNearestAngle(Math.PI / 2);
+        orbitState.targetRadius = 7.4;
+      });
+
+      btnNaked.addEventListener('click', () => {
+        orbitState.isNakedMode = !orbitState.isNakedMode;
+        cardMesh.visible = !orbitState.isNakedMode;
+        blisterGroup.visible = !orbitState.isNakedMode;
+
+        if (orbitState.isNakedMode) {
+          btnNaked.classList.add('btn-active');
+          nakedText.textContent = 'パッケージ表示';
+          brushGroup.position.set(0, 0.25, 0);
+          orbitState.targetRadius = 7.6;
+        } else {
+          btnNaked.classList.remove('btn-active');
+          nakedText.textContent = 'ブラシ単体';
+          brushGroup.position.set(0.245, -0.14, 0.085);
+          orbitState.targetRadius = 9.6;
+        }
+      });
+
+      btnAutoRotate.addEventListener('click', () => {
+        setAutoRotate(!orbitState.autoRotate);
+      });
+
+      btnReset.addEventListener('click', () => {
+        orbitState.targetTheta = 0;
+        orbitState.targetPhi = Math.PI / 2 - 0.03;
+        orbitState.targetRadius = orbitState.isNakedMode ? 7.6 : 9.6;
+        setAutoRotate(true);
+      });
+
+      // リサイズ対応
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      // アニメーションループ
+      const clock = new THREE.Clock();
+      function animate() {
+        requestAnimationFrame(animate);
+        const elapsed = clock.getElapsedTime();
+
+        if (orbitState.autoRotate && !orbitState.isDragging) {
+          orbitState.targetTheta += 0.007;
+        }
+
+        // 軽やかな浮遊感
+        productGroup.position.y = Math.sin(elapsed * 1.7) * 0.045;
+
+        updateCameraFromOrbit();
+        renderer.render(scene, camera);
+      }
+
+      animate();
+    };
+  </script>
+</body>
+</html>
