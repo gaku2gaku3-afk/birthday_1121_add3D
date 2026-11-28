@@ -730,7 +730,7 @@ function drawKujiFace(id){
  var fr=kcv(W*S,H*S),fx=fr.getContext("2d");
  fx.drawImage(cv,0,0);fx.globalCompositeOperation="destination-out";fx.scale(S,S);kPanelPath(fx);fx.fill();
  var pn=kcv(W*S,H*S),px=pn.getContext("2d");
- px.drawImage(cv,0,0);px.globalCompositeOperation="destination-in";fx.scale(S,S);kPanelPath(px);px.fill();
+ px.drawImage(cv,0,0);px.globalCompositeOperation="destination-in";px.scale(S,S);kPanelPath(px);px.fill();
  return {frame:fr,panel:pn};
 }
 
@@ -1188,7 +1188,7 @@ function downloadCanvaPeelBackSVG(id){
  triggerSVGDownload(svg,"2_kuji_peel_back_No"+pad(id)+".svg");
 }
 
-/* ③ 台紙表面SVG（管理画面に表示中のQRコードと完全に同一のモジュール配列を埋め込み） */
+/* ③ 台紙表面SVG（管理画面に表示中のQRコードと完全に同一のモジュール配列を埋め込み・景品名なし） */
 function downloadCanvaBaseSVG(id){
  var p=PRIZES[id-1];
  var targetUrl=getKujiTargetUrl(id,false);
